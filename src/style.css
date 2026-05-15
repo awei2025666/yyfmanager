@@ -1,0 +1,47 @@
+:root {
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #1b2331;
+  background:
+    radial-gradient(circle at top left, rgba(42, 99, 255, 0.14), transparent 32%),
+    radial-gradient(circle at right top, rgba(255, 134, 76, 0.18), transparent 26%),
+    linear-gradient(180deg, #eef3fb 0%, #f7f8fc 100%);
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.el-table {
+  --el-table-header-bg-color: #f5f8fd;
+  --el-table-row-hover-bg-color: #f8fbff;
+}
+
+.el-dialog,
+.el-drawer {
+  --el-border-radius-base: 18px;
+}
