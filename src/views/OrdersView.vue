@@ -4,7 +4,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Printer, Refresh, Search } from '@element-plus/icons-vue'
 import PageBlock from '../components/PageBlock.vue'
 import { getOrderList, getOrderTotal } from '../api/platform'
-import { mockOrderList, mockOrderTotal } from '../mock/platform'
 
 const filters = reactive({
   pageNum: 1,
@@ -18,7 +17,6 @@ const filters = reactive({
 
 const autoApprove = ref(true)
 const loading = ref(false)
-const source = ref('live')
 const detailVisible = ref(false)
 const editVisible = ref(false)
 const approveVisible = ref(false)
@@ -111,16 +109,6 @@ const enrichOrderRow = (item = {}) => {
   }
 }
 
-const safe = async (apiFn, mockFn, ...args) => {
-  try {
-    source.value = 'live'
-    return await apiFn(...args)
-  } catch (error) {
-    source.value = 'mock'
-    return await mockFn(...args)
-  }
-}
-
 const stats = computed(() => {
   const totalMoney = Number(summary.orderMoneyTotal || 0)
   const pendingCount = rows.value.filter((item) => item.status === 1).length
@@ -175,12 +163,14 @@ const loadData = async () => {
   loading.value = true
   try {
     const [list, total] = await Promise.all([
-      safe(getOrderList, mockOrderList, buildQuery()),
-      safe(getOrderTotal, mockOrderTotal)
+      getOrderList(buildQuery()),
+      getOrderTotal()
     ])
     rows.value = (list.records || []).map(enrichOrderRow)
     summary.orderTotal = total.orderTotal || list.total || 0
     summary.orderMoneyTotal = total.orderMoneyTotal || 0
+  } catch (error) {
+    ElMessage.error(error?.message || '订单数据加载失败')
   } finally {
     loading.value = false
   }
@@ -334,7 +324,7 @@ onMounted(loadData)
     <PageBlock title="订单管理" subtitle="按原稿细化后的订单中心">
       <template #extra>
         <div class="toolbar-actions">
-          <span class="source-pill">{{ source === 'live' ? '真实接口' : 'Mock 兜底' }}</span>
+          <span class="source-pill">真实接口</span>
           <el-button :icon="Refresh" @click="loadData">刷新</el-button>
           <el-button type="primary" :icon="Plus" @click="openAdd">添加</el-button>
           <div class="auto-approve">

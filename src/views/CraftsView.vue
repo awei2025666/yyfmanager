@@ -10,12 +10,6 @@ import {
   editCraft,
   getCraftList
 } from '../api/platform'
-import {
-  mockCraftDelete,
-  mockCraftList,
-  mockCraftSave,
-  mockCraftStatus
-} from '../mock/platform'
 
 const filters = reactive({
   pageNum: 1,
@@ -28,8 +22,7 @@ const filters = reactive({
 const state = reactive({
   loading: false,
   records: [],
-  total: 0,
-  source: 'live'
+  total: 0
 })
 
 const dialogVisible = ref(false)
@@ -60,22 +53,14 @@ const summaryCards = computed(() => [
   { label: '起价基数合计', value: state.records.reduce((sum, item) => sum + Number(item.priceBase || 0), 0) }
 ])
 
-const safe = async (apiFn, mockFn, ...args) => {
-  try {
-    state.source = 'live'
-    return await apiFn(...args)
-  } catch (error) {
-    state.source = 'mock'
-    return await mockFn(...args)
-  }
-}
-
 const loadData = async () => {
   state.loading = true
   try {
-    const data = await safe(getCraftList, mockCraftList, filters)
+    const data = await getCraftList(filters)
     state.records = data.records || []
     state.total = data.total || 0
+  } catch (error) {
+    ElMessage.error(error?.message || '工艺数据加载失败')
   } finally {
     state.loading = false
   }
@@ -112,21 +97,21 @@ const openEdit = (row) => {
 }
 
 const submit = async () => {
-  await safe(isEdit.value ? editCraft : addCraft, mockCraftSave, { ...form })
+  await (isEdit.value ? editCraft : addCraft)({ ...form })
   ElMessage.success(`${isEdit.value ? '编辑' : '新增'}工艺成功`)
   dialogVisible.value = false
   loadData()
 }
 
 const toggleStatus = async (row) => {
-  await safe(changeCraftStatus, mockCraftStatus, { id: row.id, status: row.status === 1 ? 0 : 1 })
+  await changeCraftStatus({ id: row.id, status: row.status === 1 ? 0 : 1 })
   ElMessage.success('状态已更新')
   loadData()
 }
 
 const remove = async (row) => {
   await ElMessageBox.confirm(`确认删除工艺“${row.name}”吗？`, '删除确认', { type: 'warning' })
-  await safe(deleteCraft, mockCraftDelete, row.id)
+  await deleteCraft(row.id)
   ElMessage.success('删除成功')
   loadData()
 }
@@ -146,7 +131,7 @@ onMounted(loadData)
     <PageBlock title="工艺管理" subtitle="生产参数与报价配置">
       <template #extra>
         <div class="toolbar-actions">
-          <span class="source-pill">{{ state.source === 'live' ? '真实接口' : 'Mock 兜底' }}</span>
+          <span class="source-pill">真实接口</span>
           <el-button :icon="Refresh" @click="loadData">刷新</el-button>
           <el-button type="primary" :icon="Plus" @click="openCreate">新增工艺</el-button>
         </div>

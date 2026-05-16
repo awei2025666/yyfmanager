@@ -3,7 +3,6 @@ import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { loginApi } from '../api/platform'
-import { mockLogin } from '../mock/platform'
 
 const router = useRouter()
 const route = useRoute()
@@ -23,11 +22,7 @@ const submit = async () => {
     ElMessage.success('登录成功')
     router.push((route.query.redirect || '/dashboard').toString())
   } catch (error) {
-    const token = await mockLogin(form)
-    localStorage.setItem('platform_token', token)
-    localStorage.setItem('platform_account', form.account)
-    ElMessage.warning('接口不可用，已进入演示模式')
-    router.push((route.query.redirect || '/dashboard').toString())
+    ElMessage.error(error?.message || '登录失败，请检查账号密码或接口服务')
   } finally {
     loading.value = false
   }
@@ -55,7 +50,7 @@ const submit = async () => {
             v-model="form.token"
             type="textarea"
             :rows="4"
-            placeholder="如果你已经有平台 token，可以直接填入；留空则走登录接口或 mock 登录。"
+            placeholder="如果你已经有平台 token，可以直接填入；留空则走登录接口。"
           />
         </el-form-item>
         <el-button type="primary" class="login-button" :loading="loading" @click="submit">

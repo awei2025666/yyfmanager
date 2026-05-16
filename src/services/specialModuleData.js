@@ -1,5 +1,4 @@
 import { getSpecialModuleList, saveSpecialModule as saveSpecialModuleApi } from '../api/specialModules'
-import { mockSpecialModuleList, mockSpecialModuleSave } from '../mock/specialModules'
 
 const aliasMap = {
   receipts: {
@@ -80,28 +79,16 @@ const normalizeListResult = (moduleKey, payload) => {
   return rows.map((row) => normalizeRow(moduleKey, row))
 }
 
-const safe = async (moduleKey, apiFn, mockFn, ...args) => {
-  try {
-    const result = await apiFn(moduleKey, ...args)
-    return { source: 'live', data: result }
-  } catch (error) {
-    const result = await mockFn(moduleKey, ...args)
-    return { source: 'mock', data: result }
-  }
-}
-
 export const loadSpecialModuleRows = async (moduleKey, filters = {}) => {
-  const result = await safe(moduleKey, getSpecialModuleList, mockSpecialModuleList, filters)
+  const result = await getSpecialModuleList(moduleKey, filters)
   return {
-    source: result.source,
-    rows: normalizeListResult(moduleKey, result.data)
+    rows: normalizeListResult(moduleKey, result)
   }
 }
 
 export const persistSpecialModuleRow = async (moduleKey, payload = {}) => {
-  const result = await safe(moduleKey, saveSpecialModuleApi, mockSpecialModuleSave, payload)
+  const result = await saveSpecialModuleApi(moduleKey, payload)
   return {
-    source: result.source,
-    row: normalizeRow(moduleKey, result.data || payload)
+    row: normalizeRow(moduleKey, result || payload)
   }
 }

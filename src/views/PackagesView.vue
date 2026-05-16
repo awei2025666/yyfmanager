@@ -11,13 +11,6 @@ import {
   getVipList,
   getVipTotal
 } from '../api/platform'
-import {
-  mockVipDelete,
-  mockVipList,
-  mockVipSave,
-  mockVipStatus,
-  mockVipTotal
-} from '../mock/platform'
 
 const filters = reactive({
   pageNum: 1,
@@ -30,8 +23,7 @@ const state = reactive({
   loading: false,
   records: [],
   total: 0,
-  stats: { orderTotal: 0, orderMoneyTotal: 0 },
-  source: 'live'
+  stats: { orderTotal: 0, orderMoneyTotal: 0 }
 })
 
 const dialogVisible = ref(false)
@@ -59,26 +51,18 @@ const localSummaryCards = computed(() => [
   { label: '当前页成交额', value: formatMoney(state.records.reduce((sum, item) => sum + Number(item.totalOrderMoney || 0), 0)) }
 ])
 
-const safe = async (apiFn, mockFn, ...args) => {
-  try {
-    state.source = 'live'
-    return await apiFn(...args)
-  } catch (error) {
-    state.source = 'mock'
-    return await mockFn(...args)
-  }
-}
-
 const loadData = async () => {
   state.loading = true
   try {
     const [list, stats] = await Promise.all([
-      safe(getVipList, mockVipList, filters),
-      safe(getVipTotal, mockVipTotal)
+      getVipList(filters),
+      getVipTotal()
     ])
     state.records = list.records || []
     state.total = list.total || 0
     state.stats = stats
+  } catch (error) {
+    ElMessage.error(error?.message || '套餐数据加载失败')
   } finally {
     state.loading = false
   }
@@ -105,21 +89,21 @@ const openEdit = (row) => {
 }
 
 const submit = async () => {
-  await safe(isEdit.value ? editVip : addVip, mockVipSave, { ...form })
+  await (isEdit.value ? editVip : addVip)({ ...form })
   ElMessage.success(`${isEdit.value ? '编辑' : '新增'}套餐成功`)
   dialogVisible.value = false
   loadData()
 }
 
 const toggleStatus = async (row) => {
-  await safe(changeVipStatus, mockVipStatus, { id: row.id, status: row.status === 1 ? 0 : 1 })
+  await changeVipStatus({ id: row.id, status: row.status === 1 ? 0 : 1 })
   ElMessage.success('状态已更新')
   loadData()
 }
 
 const remove = async (row) => {
   await ElMessageBox.confirm(`确认删除套餐“${row.name}”吗？`, '删除确认', { type: 'warning' })
-  await safe(deleteVip, mockVipDelete, row.id)
+  await deleteVip(row.id)
   ElMessage.success('删除成功')
   loadData()
 }
@@ -147,7 +131,7 @@ onMounted(loadData)
     <PageBlock title="套餐管理" subtitle="产品订阅配置">
       <template #extra>
         <div class="toolbar-actions">
-          <span class="source-pill">{{ state.source === 'live' ? '真实接口' : 'Mock 兜底' }}</span>
+          <span class="source-pill">真实接口</span>
           <el-button :icon="Refresh" @click="loadData">刷新</el-button>
           <el-button type="primary" :icon="Plus" @click="openCreate">新增套餐</el-button>
         </div>

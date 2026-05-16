@@ -21,21 +21,6 @@ import {
   resetTenantUserPassword,
   uploadPlatformFile
 } from '../api/platform'
-import {
-  mockTenantDelete,
-  mockTenantDetail,
-  mockTenantList,
-  mockTenantRecharge,
-  mockTenantResetPassword,
-  mockTenantSave,
-  mockTenantStatus,
-  mockTenantUserDelete,
-  mockTenantUserList,
-  mockTenantUserMenus,
-  mockTenantUserResetPassword,
-  mockTenantUserSave,
-  mockTenantUserStatus
-} from '../mock/platform'
 
 const filters = reactive({
   pageNum: 1,
@@ -55,8 +40,7 @@ const state = reactive({
   detail: null,
   tenantUsers: [],
   tenantMenus: [],
-  currentTenantId: null,
-  source: 'live'
+  currentTenantId: null
 })
 
 const dialogVisible = ref(false)
@@ -120,22 +104,14 @@ const statusLabel = { 0: '已禁用', 1: '已启用' }
 const statusType = { 0: 'danger', 1: 'success' }
 const orderStatus = { 1: '待支付', 2: '支付成功', 3: '支付失败' }
 
-const safe = async (apiFn, mockFn, ...args) => {
-  try {
-    state.source = 'live'
-    return await apiFn(...args)
-  } catch (error) {
-    state.source = 'mock'
-    return await mockFn(...args)
-  }
-}
-
 const loadTenants = async () => {
   state.loading = true
   try {
-    const data = await safe(getTenantList, mockTenantList, filters)
+    const data = await getTenantList(filters)
     state.records = data.records || []
     state.total = data.total || 0
+  } catch (error) {
+    ElMessage.error(error?.message || '会员数据加载失败')
   } finally {
     state.loading = false
   }
@@ -197,8 +173,7 @@ const submitTenant = async () => {
     remark: form.remark
   }
   const request = isEdit.value ? editTenant : addTenant
-  const mockRequest = mockTenantSave
-  await safe(request, mockRequest, payload)
+  await request(payload)
   ElMessage.success(`${isEdit.value ? '编辑' : '新增'}会员成功`)
   dialogVisible.value = false
   loadTenants()
@@ -211,15 +186,17 @@ const uploadLicense = async ({ file }) => {
     form.businessLicensePath = URL.createObjectURL(file)
     ElMessage.success('营业执照上传成功')
   } catch (error) {
-    form.businessLicense = `mock-${Date.now()}`
-    form.businessLicensePath = URL.createObjectURL(file)
-    ElMessage.warning('上传接口暂不可用，已使用本地预览继续编辑')
+    ElMessage.error(error?.message || '营业执照上传失败')
   }
 }
 
 const openDetail = async (row) => {
-  state.detail = await safe(getTenantDetail, mockTenantDetail, row.id)
-  detailVisible.value = true
+  try {
+    state.detail = await getTenantDetail(row.id)
+    detailVisible.value = true
+  } catch (error) {
+    ElMessage.error(error?.message || '会员详情加载失败')
+  }
 }
 
 const openRecharge = (row) => {
@@ -229,14 +206,14 @@ const openRecharge = (row) => {
 }
 
 const submitRecharge = async () => {
-  await safe(rechargeTenant, mockTenantRecharge, rechargeForm)
+  await rechargeTenant(rechargeForm)
   ElMessage.success('充值时长成功')
   rechargeVisible.value = false
   loadTenants()
 }
 
 const toggleStatus = async (row) => {
-  await safe(changeTenantStatus, mockTenantStatus, {
+  await changeTenantStatus({
     id: row.id,
     status: row.status === 1 ? 0 : 1
   })
@@ -245,19 +222,19 @@ const toggleStatus = async (row) => {
 }
 
 const handleResetPassword = async (row) => {
-  await safe(resetTenantPassword, mockTenantResetPassword, row.id)
+  await resetTenantPassword(row.id)
   ElMessage.success(`已重置 ${row.tenantName} 的密码`)
 }
 
 const handleDelete = async (row) => {
   await ElMessageBox.confirm(`确认删除会员“${row.tenantName}”吗？`, '删除确认', { type: 'warning' })
-  await safe(deleteTenant, mockTenantDelete, row.id)
+  await deleteTenant(row.id)
   ElMessage.success('删除成功')
   loadTenants()
 }
 
 const loadTenantUsers = async () => {
-  const data = await safe(getTenantUserList, mockTenantUserList, {
+  const data = await getTenantUserList({
     tenantId: state.currentTenantId,
     ...tenantUserQuery
   })
@@ -268,9 +245,13 @@ const openTenantUsers = async (row) => {
   state.currentTenantId = row.id
   tenantUserQuery.name = ''
   tenantUserQuery.phone = ''
-  state.tenantMenus = await safe(getTenantUserMenus, mockTenantUserMenus)
-  await loadTenantUsers()
-  tenantUsersVisible.value = true
+  try {
+    state.tenantMenus = await getTenantUserMenus()
+    await loadTenantUsers()
+    tenantUsersVisible.value = true
+  } catch (error) {
+    ElMessage.error(error?.message || '子账号数据加载失败')
+  }
 }
 
 const openTenantUserCreate = () => {
@@ -302,14 +283,14 @@ const openTenantUserEdit = (row) => {
 const submitTenantUser = async () => {
   tenantUserForm.menuIdList = tenantMenuTreeRef.value?.getCheckedKeys?.() || tenantUserForm.menuIdList
   const request = isTenantUserEdit.value ? editTenantUser : addTenantUser
-  await safe(request, mockTenantUserSave, { ...tenantUserForm })
+  await request({ ...tenantUserForm })
   ElMessage.success(`${isTenantUserEdit.value ? '编辑' : '新增'}子账号成功`)
   tenantUserFormVisible.value = false
   loadTenantUsers()
 }
 
 const toggleTenantUserStatus = async (row) => {
-  await safe(changeTenantUserStatus, mockTenantUserStatus, {
+  await changeTenantUserStatus({
     id: row.id,
     tenantId: state.currentTenantId,
     status: row.status === 1 ? 0 : 1
@@ -319,17 +300,13 @@ const toggleTenantUserStatus = async (row) => {
 }
 
 const handleTenantUserResetPassword = async (row) => {
-  await safe(resetTenantUserPassword, mockTenantUserResetPassword, row.id)
+  await resetTenantUserPassword(row.id)
   ElMessage.success(`已重置 ${row.name} 的密码`)
 }
 
 const handleTenantUserDelete = async (row) => {
   await ElMessageBox.confirm(`确认删除子账号“${row.name}”吗？`, '删除确认', { type: 'warning' })
-  await safe(
-    (payload) => deleteTenantUser(payload.id),
-    mockTenantUserDelete,
-    { id: row.id, tenantId: state.currentTenantId }
-  )
+  await deleteTenantUser(row.id)
   ElMessage.success('子账号已删除')
   loadTenantUsers()
 }
@@ -349,7 +326,7 @@ onMounted(loadTenants)
     <PageBlock title="会员列表" subtitle="成员与企业管理">
       <template #extra>
         <div class="toolbar-actions">
-          <span class="source-pill">{{ state.source === 'live' ? '真实接口' : 'Mock 兜底' }}</span>
+          <span class="source-pill">真实接口</span>
           <el-button :icon="Refresh" @click="loadTenants">刷新</el-button>
           <el-button type="primary" :icon="Plus" @click="openCreate">新增会员</el-button>
         </div>

@@ -1,7 +1,7 @@
 import http from './http'
 
 // 当前在线接口文档仅公开了登录、工作台、会员、套餐、订单、工艺这几组接口。
-// 其余 ERP 模块接口未在文档中公开前，统一交给 mock/service 兜底，避免误调不存在的地址。
+// 其余 ERP 模块需要在这里补充真实接口后才能在生产环境使用。
 const moduleApiMap = {}
 
 export const getSpecialModuleList = (moduleKey, payload = {}) => {

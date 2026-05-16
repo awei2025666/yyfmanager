@@ -987,7 +987,6 @@ const formState = reactive({})
 const sequence = ref(1)
 const state = reactive({
   loading: false,
-  source: 'mock',
   pageNum: 1,
   pageSize: 10
 })
@@ -1092,7 +1091,6 @@ const tagType = (value) => {
 
 const notify = (message) => ElMessage.success(message)
 const isEdit = computed(() => Boolean(formState.id))
-const sourceText = computed(() => (state.source === 'live' ? '真实接口' : 'Mock 数据'))
 const themeClass = computed(() => `theme-${profile.theme || 'slate'}`)
 const rowActions = computed(() => profile.rowActions || ['详情', '编辑', '打印'])
 const searchOptions = (field) => normalizeFieldOptions(field.options || [])
@@ -1127,12 +1125,14 @@ const loadRows = async () => {
   state.loading = true
   try {
     const result = await loadSpecialModuleRows(props.moduleKey, filters)
-    state.source = result.source
     dataset.value = result.rows
     sequence.value = Math.max(...[0, ...result.rows.map((item) => Number(item.id) || 0)]) + 1
     if ((state.pageNum - 1) * state.pageSize >= result.rows.length) {
       state.pageNum = 1
     }
+  } catch (error) {
+    dataset.value = []
+    ElMessage.error(error?.message || '模块接口未配置')
   } finally {
     state.loading = false
   }
@@ -1145,9 +1145,8 @@ const submitSave = async () => {
     sequence.value += 1
   }
   const result = await persistSpecialModuleRow(props.moduleKey, payload)
-  state.source = result.source
   dialogVisible.value = false
-  ElMessage.success(`已通过${sourceText.value}保存`)
+  ElMessage.success('保存成功')
   loadRows()
 }
 
@@ -1227,7 +1226,7 @@ onMounted(loadRows)
 
       <div class="result-bar">
         <strong>共 {{ filteredRows.length }} 条数据</strong>
-        <span>{{ profile.tableHint }} ｜ 当前数据源：{{ sourceText }}</span>
+        <span>{{ profile.tableHint }} ｜ 当前数据源：真实接口</span>
         <div v-if="profile.workflows?.length" class="result-pills">
           <em v-for="item in profile.workflows" :key="item">{{ item }}</em>
         </div>

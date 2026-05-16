@@ -13,6 +13,7 @@ import {
   OfficeBuilding,
   ShoppingCart
 } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import PageBlock from '../components/PageBlock.vue'
 import {
   getCraftList,
@@ -22,14 +23,6 @@ import {
   getTenantList,
   getTrend
 } from '../api/platform'
-import {
-  mockCraftList,
-  mockOverview,
-  mockRealtimeOrders,
-  mockRecentUpdates,
-  mockTenantList,
-  mockTrend
-} from '../mock/platform'
 
 echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
@@ -43,8 +36,7 @@ const state = reactive({
   trend: [],
   orders: [],
   updates: [],
-  tenants: [],
-  source: 'live'
+  tenants: []
 })
 
 const trendOptions = [
@@ -138,23 +130,8 @@ const loadData = async () => {
     state.orders = orders || []
     state.updates = updates || []
     state.tenants = tenants.records || []
-    state.source = 'live'
   } catch (error) {
-    const [overview, trend, orders, updates, tenants, crafts] = await Promise.all([
-      mockOverview(),
-      mockTrend(trendType.value),
-      mockRealtimeOrders(),
-      mockRecentUpdates(),
-      mockTenantList({ pageNum: 1, pageSize: 5 }),
-      mockCraftList({ pageNum: 1, pageSize: 1 })
-    ])
-    state.overview = overview
-    state.overview.craftTotal = crafts.total || 0
-    state.trend = trend
-    state.orders = orders
-    state.updates = updates
-    state.tenants = tenants.records
-    state.source = 'mock'
+    ElMessage.error(error?.message || '工作台数据加载失败')
   } finally {
     nextTick(renderChart)
   }
@@ -180,12 +157,12 @@ onBeforeUnmount(() => {
         <p>APRIL 2026</p>
         <h2>经营状态、会员趋势和最新订单都集中到一个工作台里。</h2>
         <span>
-          当前为 {{ state.source === 'live' ? '实时接口模式' : '演示数据模式' }}，风格按墨刀原型延展为完整后台视觉。
+          当前展示来自生产接口的经营数据。
         </span>
       </div>
       <div class="hero-badges">
         <div class="hero-badge hero-badge--plain">
-          <span class="source-pill">{{ state.source === 'live' ? '真实接口' : '演示数据' }}</span>
+          <span class="source-pill">真实接口</span>
           <el-button :icon="Refresh" link type="primary" @click="loadData">刷新</el-button>
         </div>
         <div class="hero-badge"><el-icon><Calendar /></el-icon>今日更新 4 次</div>
