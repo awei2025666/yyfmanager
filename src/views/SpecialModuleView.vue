@@ -1101,6 +1101,11 @@ const detailDialogTitle = computed(() => {
   if (profile.title === '合作客户') return '客户详情'
   return `${profile.title}详情`
 })
+const formDialogWidth = computed(() => {
+  if (profile.title === '合作客户') return '1120px'
+  if (profile.title === '工艺管理') return '1040px'
+  return profile.dialogWidth || '1040px'
+})
 const themeClass = computed(() => `theme-${profile.theme || 'slate'}`)
 const rowActions = computed(() => profile.rowActions || ['详情', '编辑', '打印'])
 const searchOptions = (field) => normalizeFieldOptions(field.options || [])
@@ -1312,7 +1317,13 @@ onMounted(loadRows)
       </div>
     </PageBlock>
 
-    <el-dialog v-model="dialogVisible" :title="formDialogTitle" :width="profile.dialogWidth || '920px'" class="special-dialog special-form-dialog">
+    <el-dialog
+      v-model="dialogVisible"
+      :title="formDialogTitle"
+      :width="formDialogWidth"
+      class="special-dialog special-form-dialog"
+      :close-on-click-modal="false"
+    >
       <div class="form-grid">
         <div v-for="field in profile.formFields" :key="field.key" class="form-item" :class="{ 'form-item--full': field.type === 'textarea' }">
           <p>{{ field.label }}</p>
@@ -1367,11 +1378,17 @@ onMounted(loadRows)
       </div>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="save">{{ isEdit ? '保存修改' : '确认新增' }}</el-button>
+        <el-button type="primary" @click="save">保存</el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="detailVisible" :title="detailDialogTitle" width="1280px" class="special-dialog special-detail-dialog">
+    <el-dialog
+      v-model="detailVisible"
+      :title="detailDialogTitle"
+      width="1280px"
+      class="special-dialog special-detail-dialog"
+      :close-on-click-modal="false"
+    >
       <template v-if="currentRow">
         <div class="section-stack">
           <section v-if="detailHighlights.length" class="detail-highlights" :class="themeClass">
@@ -1425,8 +1442,8 @@ onMounted(loadRows)
         </div>
       </template>
       <template #footer>
-        <el-button @click="detailVisible = false">关闭</el-button>
-        <el-button type="primary" @click="notify(profile.detailActionText || '该页面会优先按当前字段结构开始对接接口')">进入接口对接</el-button>
+        <el-button @click="detailVisible = false">返回</el-button>
+        <el-button type="primary" @click="openEdit(currentRow); detailVisible = false">编辑</el-button>
       </template>
     </el-dialog>
   </div>
@@ -1809,58 +1826,59 @@ onMounted(loadRows)
   border: 0;
 }
 
-.special-dialog :deep(.el-dialog) {
+:deep(.special-dialog.el-dialog) {
+  margin-top: 4vh !important;
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
 }
 
-.special-dialog :deep(.el-dialog__header) {
-  padding: 28px 36px 20px;
+:deep(.special-dialog .el-dialog__header) {
+  padding: 24px 36px 18px;
   margin: 0;
   border-bottom: 1px solid #eeeeee;
 }
 
-.special-dialog :deep(.el-dialog__title) {
+:deep(.special-dialog .el-dialog__title) {
   color: #111111;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
 }
 
-.special-dialog :deep(.el-dialog__body) {
-  max-height: 68vh;
-  padding: 34px 36px 38px;
+:deep(.special-dialog .el-dialog__body) {
+  max-height: calc(92vh - 182px);
+  padding: 26px 42px 30px;
   overflow: auto;
   background: #ffffff;
 }
 
-.special-dialog :deep(.el-dialog__footer) {
-  padding: 24px 36px 30px;
+:deep(.special-dialog .el-dialog__footer) {
+  padding: 20px 42px 24px;
   border-top: 1px solid #eeeeee;
 }
 
-.special-dialog :deep(.el-dialog__footer .el-button) {
-  min-width: 132px;
-  height: 54px;
-  font-size: 20px;
+:deep(.special-dialog .el-dialog__footer .el-button) {
+  min-width: 140px;
+  height: 52px;
+  font-size: 18px;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px 36px;
+  gap: 22px 48px;
 }
 
 .form-item {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .form-item p {
   margin: 0;
   color: #40516b;
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 700;
 }
 
@@ -1868,24 +1886,34 @@ onMounted(loadRows)
   grid-column: 1 / -1;
 }
 
-.special-form-dialog :deep(.el-input),
-.special-form-dialog :deep(.el-select),
-.special-form-dialog :deep(.el-date-editor.el-input) {
+:deep(.special-form-dialog .el-input),
+:deep(.special-form-dialog .el-select),
+:deep(.special-form-dialog .el-date-editor.el-input) {
   --el-input-height: 56px;
   font-size: 18px;
 }
 
-.special-form-dialog :deep(.el-input-number) {
+:deep(.special-form-dialog .el-input-number) {
   width: 100%;
 }
 
-.special-form-dialog :deep(.el-textarea__inner) {
-  min-height: 126px !important;
+:deep(.special-form-dialog .el-textarea__inner) {
+  min-height: 108px !important;
   border: 0;
   border-radius: 6px;
   background: #f6f7f9;
   box-shadow: none;
   font-size: 18px;
+}
+
+:deep(.special-form-dialog .el-select__wrapper),
+:deep(.special-form-dialog .el-input__wrapper) {
+  min-height: 56px;
+  background: #f6f7f9;
+}
+
+:deep(.special-detail-dialog .el-dialog__body) {
+  padding-top: 28px;
 }
 
 .section-stack {
@@ -1928,7 +1956,7 @@ onMounted(loadRows)
 }
 
 .detail-section {
-  padding: 22px 0;
+  padding: 24px 0;
   border-radius: 0;
   border: 0;
   border-bottom: 1px solid #eeeeee;
@@ -1945,7 +1973,7 @@ onMounted(loadRows)
 
 .detail-section__head h4 {
   margin: 0;
-  font-size: 24px;
+  font-size: 26px;
   color: #111111;
 }
 
@@ -1958,7 +1986,7 @@ onMounted(loadRows)
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px 54px;
+  gap: 26px 64px;
 }
 
 .detail-item {
@@ -1971,16 +1999,16 @@ onMounted(loadRows)
 }
 
 .detail-item p {
-  min-width: 110px;
+  min-width: 126px;
   margin: 0;
   color: #9a9a9a;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
 }
 
 .detail-item strong {
   color: #111111;
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .timeline-stack {
