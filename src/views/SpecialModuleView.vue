@@ -1091,6 +1091,16 @@ const tagType = (value) => {
 
 const notify = (message) => ElMessage.success(message)
 const isEdit = computed(() => Boolean(formState.id))
+const formDialogTitle = computed(() => {
+  if (isEdit.value) return `编辑${profile.title}`
+  if (profile.title === '合作客户') return '添加客户'
+  if (profile.title === '工艺管理') return '添加工艺'
+  return profile.createText || `添加${profile.title}`
+})
+const detailDialogTitle = computed(() => {
+  if (profile.title === '合作客户') return '客户详情'
+  return `${profile.title}详情`
+})
 const themeClass = computed(() => `theme-${profile.theme || 'slate'}`)
 const rowActions = computed(() => profile.rowActions || ['详情', '编辑', '打印'])
 const searchOptions = (field) => normalizeFieldOptions(field.options || [])
@@ -1144,10 +1154,14 @@ const submitSave = async () => {
     payload.id = sequence.value
     sequence.value += 1
   }
-  const result = await persistSpecialModuleRow(props.moduleKey, payload)
-  dialogVisible.value = false
-  ElMessage.success('保存成功')
-  loadRows()
+  try {
+    await persistSpecialModuleRow(props.moduleKey, payload)
+    dialogVisible.value = false
+    ElMessage.success('保存成功')
+    loadRows()
+  } catch (error) {
+    ElMessage.error(error?.message || '保存接口未配置')
+  }
 }
 
 onMounted(loadRows)
@@ -1298,7 +1312,7 @@ onMounted(loadRows)
       </div>
     </PageBlock>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? `编辑${profile.title}` : profile.createText" :width="profile.dialogWidth || '920px'" class="special-dialog">
+    <el-dialog v-model="dialogVisible" :title="formDialogTitle" :width="profile.dialogWidth || '920px'" class="special-dialog special-form-dialog">
       <div class="form-grid">
         <div v-for="field in profile.formFields" :key="field.key" class="form-item" :class="{ 'form-item--full': field.type === 'textarea' }">
           <p>{{ field.label }}</p>
@@ -1357,7 +1371,7 @@ onMounted(loadRows)
       </template>
     </el-dialog>
 
-    <el-dialog v-model="detailVisible" :title="`${profile.title}详情`" width="1280px" class="special-dialog">
+    <el-dialog v-model="detailVisible" :title="detailDialogTitle" width="1280px" class="special-dialog special-detail-dialog">
       <template v-if="currentRow">
         <div class="section-stack">
           <section v-if="detailHighlights.length" class="detail-highlights" :class="themeClass">
@@ -1796,39 +1810,82 @@ onMounted(loadRows)
 }
 
 .special-dialog :deep(.el-dialog) {
-  border-radius: 28px;
+  border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
+}
+
+.special-dialog :deep(.el-dialog__header) {
+  padding: 28px 36px 20px;
+  margin: 0;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.special-dialog :deep(.el-dialog__title) {
+  color: #111111;
+  font-size: 26px;
+  font-weight: 700;
 }
 
 .special-dialog :deep(.el-dialog__body) {
-  background: #fcfdff;
+  max-height: 68vh;
+  padding: 34px 36px 38px;
+  overflow: auto;
+  background: #ffffff;
 }
 
 .special-dialog :deep(.el-dialog__footer) {
-  border-top: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 24px 36px 30px;
+  border-top: 1px solid #eeeeee;
+}
+
+.special-dialog :deep(.el-dialog__footer .el-button) {
+  min-width: 132px;
+  height: 54px;
+  font-size: 20px;
 }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 24px 36px;
 }
 
 .form-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .form-item p {
   margin: 0;
-  color: #6f7a8f;
-  font-size: 13px;
+  color: #40516b;
+  font-size: 18px;
   font-weight: 700;
 }
 
 .form-item--full {
   grid-column: 1 / -1;
+}
+
+.special-form-dialog :deep(.el-input),
+.special-form-dialog :deep(.el-select),
+.special-form-dialog :deep(.el-date-editor.el-input) {
+  --el-input-height: 56px;
+  font-size: 18px;
+}
+
+.special-form-dialog :deep(.el-input-number) {
+  width: 100%;
+}
+
+.special-form-dialog :deep(.el-textarea__inner) {
+  min-height: 126px !important;
+  border: 0;
+  border-radius: 6px;
+  background: #f6f7f9;
+  box-shadow: none;
+  font-size: 18px;
 }
 
 .section-stack {
@@ -1871,10 +1928,11 @@ onMounted(loadRows)
 }
 
 .detail-section {
-  padding: 18px;
-  border-radius: 20px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  background: #fbfcff;
+  padding: 22px 0;
+  border-radius: 0;
+  border: 0;
+  border-bottom: 1px solid #eeeeee;
+  background: #ffffff;
 }
 
 .detail-section__head {
@@ -1887,8 +1945,8 @@ onMounted(loadRows)
 
 .detail-section__head h4 {
   margin: 0;
-  font-size: 18px;
-  color: #111827;
+  font-size: 24px;
+  color: #111111;
 }
 
 .detail-section__head span {
@@ -1900,19 +1958,29 @@ onMounted(loadRows)
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 24px 54px;
 }
 
 .detail-item {
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: #f7f9fd;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .detail-item p {
-  margin: 0 0 8px;
-  color: #6f7a8f;
-  font-size: 12px;
+  min-width: 110px;
+  margin: 0;
+  color: #9a9a9a;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.detail-item strong {
+  color: #111111;
+  font-size: 18px;
 }
 
 .timeline-stack {
