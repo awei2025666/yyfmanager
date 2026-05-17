@@ -621,9 +621,27 @@ const configProfiles = {
       { title: '收款账户', value: row.payAccount || '-', helper: '默认结算方式' }
     ],
     sections: [
-      { title: '客户信息', type: 'grid', fields: crudModuleConfigs.customers.detailFields.slice(0, 8) },
-      { title: '工艺记录', type: 'table', dataKey: 'craftRecords', columns: crudModuleConfigs.customers.detailTabs[1].columns },
+      {
+        title: '客户信息',
+        type: 'grid',
+        fields: [
+          'name',
+          'customerType',
+          'fullName',
+          'payAccount',
+          'contact',
+          'phone',
+          'sales',
+          'address',
+          'remark',
+          'operator',
+          'operationTime'
+        ]
+          .map((key) => crudModuleConfigs.customers.detailFields.find((field) => field.key === key))
+          .filter(Boolean)
+      },
       { title: '订单记录', type: 'table', dataKey: 'orderRecords', columns: crudModuleConfigs.customers.detailTabs[0].columns },
+      { title: '工艺记录', type: 'table', dataKey: 'craftRecords', columns: crudModuleConfigs.customers.detailTabs[1].columns },
       { title: '收款记录', type: 'table', dataKey: 'receiptRecords', columns: crudModuleConfigs.customers.detailTabs[2].columns }
     ],
     spotlight: (rows) => ({
@@ -983,6 +1001,7 @@ const filters = reactive(Object.fromEntries(profile.searchFields.map((field) => 
 const detailVisible = ref(false)
 const currentRow = ref(null)
 const dialogVisible = ref(false)
+const activeCustomerDetailTab = ref('orderRecords')
 const formState = reactive({})
 const sequence = ref(1)
 const state = reactive({
@@ -1057,6 +1076,7 @@ const clearFilter = (key) => {
 
 const openDetail = (row) => {
   currentRow.value = row
+  activeCustomerDetailTab.value = 'orderRecords'
   detailVisible.value = true
 }
 
@@ -1102,14 +1122,48 @@ const detailDialogTitle = computed(() => {
   return `${profile.title}详情`
 })
 const formDialogWidth = computed(() => {
-  if (profile.title === '合作客户') return '1120px'
+  if (profile.title === '合作客户') return '1280px'
   if (profile.title === '工艺管理') return '1040px'
   return profile.dialogWidth || '1040px'
 })
+const isCustomerModule = computed(() => props.moduleKey === 'customers')
+const formDialogClass = computed(() => [
+  'special-dialog',
+  'special-form-dialog',
+  isCustomerModule.value ? 'customer-form-dialog' : ''
+])
+const detailDialogClass = computed(() => [
+  'special-dialog',
+  'special-detail-dialog',
+  isCustomerModule.value ? 'customer-detail-dialog' : ''
+])
 const themeClass = computed(() => `theme-${profile.theme || 'slate'}`)
 const rowActions = computed(() => profile.rowActions || ['详情', '编辑', '打印'])
 const searchOptions = (field) => normalizeFieldOptions(field.options || [])
 const formOptions = (field) => normalizeFieldOptions(field.options || [])
+const customerRequiredFields = ['name', 'contact', 'phone', 'address', 'customerType']
+const customerFormOrder = ['name', 'customerType', 'contact', 'phone', 'sales', 'payAccount', 'address', 'remark']
+const displayFormFields = computed(() => {
+  if (!isCustomerModule.value) return profile.formFields
+  const fieldsByKey = new Map(profile.formFields.map((field) => [field.key, field]))
+  return customerFormOrder.map((key) => fieldsByKey.get(key)).filter(Boolean)
+})
+const isRequiredField = (field) => isCustomerModule.value && customerRequiredFields.includes(field.key)
+const formPlaceholder = (field) => {
+  if (!isCustomerModule.value) return `${field.type === 'select' ? '请选择' : '请输入'}${field.label}`
+  if (field.type === 'select') {
+    if (field.key === 'sales') return '请选择（边输边搜）'
+    return '请选择'
+  }
+  return '输入'
+}
+const customerDetailTabs = computed(() => {
+  if (!isCustomerModule.value) return []
+  return (profile.sections || []).filter((section) => section.type === 'table')
+})
+const activeCustomerDetailSection = computed(() =>
+  customerDetailTabs.value.find((section) => section.dataKey === activeCustomerDetailTab.value) || customerDetailTabs.value[0]
+)
 const summaryText = computed(() =>
   typeof profile.summaryText === 'function' ? profile.summaryText(filteredRows.value) : profile.summaryText
 )
@@ -1155,6 +1209,9 @@ const loadRows = async () => {
 
 const submitSave = async () => {
   const payload = JSON.parse(JSON.stringify(formState))
+  if (isCustomerModule.value && !payload.fullName) {
+    payload.fullName = payload.name || ''
+  }
   if (!payload.id) {
     payload.id = sequence.value
     sequence.value += 1
@@ -1321,13 +1378,18 @@ onMounted(loadRows)
       v-model="dialogVisible"
       :title="formDialogTitle"
       :width="formDialogWidth"
-      class="special-dialog special-form-dialog"
+      :class="formDialogClass"
       :close-on-click-modal="false"
     >
       <div class="form-grid">
-        <div v-for="field in profile.formFields" :key="field.key" class="form-item" :class="{ 'form-item--full': field.type === 'textarea' }">
-          <p>{{ field.label }}</p>
-          <el-select v-if="field.type === 'select'" v-model="formState[field.key]" :placeholder="`请选择${field.label}`">
+        <div
+          v-for="field in displayFormFields"
+          :key="field.key"
+          class="form-item"
+          :class="{ 'form-item--full': field.type === 'textarea' || (isCustomerModule && field.key === 'address') }"
+        >
+          <p><span v-if="isRequiredField(field)">*</span>{{ field.label }}</p>
+          <el-select v-if="field.type === 'select'" v-model="formState[field.key]" :placeholder="formPlaceholder(field)">
             <el-option
               v-for="option in formOptions(field)"
               :key="`${field.key}-${option.value}`"
@@ -1346,7 +1408,7 @@ onMounted(loadRows)
             v-model="formState[field.key]"
             type="date"
             value-format="YYYY-MM-DD"
-            :placeholder="`请选择${field.label}`"
+            :placeholder="formPlaceholder(field)"
           />
           <el-radio-group v-else-if="field.type === 'radio'" v-model="formState[field.key]">
             <el-radio
@@ -1371,9 +1433,9 @@ onMounted(loadRows)
             v-model="formState[field.key]"
             type="textarea"
             :rows="4"
-            :placeholder="`请输入${field.label}`"
+            :placeholder="formPlaceholder(field)"
           />
-          <el-input v-else v-model="formState[field.key]" :placeholder="`请输入${field.label}`" />
+          <el-input v-else v-model="formState[field.key]" :placeholder="formPlaceholder(field)" />
         </div>
       </div>
       <template #footer>
@@ -1386,10 +1448,59 @@ onMounted(loadRows)
       v-model="detailVisible"
       :title="detailDialogTitle"
       width="1280px"
-      class="special-dialog special-detail-dialog"
+      :class="detailDialogClass"
       :close-on-click-modal="false"
     >
-      <template v-if="currentRow">
+      <template v-if="currentRow && isCustomerModule">
+        <div class="customer-detail-stack">
+          <section class="customer-info-panel">
+            <h3>客户信息</h3>
+            <div class="customer-info-grid">
+              <div v-for="field in profile.sections[0].fields" :key="field.key" class="customer-info-item">
+                <p>{{ field.label }}:</p>
+                <strong>{{ formatCell(field, currentRow) }}</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="customer-record-panel">
+            <div class="customer-record-tabs">
+              <button
+                v-for="section in customerDetailTabs"
+                :key="section.dataKey"
+                type="button"
+                :class="{ active: activeCustomerDetailTab === section.dataKey }"
+                @click="activeCustomerDetailTab = section.dataKey"
+              >
+                {{ section.title }}
+              </button>
+            </div>
+
+            <el-table
+              v-if="activeCustomerDetailSection"
+              :data="currentRow[activeCustomerDetailSection.dataKey] || []"
+              class="customer-record-table"
+              empty-text="暂无数据"
+            >
+              <el-table-column
+                v-for="column in activeCustomerDetailSection.columns"
+                :key="column.key"
+                :prop="column.key"
+                :label="column.label"
+                min-width="150"
+                show-overflow-tooltip
+              >
+                <template #default="{ row }">
+                  <el-tag v-if="column.tag" :type="tagType(row[column.key])">{{ row[column.key] }}</el-tag>
+                  <span v-else>{{ formatCell(column, row) }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </section>
+        </div>
+      </template>
+
+      <template v-else-if="currentRow">
         <div class="section-stack">
           <section v-if="detailHighlights.length" class="detail-highlights" :class="themeClass">
             <article v-for="item in detailHighlights" :key="item.title" class="detail-highlight">
@@ -1833,6 +1944,11 @@ onMounted(loadRows)
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
 }
 
+:deep(.customer-form-dialog.el-dialog),
+:deep(.customer-detail-dialog.el-dialog) {
+  width: min(1280px, calc(100vw - 160px)) !important;
+}
+
 :deep(.special-dialog .el-dialog__header) {
   padding: 24px 36px 18px;
   margin: 0;
@@ -1882,6 +1998,10 @@ onMounted(loadRows)
   font-weight: 700;
 }
 
+.form-item p span {
+  color: inherit;
+}
+
 .form-item--full {
   grid-column: 1 / -1;
 }
@@ -1914,6 +2034,150 @@ onMounted(loadRows)
 
 :deep(.special-detail-dialog .el-dialog__body) {
   padding-top: 28px;
+}
+
+:deep(.customer-form-dialog .el-dialog__body),
+:deep(.customer-detail-dialog .el-dialog__body) {
+  background: #f7f7f7;
+}
+
+:deep(.customer-form-dialog .el-dialog__footer),
+:deep(.customer-detail-dialog .el-dialog__footer) {
+  background: #ffffff;
+}
+
+.customer-form-dialog .form-grid {
+  padding: 34px 38px 42px;
+  border-radius: 8px;
+  background: #ffffff;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px 64px;
+}
+
+.customer-form-dialog .form-item p {
+  color: #4b5870;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.customer-form-dialog .form-item--full {
+  grid-column: 1 / -1;
+}
+
+:deep(.customer-form-dialog .el-input),
+:deep(.customer-form-dialog .el-select),
+:deep(.customer-form-dialog .el-date-editor.el-input) {
+  --el-input-height: 66px;
+  font-size: 22px;
+}
+
+:deep(.customer-form-dialog .el-input__wrapper),
+:deep(.customer-form-dialog .el-select__wrapper) {
+  min-height: 66px;
+  border-radius: 0;
+  background: #f5f6f8;
+}
+
+:deep(.customer-form-dialog .el-input__inner::placeholder),
+:deep(.customer-form-dialog .el-textarea__inner::placeholder),
+:deep(.customer-form-dialog .el-select__placeholder) {
+  color: #b9b9b9;
+}
+
+:deep(.customer-form-dialog .el-textarea__inner) {
+  min-height: 132px !important;
+  border-radius: 0;
+}
+
+.customer-detail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.customer-info-panel,
+.customer-record-panel {
+  padding: 34px 38px;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.customer-info-panel h3 {
+  margin: 0 0 32px;
+  color: #111111;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.customer-info-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 28px 80px;
+}
+
+.customer-info-item {
+  display: flex;
+  align-items: baseline;
+  gap: 22px;
+  min-width: 0;
+}
+
+.customer-info-item p {
+  flex: 0 0 116px;
+  margin: 0;
+  color: #9a9a9a;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.customer-info-item strong {
+  min-width: 0;
+  color: #111111;
+  font-size: 22px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.customer-record-tabs {
+  display: inline-flex;
+  overflow: hidden;
+  margin-bottom: 26px;
+  border: 1px solid #1f66ff;
+  border-radius: 6px;
+}
+
+.customer-record-tabs button {
+  min-width: 150px;
+  height: 56px;
+  border: 0;
+  border-right: 1px solid #1f66ff;
+  background: #ffffff;
+  color: #1f66ff;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.customer-record-tabs button:last-child {
+  border-right: 0;
+}
+
+.customer-record-tabs button.active {
+  background: #1f66ff;
+  color: #ffffff;
+}
+
+.customer-record-table :deep(.el-table__header th) {
+  height: 68px;
+  background: #f1f2f4 !important;
+  color: #111111;
+  font-size: 20px;
+}
+
+.customer-record-table :deep(.el-table__body td) {
+  height: 68px;
+  color: #111111;
+  font-size: 19px;
 }
 
 .section-stack {
