@@ -121,16 +121,17 @@ export const crudModuleConfigs = {
       { key: 'age', label: '年龄', type: 'number' },
       { key: 'phone', label: '联系方式（账号）', type: 'input' },
       { key: 'loginPassword', label: '登录密码', type: 'input' },
+      { key: 'tenantId', label: '所属会员', type: 'select', options: [] },
       { key: 'position', label: '职位', type: 'input' },
       { key: 'title', label: '职称', type: 'input' },
       { key: 'jobNo', label: '工号', type: 'input' },
       { key: 'hireDate', label: '入职日期', type: 'date' },
       { key: 'department', label: '所属部门', type: 'select', options: ['业务部', '生产部', '运输部', '管理部'] },
       {
-        key: 'role',
+        key: 'menuIdList',
         label: '角色',
         type: 'checkbox',
-        options: ['业务员', '业务员（自动审批）', '生产员', '耗材记录员', '物流调度员', '物流司机']
+        options: []
       },
       { key: 'remark', label: '备注', type: 'textarea' }
     ],

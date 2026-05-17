@@ -6,6 +6,7 @@ import PageBlock from '../components/PageBlock.vue'
 import { crudModuleConfigs } from '../config/crudModules'
 import {
   executeSpecialModuleAction,
+  loadSpecialModuleFormOptions,
   loadSpecialModuleRows,
   persistSpecialModuleRow
 } from '../services/specialModuleData'
@@ -1014,6 +1015,8 @@ const resetPasswordForm = reactive({
   password: ''
 })
 const treeSearch = ref('')
+const staffTenantOptions = ref([])
+const staffMenuOptions = ref([])
 const formState = reactive({})
 const sequence = ref(1)
 const state = reactive({
@@ -1117,13 +1120,27 @@ const openDetail = (row) => {
 
 const openCreate = () => {
   normalizeForm()
+  loadFormOptions()
   dialogVisible.value = true
 }
 
 const openEdit = (row) => {
   normalizeForm()
   Object.assign(formState, JSON.parse(JSON.stringify(row)))
+  loadFormOptions()
   dialogVisible.value = true
+}
+
+const loadFormOptions = async () => {
+  if (!isStaffModule.value) return
+  if (staffTenantOptions.value.length && staffMenuOptions.value.length) return
+  try {
+    const options = await loadSpecialModuleFormOptions(props.moduleKey)
+    staffTenantOptions.value = options.tenants || []
+    staffMenuOptions.value = options.menus || []
+  } catch (error) {
+    ElMessage.error(error?.message || '人员表单选项加载失败')
+  }
 }
 
 const openResetPassword = (row) => {
@@ -1202,19 +1219,26 @@ const detailDialogClass = computed(() => [
 const themeClass = computed(() => `theme-${profile.theme || 'slate'}`)
 const rowActions = computed(() => profile.rowActions || ['详情', '编辑', '打印'])
 const searchOptions = (field) => normalizeFieldOptions(field.options || [])
-const formOptions = (field) => normalizeFieldOptions(field.options || [])
+const formOptions = (field) => {
+  if (isStaffModule.value && field.key === 'tenantId') return staffTenantOptions.value
+  if (isStaffModule.value && field.key === 'menuIdList') return staffMenuOptions.value
+  return normalizeFieldOptions(field.options || [])
+}
 const customerRequiredFields = ['name', 'contact', 'phone', 'address', 'customerType']
 const customerFormOrder = ['name', 'customerType', 'contact', 'phone', 'sales', 'payAccount', 'address', 'remark']
 const requiredFieldMap = {
   customers: customerRequiredFields,
-  staff: ['name', 'phone', 'loginPassword', 'department', 'role']
+  staff: ['name', 'phone', 'loginPassword', 'tenantId', 'department', 'menuIdList']
 }
 const displayFormFields = computed(() => {
   if (!isCustomerModule.value) return profile.formFields
   const fieldsByKey = new Map(profile.formFields.map((field) => [field.key, field]))
   return customerFormOrder.map((key) => fieldsByKey.get(key)).filter(Boolean)
 })
-const isRequiredField = (field) => (requiredFieldMap[props.moduleKey] || []).includes(field.key)
+const isRequiredField = (field) => {
+  if (isStaffModule.value && isEdit.value && field.key === 'loginPassword') return false
+  return (requiredFieldMap[props.moduleKey] || []).includes(field.key)
+}
 const formPlaceholder = (field) => {
   if (!isCustomerModule.value && !isStaffModule.value) return `${field.type === 'select' ? '请选择' : '请输入'}${field.label}`
   if (field.type === 'select') {
@@ -1291,6 +1315,16 @@ const submitSave = async () => {
   const payload = JSON.parse(JSON.stringify(formState))
   if (isCustomerModule.value && !payload.fullName) {
     payload.fullName = payload.name || ''
+  }
+  const missingField = displayFormFields.value.find((field) => {
+    if (!isRequiredField(field)) return false
+    const value = payload[field.key]
+    if (Array.isArray(value)) return value.length === 0
+    return value === '' || value === null || value === undefined
+  })
+  if (missingField) {
+    ElMessage.error(`请填写${missingField.label}`)
+    return
   }
   if (!payload.id && props.moduleKey !== 'staff') {
     payload.id = sequence.value
@@ -1502,7 +1536,7 @@ onMounted(loadRows)
           class="form-item"
           :class="{
             'form-item--full': field.type === 'textarea' || (isCustomerModule && field.key === 'address'),
-            'form-item--wide': isStaffModule && field.key === 'role'
+            'form-item--wide': isStaffModule && field.key === 'menuIdList'
           }"
         >
           <p><span v-if="isRequiredField(field)">*</span>{{ field.label }}</p>

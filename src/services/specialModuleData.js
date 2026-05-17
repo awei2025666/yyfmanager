@@ -1,4 +1,5 @@
 import {
+  getSpecialModuleFormOptions,
   getSpecialModuleList,
   runSpecialModuleAction,
   saveSpecialModule as saveSpecialModuleApi
@@ -108,3 +109,5 @@ export const persistSpecialModuleRow = async (moduleKey, payload = {}) => {
 
 export const executeSpecialModuleAction = (moduleKey, action, payload = {}) =>
   runSpecialModuleAction(moduleKey, action, payload)
+
+export const loadSpecialModuleFormOptions = (moduleKey) => getSpecialModuleFormOptions(moduleKey)

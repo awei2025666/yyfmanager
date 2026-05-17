@@ -5,6 +5,7 @@ import {
   editTenantUser,
   getTenantList,
   getTenantUserList,
+  getTenantUserMenus,
   resetTenantUserPassword
 } from './platform'
 
@@ -87,12 +88,31 @@ const deleteStaff = (payload = {}) => {
   return deleteTenantUser(payload.id)
 }
 
+const flattenMenus = (menus = []) =>
+  menus.flatMap((item) => [item, ...flattenMenus(item.children || [])])
+
 const moduleApiMap = {
   staff: {
     list: listStaff,
     save: saveStaff,
     resetPassword: resetStaffPassword,
-    delete: deleteStaff
+    delete: deleteStaff,
+    formOptions: async () => {
+      const [tenantResult, menuResult] = await Promise.all([
+        getTenantList({ pageNum: 1, pageSize: 999, status: 1 }),
+        getTenantUserMenus()
+      ])
+      return {
+        tenants: listRows(tenantResult).map((item) => ({
+          label: item.tenantName,
+          value: item.id
+        })),
+        menus: flattenMenus(Array.isArray(menuResult) ? menuResult : []).map((item) => ({
+          label: item.name,
+          value: item.id
+        }))
+      }
+    }
   }
 }
 
@@ -122,4 +142,10 @@ export const runSpecialModuleAction = (moduleKey, action, payload = {}) => {
   }
   if (typeof handler === 'function') return handler(payload)
   return http.post(handler, payload)
+}
+
+export const getSpecialModuleFormOptions = (moduleKey) => {
+  const config = moduleApiMap[moduleKey]
+  if (!config?.formOptions) return Promise.resolve({})
+  return config.formOptions()
 }
