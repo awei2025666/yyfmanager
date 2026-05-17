@@ -1,4 +1,8 @@
-import { getSpecialModuleList, saveSpecialModule as saveSpecialModuleApi } from '../api/specialModules'
+import {
+  getSpecialModuleList,
+  runSpecialModuleAction,
+  saveSpecialModule as saveSpecialModuleApi
+} from '../api/specialModules'
 
 const aliasMap = {
   receipts: {
@@ -53,6 +57,15 @@ const aliasMap = {
     amount: ['amount', 'billMoney'],
     received: ['received', 'receivedMoney'],
     unpaid: ['unpaid', 'arrearsMoney', 'tailMoney']
+  },
+  staff: {
+    userId: ['userId', 'id'],
+    name: ['name', 'userName'],
+    phone: ['phone', 'userPhone'],
+    department: ['department', 'deptName'],
+    roleText: ['roleText', 'roleName'],
+    status: ['status'],
+    createTime: ['createTime', 'createdAt']
   }
 }
 
@@ -92,3 +105,6 @@ export const persistSpecialModuleRow = async (moduleKey, payload = {}) => {
     row: normalizeRow(moduleKey, result || payload)
   }
 }
+
+export const executeSpecialModuleAction = (moduleKey, action, payload = {}) =>
+  runSpecialModuleAction(moduleKey, action, payload)

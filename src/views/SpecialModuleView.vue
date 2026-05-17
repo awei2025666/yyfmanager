@@ -1,10 +1,14 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import PageBlock from '../components/PageBlock.vue'
 import { crudModuleConfigs } from '../config/crudModules'
-import { loadSpecialModuleRows, persistSpecialModuleRow } from '../services/specialModuleData'
+import {
+  executeSpecialModuleAction,
+  loadSpecialModuleRows,
+  persistSpecialModuleRow
+} from '../services/specialModuleData'
 
 const props = defineProps({
   moduleKey: {
@@ -1132,13 +1136,21 @@ const save = () => {
   return submitSave()
 }
 
-const confirmResetPassword = () => {
+const confirmResetPassword = async () => {
   if (!resetPasswordForm.password) {
     ElMessage.error('请输入新密码')
     return
   }
-  resetPasswordVisible.value = false
-  ElMessage.success('重置密码接口待对接')
+  try {
+    await executeSpecialModuleAction(props.moduleKey, 'resetPassword', {
+      ...currentRow.value,
+      password: resetPasswordForm.password
+    })
+    resetPasswordVisible.value = false
+    ElMessage.success('重置密码成功')
+  } catch (error) {
+    ElMessage.error(error?.message || '重置密码接口未配置')
+  }
 }
 
 const sectionMeta = (section) => {
@@ -1237,11 +1249,24 @@ const formatCell = (column, row) => {
   return value
 }
 
+const removeRow = async (row) => {
+  try {
+    await ElMessageBox.confirm(`确认删除“${row.name || row.userId || row.id}”吗？`, '删除确认', { type: 'warning' })
+    await executeSpecialModuleAction(props.moduleKey, 'delete', row)
+    ElMessage.success('删除成功')
+    loadRows()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(error?.message || '删除接口未配置')
+  }
+}
+
 const handleRowAction = (row, action) => {
   if (action === '详情') return openDetail(row)
   if (action === '编辑') return openEdit(row)
   if (action === '打印') return notify('打印模板已预留')
   if (action === '重置密码') return openResetPassword(row)
+  if (action === '删除') return removeRow(row)
   return notify(`${action} 功能已预留`)
 }
 
@@ -1267,7 +1292,7 @@ const submitSave = async () => {
   if (isCustomerModule.value && !payload.fullName) {
     payload.fullName = payload.name || ''
   }
-  if (!payload.id) {
+  if (!payload.id && props.moduleKey !== 'staff') {
     payload.id = sequence.value
     sequence.value += 1
   }
