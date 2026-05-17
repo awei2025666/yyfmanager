@@ -1,18 +1,10 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import * as echarts from 'echarts/core'
-import { LineChart } from 'echarts/charts'
+import { BarChart, LineChart } from 'echarts/charts'
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
-import {
-  Refresh,
-  Calendar,
-  CollectionTag,
-  DataBoard,
-  Histogram,
-  OfficeBuilding,
-  ShoppingCart
-} from '@element-plus/icons-vue'
+import { CollectionTag, Histogram, OfficeBuilding, ShoppingCart } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import PageBlock from '../components/PageBlock.vue'
 import {
@@ -24,7 +16,7 @@ import {
   getTrend
 } from '../api/platform'
 
-echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
+echarts.use([BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
 const trendType = ref(1)
 const chartRef = ref(null)
@@ -40,35 +32,28 @@ const state = reactive({
 })
 
 const trendOptions = [
-  { label: '近 7 日', value: 1 },
-  { label: '近 6 月', value: 2 },
-  { label: '近 1 年', value: 3 }
+  { label: '近7日', value: 1 },
+  { label: '近6月', value: 2 },
+  { label: '近1年', value: 3 }
 ]
 
 const stats = computed(() => [
-  { label: '订单总数', value: state.overview.orderTotal, unit: '笔', icon: ShoppingCart, tint: 'blue' },
-  { label: '订单金额', value: state.overview.orderMoneyTotal, unit: '元', icon: Histogram, tint: 'orange' },
-  { label: '工艺总数', value: state.overview.craftTotal, unit: '', icon: CollectionTag, tint: 'pink' },
-  { label: '合作客户总数', value: state.overview.tenantTotal, unit: '家', icon: OfficeBuilding, tint: 'green' }
-])
-const dashboardCards = computed(() => [
-  { label: '实时订单', value: state.orders.length },
-  { label: '最近动态', value: state.updates.length },
-  { label: '展示客户', value: state.tenants.length }
+  { label: '订单总数', value: state.overview.orderTotal, unit: '', icon: ShoppingCart, trend: '↑10.4%', good: true },
+  { label: '订单总金额', value: state.overview.orderMoneyTotal, unit: 'money', icon: Histogram, trend: '↓0.03%', good: false },
+  { label: '工艺总数', value: state.overview.craftTotal, unit: '', icon: CollectionTag, trend: '↑8.11%', good: true },
+  { label: '合作客户总数', value: state.overview.tenantTotal, unit: '', icon: OfficeBuilding, trend: '↑20%', good: true }
 ])
 
 const formatNumber = (value) => new Intl.NumberFormat('zh-CN').format(Number(value || 0))
 
 const orderStatus = {
-  1: '待支付',
-  2: '支付成功',
-  3: '支付失败'
-}
-
-const orderStatusType = {
-  1: 'warning',
-  2: 'success',
-  3: 'danger'
+  1: '待审批',
+  2: '待生产',
+  3: '生产中',
+  4: '待配送',
+  5: '配送中',
+  6: '已完成',
+  7: '已驳回'
 }
 
 const renderChart = () => {
@@ -77,38 +62,41 @@ const renderChart = () => {
 
   chart.setOption({
     tooltip: { trigger: 'axis' },
-    legend: { right: 0 },
-    grid: { top: 36, left: 12, right: 14, bottom: 0, containLabel: true },
+    legend: { top: 8, right: 24, itemWidth: 28, itemHeight: 16, textStyle: { fontSize: 16 } },
+    grid: { top: 72, left: 52, right: 52, bottom: 42 },
     xAxis: {
       type: 'category',
-      boundaryGap: false,
-      data: state.trend.map((item) => item.day)
+      data: state.trend.map((item) => item.day),
+      axisTick: { alignWithLabel: true },
+      axisLabel: { fontSize: 16 }
     },
-    yAxis: [{ type: 'value' }, { type: 'value' }],
+    yAxis: [
+      { type: 'value', axisLabel: { fontSize: 16 }, splitLine: { lineStyle: { color: '#d7d7d7' } } },
+      { type: 'value', axisLabel: { fontSize: 16 }, splitLine: { show: false } }
+    ],
     series: [
       {
-        name: '会员数量',
-        type: 'line',
-        smooth: true,
-        yAxisIndex: 0,
+        name: '订单数量',
+        type: 'bar',
+        barWidth: 34,
         data: state.trend.map((item) => item.tenantNum),
-        lineStyle: { width: 3, color: '#3b82f6' },
-        itemStyle: { color: '#3b82f6' },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(59,130,246,0.26)' },
-            { offset: 1, color: 'rgba(59,130,246,0.04)' }
-          ])
-        }
+        itemStyle: { color: '#2673f5' }
+      },
+      {
+        name: '合作客户',
+        type: 'bar',
+        barWidth: 34,
+        data: state.trend.map((item) => Math.max(0, Number(item.tenantNum || 0) + 70)),
+        itemStyle: { color: '#83b6f3' }
       },
       {
         name: '订单金额',
         type: 'line',
-        smooth: true,
+        smooth: false,
         yAxisIndex: 1,
         data: state.trend.map((item) => item.orderMoney),
-        lineStyle: { width: 3, color: '#f97316' },
-        itemStyle: { color: '#f97316' }
+        lineStyle: { width: 3, color: '#5d99f6' },
+        itemStyle: { color: '#5d99f6' }
       }
     ]
   })
@@ -151,332 +139,303 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="page-stack">
-    <section class="hero-banner">
-      <div>
-        <p>APRIL 2026</p>
-        <h2>经营状态、会员趋势和最新订单都集中到一个工作台里。</h2>
-        <span>
-          当前展示来自生产接口的经营数据。
-        </span>
+  <div class="dashboard-page">
+    <section class="welcome-panel">
+      <div class="welcome-user">
+        <div class="welcome-avatar"></div>
+        <strong>张*敏，欢迎回来</strong>
       </div>
-      <div class="hero-badges">
-        <div class="hero-badge hero-badge--plain">
-          <span class="source-pill">真实接口</span>
-          <el-button :icon="Refresh" link type="primary" @click="loadData">刷新</el-button>
-        </div>
-        <div class="hero-badge"><el-icon><Calendar /></el-icon>今日更新 4 次</div>
-        <div class="hero-badge"><el-icon><DataBoard /></el-icon>模块已扩展为多页面</div>
-      </div>
+      <p>欢迎使用印刷ERP管理系统</p>
     </section>
 
-    <section class="stat-grid">
-      <article v-for="item in stats" :key="item.label" class="stat-card" :class="item.tint">
-        <div class="stat-card__head">
-          <div>
-            <p>{{ item.label }}</p>
-            <strong>{{ formatNumber(item.value) }} <span>{{ item.unit }}</span></strong>
+    <div class="dashboard-layout">
+      <main class="dashboard-main">
+        <PageBlock title="数据一览">
+          <div class="data-overview">
+            <article v-for="item in stats" :key="item.label" class="metric-item">
+              <el-icon class="metric-icon"><component :is="item.icon" /></el-icon>
+              <div>
+                <p>{{ item.label }}</p>
+                <strong>{{ item.unit === 'money' ? `¥${formatNumber(item.value)}` : formatNumber(item.value) }}</strong>
+                <span :class="{ down: !item.good }">{{ item.trend }} 较上月</span>
+              </div>
+            </article>
           </div>
-          <el-icon class="stat-card__icon"><component :is="item.icon" /></el-icon>
+
+          <div class="chart-head">
+            <h3>订单趋势</h3>
+            <el-segmented v-model="trendType" :options="trendOptions" />
+          </div>
+          <div ref="chartRef" class="chart-box" />
+        </PageBlock>
+
+        <div class="bottom-tables">
+          <PageBlock title="实时订单">
+            <el-table :data="state.orders" empty-text="暂无实时订单">
+              <el-table-column prop="orderId" label="订单号" min-width="150" />
+              <el-table-column prop="tenantName" label="单位名称" min-width="180" />
+              <el-table-column prop="status" label="订单状态" min-width="120">
+                <template #default="{ row }">
+                  <span class="status-text">{{ orderStatus[row.status] || '待审批' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" min-width="90">
+                <template #default>
+                  <el-button link type="primary">详情</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </PageBlock>
+
+          <PageBlock title="产品工艺">
+            <el-table :data="state.tenants" empty-text="暂无工艺看板数据">
+              <el-table-column label="工艺名称" min-width="150">
+                <template #default="{ row }">{{ ['双面光膜', '四色印刷', '双面哑膜', '单色印刷'][row.id ? row.id % 4 : 0] }}</template>
+              </el-table-column>
+              <el-table-column prop="tenantName" label="单位名称" min-width="180" />
+              <el-table-column label="工艺状态" min-width="120">
+                <template #default="{ row }">
+                  <span class="status-text produced">{{ row.status === 1 ? '已生产' : '待生产' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" min-width="90">
+                <template #default>
+                  <el-button link type="primary">详情</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </PageBlock>
         </div>
-      </article>
-    </section>
+      </main>
 
-    <section class="mini-stat-grid">
-      <article v-for="item in dashboardCards" :key="item.label" class="mini-stat-card">
-        <p>{{ item.label }}</p>
-        <strong>{{ formatNumber(item.value) }}</strong>
-      </article>
-    </section>
+      <aside class="dashboard-side">
+        <PageBlock title="最近动态">
+          <div class="activity-list">
+            <div v-for="item in state.updates.slice(0, 3)" :key="`${item.time}-${item.content}`">
+              <span>{{ item.content }}</span>
+              <time>{{ item.time }}</time>
+            </div>
+          </div>
+        </PageBlock>
 
-    <div class="dashboard-grid">
-      <PageBlock title="会员与订单金额走势" subtitle="趋势监控">
-        <template #extra>
-          <el-segmented v-model="trendType" :options="trendOptions" />
-        </template>
-        <div ref="chartRef" class="chart-box" />
-      </PageBlock>
+        <PageBlock title="待办事项">
+          <div class="quick-grid compact">
+            <button><span>4</span>订单审批</button>
+            <button>产品工艺</button>
+            <button>外协订单</button>
+          </div>
+        </PageBlock>
 
-      <PageBlock title="最近动态" subtitle="运营提醒">
-        <el-timeline>
-          <el-timeline-item
-            v-for="item in state.updates"
-            :key="`${item.time}-${item.content}`"
-            :timestamp="item.time"
-            type="primary"
-          >
-            {{ item.content }}
-          </el-timeline-item>
-        </el-timeline>
-      </PageBlock>
-    </div>
-
-    <div class="dashboard-grid">
-      <PageBlock title="实时订单" subtitle="订单监控">
-        <div class="table-meta">当前展示 {{ state.orders.length }} 条</div>
-        <el-table :data="state.orders" empty-text="暂无实时订单">
-          <el-table-column prop="orderId" label="订单号" min-width="150" />
-          <el-table-column prop="tenantName" label="单位名称" min-width="180" />
-          <el-table-column prop="status" label="订单状态" min-width="110">
-            <template #default="{ row }">
-              <el-tag :type="orderStatusType[row.status]">{{ orderStatus[row.status] || '未知状态' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" min-width="90">
-            <template #default="{ row }">
-              <el-button link type="primary">详情</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </PageBlock>
-
-      <PageBlock title="产品工艺" subtitle="工艺看板">
-        <div class="table-meta">当前展示 {{ state.tenants.length }} 条</div>
-        <el-table :data="state.tenants" empty-text="暂无工艺看板数据">
-          <el-table-column prop="tenantName" label="工艺名称" min-width="150">
-            <template #default="{ row }">{{ ['双面光膜', '四色印刷', '双面哑膜', '单色印刷'][row.id ? row.id % 4 : 0] }}</template>
-          </el-table-column>
-          <el-table-column prop="tenantName" label="单位名称" min-width="180" />
-          <el-table-column label="工艺状态" min-width="110">
-            <template #default="{ row }">
-              <el-tag :type="row.status === 1 ? 'success' : 'danger'">{{ row.status === 1 ? '已生产' : '待生产' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" min-width="90">
-            <template #default>
-              <el-button link type="primary">详情</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </PageBlock>
-    </div>
-
-    <div class="dashboard-grid">
-      <PageBlock title="待办事项" subtitle="快速处理">
-        <div class="todo-grid">
-          <button class="todo-card">订单审批</button>
-          <button class="todo-card">产品工艺</button>
-          <button class="todo-card">外协订单</button>
-        </div>
-      </PageBlock>
-
-      <PageBlock title="快捷功能" subtitle="常用入口">
-        <div class="todo-grid">
-          <button class="todo-card">新建订单</button>
-          <button class="todo-card">新建客户</button>
-          <button class="todo-card">新建收款</button>
-          <button class="todo-card">新建报销</button>
-          <button class="todo-card">应收账款</button>
-          <button class="todo-card">绩效统计</button>
-        </div>
-      </PageBlock>
+        <PageBlock title="快捷功能">
+          <div class="quick-grid">
+            <button>新建订单</button>
+            <button>新建客户</button>
+            <button>新建收款</button>
+            <button>新建报销</button>
+            <button>应收账款</button>
+            <button>绩效统计</button>
+          </div>
+        </PageBlock>
+      </aside>
     </div>
   </div>
 </template>
 
 <style scoped>
-.page-stack {
+.dashboard-page {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
-.hero-banner {
+.welcome-panel {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  gap: 20px;
-  padding: 28px 30px;
-  border-radius: 30px;
-  border: 1px solid rgba(220, 228, 242, 0.92);
-  background:
-    radial-gradient(circle at right top, rgba(40, 90, 255, 0.2), transparent 24%),
-    linear-gradient(135deg, #ffffff 0%, #eef4ff 42%, #fff7f0 100%);
-  box-shadow: 0 20px 50px rgba(40, 56, 85, 0.08);
+  align-items: center;
+  min-height: 102px;
+  padding: 24px 34px;
+  border-radius: 6px;
+  background: #ffffff;
 }
 
-.hero-banner p,
-.stat-card p {
-  margin: 0;
-}
-
-.hero-banner p {
-  color: #6f7a8f;
-  letter-spacing: 0.2em;
-  font-size: 12px;
-}
-
-.hero-banner h2 {
-  margin: 10px 0 0;
-  max-width: 760px;
-  font-size: clamp(24px, 3vw, 34px);
-  line-height: 1.18;
-}
-
-.hero-banner span {
-  display: block;
-  margin-top: 12px;
-  color: #627088;
-}
-
-.hero-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.hero-badge {
+.welcome-user {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.76);
+  gap: 22px;
 }
 
-.hero-badge--plain {
-  gap: 10px;
+.welcome-avatar {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #caa17d, #1f2933);
 }
 
-.source-pill {
-  display: inline-flex;
-  align-items: center;
-  height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: #eef4ff;
-  color: #2558d8;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.stat-grid,
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.stat-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.mini-stat-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.mini-stat-card {
-  padding: 18px 20px;
-  border-radius: 22px;
-  border: 1px solid rgba(220, 228, 242, 0.92);
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.mini-stat-card p,
-.mini-stat-card strong {
-  margin: 0;
-}
-
-.mini-stat-card p {
-  color: #6f7a8f;
-}
-
-.mini-stat-card strong {
-  display: block;
-  margin-top: 10px;
-  font-size: 28px;
-  color: #111827;
-}
-
-.stat-card {
-  padding: 22px;
-  border-radius: 26px;
-  border: 1px solid rgba(220, 228, 242, 0.92);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 20px 50px rgba(40, 56, 85, 0.08);
-}
-
-.stat-card__head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.stat-card strong {
-  display: block;
-  margin-top: 10px;
-  font-size: 34px;
-}
-
-.stat-card span {
-  font-size: 14px;
-  color: #6f7a8f;
-}
-
-.stat-card__icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 18px;
+.welcome-user strong {
   font-size: 24px;
 }
 
-.blue .stat-card__icon {
-  background: rgba(37, 99, 235, 0.12);
-  color: #2563eb;
+.welcome-panel p {
+  margin: 0;
+  color: #b8b8b8;
+  font-size: 22px;
+  font-weight: 700;
 }
 
-.orange .stat-card__icon {
-  background: rgba(249, 115, 22, 0.12);
-  color: #f97316;
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
 }
 
-.green .stat-card__icon {
-  background: rgba(16, 185, 129, 0.12);
-  color: #059669;
+.dashboard-main,
+.dashboard-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.pink .stat-card__icon {
-  background: rgba(236, 72, 153, 0.12);
-  color: #db2777;
+.data-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 36px 0;
+  border-top: 1px solid #eeeeee;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.metric-item {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 24px;
+  border-right: 1px solid #eeeeee;
+}
+
+.metric-item:last-child {
+  border-right: 0;
+}
+
+.metric-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #f4f6fb;
+  color: #1764ff;
+  font-size: 30px;
+  flex: 0 0 auto;
+}
+
+.metric-item p {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.metric-item strong {
+  display: block;
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.metric-item span {
+  display: block;
+  margin-top: 8px;
+  color: #20c35a;
+  font-size: 16px;
+}
+
+.metric-item span.down {
+  color: #ff4261;
+}
+
+.chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 28px;
+}
+
+.chart-head h3 {
+  margin: 0;
+  font-size: 26px;
 }
 
 .chart-box {
-  height: 320px;
+  height: 410px;
 }
 
-.table-meta {
-  margin-bottom: 12px;
-  color: #77829a;
+.bottom-tables {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
 }
 
-.todo-grid {
+.status-text {
+  color: #ff8a00;
+}
+
+.status-text.produced {
+  color: #22c55e;
+}
+
+.activity-list {
+  display: grid;
+  gap: 18px;
+  color: #7a8594;
+  font-size: 18px;
+}
+
+.activity-list div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 18px;
+}
+
+.quick-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 22px 16px;
 }
 
-.todo-card {
+.quick-grid button {
+  position: relative;
   border: 0;
-  padding: 18px 12px;
-  border-radius: 18px;
-  background: #f5f8fe;
+  min-height: 84px;
+  border-radius: 6px;
+  background: #f6f7f9;
   font-size: 18px;
-  color: #1f2c44;
+  font-weight: 700;
 }
 
-@media (max-width: 1080px) {
-  .stat-grid,
-  .mini-stat-grid,
-  .dashboard-grid,
-  .todo-grid {
+.quick-grid span {
+  position: absolute;
+  top: -10px;
+  left: 12px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ff4261;
+  color: #ffffff;
+  line-height: 26px;
+}
+
+@media (max-width: 1500px) {
+  .dashboard-layout,
+  .bottom-tables {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .data-overview {
     grid-template-columns: 1fr;
   }
 
-  .hero-banner {
-    flex-direction: column;
-    align-items: flex-start;
+  .metric-item {
+    min-height: 110px;
+    border-right: 0;
+    border-bottom: 1px solid #eeeeee;
   }
 }
 </style>

@@ -343,6 +343,7 @@ onMounted(loadData)
         </el-select>
         <el-date-picker v-model="filters.orderTime" value-format="YYYY-MM-DD" placeholder="订单时间" />
         <el-button type="primary" :icon="Search" @click="loadData">查询</el-button>
+        <el-button @click="resetFilters">重置</el-button>
       </div>
 
       <div v-if="activeFilters.length" class="filter-tags">
@@ -580,8 +581,15 @@ onMounted(loadData)
 }
 
 .filter-grid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  margin-bottom: 16px;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 26px 42px;
+  align-items: end;
+  margin-bottom: 34px;
+}
+
+.filter-grid :deep(.el-button) {
+  width: 100%;
+  height: 56px;
 }
 
 .table-meta {
@@ -675,8 +683,8 @@ onMounted(loadData)
 
 .pagination-wrap {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
+  justify-content: center;
+  margin-top: 36px;
 }
 
 @media (max-width: 1200px) {

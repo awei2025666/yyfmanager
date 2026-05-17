@@ -1421,13 +1421,13 @@ onMounted(loadRows)
 }
 
 .hero-grid {
-  display: grid;
+  display: none;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
 }
 
 .workflow-strip {
-  display: grid;
+  display: none;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
@@ -1442,7 +1442,7 @@ onMounted(loadRows)
 }
 
 .overview-panels {
-  display: grid;
+  display: none;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
@@ -1649,9 +1649,9 @@ onMounted(loadRows)
 
 .search-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 26px 42px;
+  margin-bottom: 34px;
 }
 
 .search-item {
@@ -1661,9 +1661,9 @@ onMounted(loadRows)
 }
 
 .search-item span {
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 700;
-  color: #6f7a8f;
+  color: #9a9a9a;
 }
 
 .toolbar,
@@ -1676,7 +1676,7 @@ onMounted(loadRows)
 }
 
 .toolbar {
-  margin-bottom: 16px;
+  margin-bottom: 34px;
 }
 
 .toolbar__left,
@@ -1760,17 +1760,17 @@ onMounted(loadRows)
 }
 
 .special-table :deep(.el-table) {
-  border-radius: 18px;
+  border-radius: 0;
 }
 
 .pagination-wrap {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: #fbfcff;
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  justify-content: center;
+  margin-top: 36px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
 }
 
 .special-dialog :deep(.el-dialog) {

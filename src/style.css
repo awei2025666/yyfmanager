@@ -1,10 +1,7 @@
 :root {
   font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-  color: #1b2331;
-  background:
-    radial-gradient(circle at top left, rgba(42, 99, 255, 0.14), transparent 32%),
-    radial-gradient(circle at right top, rgba(255, 134, 76, 0.18), transparent 26%),
-    linear-gradient(180deg, #eef3fb 0%, #f7f8fc 100%);
+  color: #111111;
+  background: #f5f5f5;
   line-height: 1.5;
   font-weight: 400;
   font-synthesis: none;
@@ -20,6 +17,7 @@
 body {
   margin: 0;
   min-width: 320px;
+  background: #f5f5f5;
 }
 
 button,
@@ -37,11 +35,116 @@ a {
 }
 
 .el-table {
-  --el-table-header-bg-color: #f5f8fd;
-  --el-table-row-hover-bg-color: #f8fbff;
+  --el-table-header-bg-color: #f1f2f4;
+  --el-table-row-hover-bg-color: #fafafa;
+  --el-table-border-color: #d8d8d8;
+  --el-table-text-color: #111111;
+  --el-table-header-text-color: #111111;
+  font-size: 18px;
+}
+
+.el-table th.el-table__cell {
+  height: 68px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.el-table td.el-table__cell {
+  height: 74px;
+  border-bottom: 1px solid #d8d8d8;
+}
+
+.el-table .cell {
+  line-height: 1.35;
+}
+
+.el-input,
+.el-select,
+.el-date-editor.el-input {
+  --el-input-height: 56px;
+  --el-input-bg-color: #f5f6f8;
+  --el-input-border-color: #f5f6f8;
+  --el-input-hover-border-color: #e4e7ed;
+  --el-input-focus-border-color: #2668ff;
+  font-size: 18px;
+}
+
+.el-input__wrapper,
+.el-select__wrapper {
+  box-shadow: none !important;
+  border-radius: 6px;
+}
+
+.el-button {
+  min-height: 48px;
+  border-radius: 6px;
+  padding: 0 24px;
+  font-size: 18px;
+}
+
+.el-button--primary {
+  --el-button-bg-color: #1764ff;
+  --el-button-border-color: #1764ff;
+  --el-button-hover-bg-color: #0f58ee;
+  --el-button-hover-border-color: #0f58ee;
+}
+
+.el-pagination {
+  --el-pagination-button-bg-color: #f4f4f4;
+  --el-pagination-hover-color: #1764ff;
+  justify-content: center;
+  gap: 14px;
+}
+
+.el-pagination .btn-prev,
+.el-pagination .btn-next,
+.el-pagination .el-pager li {
+  min-width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  font-size: 20px;
 }
 
 .el-dialog,
 .el-drawer {
-  --el-border-radius-base: 18px;
+  --el-border-radius-base: 8px;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
+  gap: 28px 48px;
+  align-items: end;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.summary-grid,
+.stat-grid,
+.mini-stat-grid {
+  display: none !important;
+}
+
+.source-pill,
+.filter-tags,
+.table-meta {
+  display: none !important;
+}
+
+.page-stack,
+.special-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 1200px) {
+  .filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

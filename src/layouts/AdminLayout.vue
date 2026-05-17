@@ -9,7 +9,6 @@ import {
   Fold,
   Goods,
   Histogram,
-  Key,
   List,
   Memo,
   OfficeBuilding,
@@ -73,10 +72,9 @@ const logout = () => {
   <div class="admin-shell">
     <aside class="admin-sidebar">
       <div class="brand">
-        <div class="brand__mark">Y</div>
+        <div class="brand__mark"><span></span><i></i></div>
         <div>
           <strong>印刷ERP</strong>
-          <p>会员版管理后台</p>
         </div>
       </div>
 
@@ -93,21 +91,24 @@ const logout = () => {
         </router-link>
       </nav>
 
-      <div class="sidebar-panel">
-        <p>当前账号</p>
-        <strong>{{ currentAccount }}</strong>
-        <el-button :icon="Key" plain @click="router.push('/login')">更换 Token</el-button>
-      </div>
+      <div class="sidebar-panel">系统管理</div>
     </aside>
 
     <div class="admin-main">
       <header class="admin-topbar">
-        <div>
-          <p class="admin-topbar__eyebrow">PRINT ERP ADMIN</p>
-          <h1>{{ activeTitle }}</h1>
+        <el-button type="primary" class="visual-button">可视化大屏</el-button>
+        <div class="topbar-account">
+          <div class="expire-pill">剩余 <strong>280</strong> 天到期</div>
+          <button class="avatar-button">{{ currentAccount === 'admin' ? '头像' : currentAccount.slice(0, 2) }}</button>
+          <el-button :icon="SwitchButton" text @click="logout">退出</el-button>
         </div>
-        <el-button :icon="SwitchButton" @click="logout">退出登录</el-button>
       </header>
+
+      <div class="admin-tabs">
+        <span class="collapse-icon">▸</span>
+        <button class="tab muted">主页</button>
+        <button class="tab active">{{ activeTitle }} <span>×</span></button>
+      </div>
 
       <router-view :key="route.fullPath" />
     </div>
@@ -118,118 +119,205 @@ const logout = () => {
 .admin-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 250px 1fr;
-  gap: 24px;
-  padding: 24px;
+  grid-template-columns: 280px 1fr;
+  gap: 0;
+  padding: 0;
+  background: #f5f5f5;
 }
 
 .admin-sidebar {
   position: sticky;
-  top: 24px;
+  top: 0;
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  height: calc(100vh - 48px);
-  padding: 20px;
-  border-radius: 28px;
-  background: linear-gradient(180deg, #111d37 0%, #192543 100%);
-  color: #fff;
-  box-shadow: 0 24px 60px rgba(17, 29, 55, 0.3);
+  gap: 18px;
+  height: 100vh;
+  padding: 28px 22px;
+  border-radius: 0;
+  background: #2f3032;
+  color: #e8e8e8;
+  box-shadow: none;
+  overflow: hidden;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.06);
+  gap: 16px;
+  padding: 4px 4px 34px;
+  border-radius: 0;
+  background: transparent;
 }
 
 .brand__mark {
-  width: 48px;
-  height: 48px;
-  border-radius: 18px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, #4f8cff, #78b4ff);
-  font-size: 24px;
-  font-weight: 700;
+  position: relative;
+  width: 42px;
+  height: 34px;
 }
 
-.brand p {
-  margin: 4px 0 0;
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 12px;
+.brand__mark span,
+.brand__mark i {
+  position: absolute;
+  inset: 6px 12px 6px 0;
+  border-radius: 10px;
+  transform: rotate(-45deg);
+}
+
+.brand__mark span {
+  background: #15d0af;
+}
+
+.brand__mark i {
+  inset: 6px 0 6px 12px;
+  background: #1764ff;
+}
+
+.brand strong {
+  color: #ffffff;
+  font-size: 26px;
+  line-height: 1;
 }
 
 .nav-list {
   display: grid;
-  gap: 10px;
+  gap: 14px;
   overflow: auto;
-  padding-right: 4px;
+  padding-right: 6px;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  color: rgba(255, 255, 255, 0.72);
+  gap: 18px;
+  min-height: 52px;
+  padding: 8px 0;
+  border-radius: 0;
+  color: #d4d4d4;
   text-decoration: none;
-  transition: 0.2s ease;
+  transition: color 0.2s ease;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.nav-item .el-icon {
+  width: 34px;
+  font-size: 22px;
 }
 
 .nav-item.active,
 .nav-item:hover {
   color: #fff;
-  background: linear-gradient(135deg, rgba(79, 140, 255, 0.9), rgba(43, 99, 255, 0.75));
-  box-shadow: 0 12px 30px rgba(61, 110, 255, 0.25);
+  background: transparent;
+  box-shadow: none;
 }
 
 .sidebar-panel {
   margin-top: auto;
-  padding: 16px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.sidebar-panel p {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 12px;
-}
-
-.sidebar-panel strong {
-  display: block;
-  margin: 6px 0 14px;
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  color: #d4d4d4;
+  font-size: 22px;
+  font-weight: 600;
 }
 
 .admin-main {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+  padding-bottom: 28px;
 }
 
 .admin-topbar {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
+  height: 84px;
+  padding: 0 36px;
+  background: #ffffff;
+  border-bottom: 1px solid #e1e1e1;
 }
 
-.admin-topbar__eyebrow {
-  margin: 0;
-  color: #4a74f3;
-  font-size: 12px;
-  letter-spacing: 0.15em;
+.visual-button {
+  min-width: 112px;
+  height: 48px;
+  font-size: 18px;
+  font-weight: 600;
 }
 
-.admin-topbar h1 {
-  margin: 6px 0 0;
-  font-size: clamp(28px, 3vw, 38px);
+.topbar-account {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.expire-pill {
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 28px;
+  border-radius: 999px;
+  background: #d9e5ff;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.expire-pill strong {
+  color: #1764ff;
+  font-size: 30px;
+}
+
+.avatar-button {
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 50%;
+  background: #0f63ff;
+  color: #0b1b3d;
+  font-size: 17px;
+}
+
+.admin-tabs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 36px 0;
+}
+
+.collapse-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.tab {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 6px;
+  border: 1px solid #cfcfcf;
+  background: #ffffff;
+  color: #111111;
+  font-size: 18px;
+}
+
+.tab.muted {
+  color: #a0a0a0;
+}
+
+.tab.active {
+  font-weight: 700;
+}
+
+.tab span {
+  margin-left: 10px;
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.admin-main > :deep(.page-stack),
+.admin-main > :deep(.special-stack) {
+  padding: 0 36px;
 }
 
 @media (max-width: 1180px) {

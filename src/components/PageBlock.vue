@@ -30,34 +30,34 @@ defineProps({
 
 <style scoped>
 .page-block {
-  border: 1px solid rgba(220, 228, 242, 0.92);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 20px 50px rgba(40, 56, 85, 0.08);
-  backdrop-filter: blur(14px);
+  border: 0;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .page-block__head {
-  padding: 22px 24px 0;
+  padding: 34px 42px 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 20px;
 }
 
 .page-block__subtitle {
   margin: 0;
-  color: #6c7992;
-  font-size: 12px;
+  color: #9a9a9a;
+  font-size: 16px;
 }
 
 .page-block__title {
-  margin: 6px 0 0;
-  font-size: 22px;
-  color: #1c2940;
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.2;
+  color: #111111;
 }
 
 .page-block__body {
-  padding: 22px 24px 24px;
+  padding: 34px 42px 42px;
 }
 </style>
