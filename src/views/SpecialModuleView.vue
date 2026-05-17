@@ -657,7 +657,7 @@ const configProfiles = {
   staff: createConfigProfile('staff', {
     theme: 'teal',
     workflows: ['新增账号', '岗位配置', '权限维护'],
-    rowActions: ['详情', '编辑', '重置密码'],
+    rowActions: ['重置密码', '编辑', '删除'],
     panels: (rows) => [
       { title: '部门焦点', value: rows[0]?.department || '全部', helper: '当前列表默认部门' },
       { title: '角色密度', value: `${rows.filter((item) => item.roleText).length} 人`, helper: '已配置岗位角色账号' },
@@ -1002,6 +1002,10 @@ const detailVisible = ref(false)
 const currentRow = ref(null)
 const dialogVisible = ref(false)
 const activeCustomerDetailTab = ref('orderRecords')
+const resetPasswordVisible = ref(false)
+const resetPasswordForm = reactive({
+  password: ''
+})
 const formState = reactive({})
 const sequence = ref(1)
 const state = reactive({
@@ -1091,8 +1095,23 @@ const openEdit = (row) => {
   dialogVisible.value = true
 }
 
+const openResetPassword = (row) => {
+  currentRow.value = row
+  resetPasswordForm.password = ''
+  resetPasswordVisible.value = true
+}
+
 const save = () => {
   return submitSave()
+}
+
+const confirmResetPassword = () => {
+  if (!resetPasswordForm.password) {
+    ElMessage.error('请输入新密码')
+    return
+  }
+  resetPasswordVisible.value = false
+  ElMessage.success('重置密码接口待对接')
 }
 
 const sectionMeta = (section) => {
@@ -1114,6 +1133,7 @@ const isEdit = computed(() => Boolean(formState.id))
 const formDialogTitle = computed(() => {
   if (isEdit.value) return `编辑${profile.title}`
   if (profile.title === '合作客户') return '添加客户'
+  if (profile.title === '人员管理') return '添加人员'
   if (profile.title === '工艺管理') return '添加工艺'
   return profile.createText || `添加${profile.title}`
 })
@@ -1123,14 +1143,17 @@ const detailDialogTitle = computed(() => {
 })
 const formDialogWidth = computed(() => {
   if (profile.title === '合作客户') return '1280px'
+  if (profile.title === '人员管理') return '1280px'
   if (profile.title === '工艺管理') return '1040px'
   return profile.dialogWidth || '1040px'
 })
 const isCustomerModule = computed(() => props.moduleKey === 'customers')
+const isStaffModule = computed(() => props.moduleKey === 'staff')
 const formDialogClass = computed(() => [
   'special-dialog',
   'special-form-dialog',
-  isCustomerModule.value ? 'customer-form-dialog' : ''
+  isCustomerModule.value ? 'customer-form-dialog' : '',
+  isStaffModule.value ? 'staff-form-dialog' : ''
 ])
 const detailDialogClass = computed(() => [
   'special-dialog',
@@ -1143,18 +1166,23 @@ const searchOptions = (field) => normalizeFieldOptions(field.options || [])
 const formOptions = (field) => normalizeFieldOptions(field.options || [])
 const customerRequiredFields = ['name', 'contact', 'phone', 'address', 'customerType']
 const customerFormOrder = ['name', 'customerType', 'contact', 'phone', 'sales', 'payAccount', 'address', 'remark']
+const requiredFieldMap = {
+  customers: customerRequiredFields,
+  staff: ['name', 'phone', 'loginPassword', 'department', 'role']
+}
 const displayFormFields = computed(() => {
   if (!isCustomerModule.value) return profile.formFields
   const fieldsByKey = new Map(profile.formFields.map((field) => [field.key, field]))
   return customerFormOrder.map((key) => fieldsByKey.get(key)).filter(Boolean)
 })
-const isRequiredField = (field) => isCustomerModule.value && customerRequiredFields.includes(field.key)
+const isRequiredField = (field) => (requiredFieldMap[props.moduleKey] || []).includes(field.key)
 const formPlaceholder = (field) => {
-  if (!isCustomerModule.value) return `${field.type === 'select' ? '请选择' : '请输入'}${field.label}`
+  if (!isCustomerModule.value && !isStaffModule.value) return `${field.type === 'select' ? '请选择' : '请输入'}${field.label}`
   if (field.type === 'select') {
     if (field.key === 'sales') return '请选择（边输边搜）'
     return '请选择'
   }
+  if (field.type === 'date') return '年/月/日'
   return '输入'
 }
 const customerDetailTabs = computed(() => {
@@ -1186,7 +1214,7 @@ const handleRowAction = (row, action) => {
   if (action === '详情') return openDetail(row)
   if (action === '编辑') return openEdit(row)
   if (action === '打印') return notify('打印模板已预留')
-  if (action === '重置密码') return notify(`已为 ${row.name || row.customer || row.orderNo || '当前记录'} 预留重置密码流程`)
+  if (action === '重置密码') return openResetPassword(row)
   return notify(`${action} 功能已预留`)
 }
 
@@ -1386,7 +1414,10 @@ onMounted(loadRows)
           v-for="field in displayFormFields"
           :key="field.key"
           class="form-item"
-          :class="{ 'form-item--full': field.type === 'textarea' || (isCustomerModule && field.key === 'address') }"
+          :class="{
+            'form-item--full': field.type === 'textarea' || (isCustomerModule && field.key === 'address'),
+            'form-item--wide': isStaffModule && field.key === 'role'
+          }"
         >
           <p><span v-if="isRequiredField(field)">*</span>{{ field.label }}</p>
           <el-select v-if="field.type === 'select'" v-model="formState[field.key]" :placeholder="formPlaceholder(field)">
@@ -1555,6 +1586,25 @@ onMounted(loadRows)
       <template #footer>
         <el-button @click="detailVisible = false">返回</el-button>
         <el-button type="primary" @click="openEdit(currentRow); detailVisible = false">编辑</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="resetPasswordVisible"
+      title="重置密码"
+      width="760px"
+      class="special-dialog reset-password-dialog"
+      :close-on-click-modal="false"
+    >
+      <div class="reset-password-form">
+        <label>
+          <span>*新密码</span>
+          <el-input v-model="resetPasswordForm.password" placeholder="输入" show-password />
+        </label>
+      </div>
+      <template #footer>
+        <el-button @click="resetPasswordVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmResetPassword">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -1945,8 +1995,9 @@ onMounted(loadRows)
 }
 
 :deep(.customer-form-dialog.el-dialog),
-:deep(.customer-detail-dialog.el-dialog) {
-  width: min(1280px, calc(100vw - 160px)) !important;
+:deep(.customer-detail-dialog.el-dialog),
+:deep(.staff-form-dialog.el-dialog) {
+  width: min(1280px, calc(100vw - 88px)) !important;
 }
 
 :deep(.special-dialog .el-dialog__header) {
@@ -2006,6 +2057,10 @@ onMounted(loadRows)
   grid-column: 1 / -1;
 }
 
+.form-item--wide {
+  grid-column: span 2;
+}
+
 :deep(.special-form-dialog .el-input),
 :deep(.special-form-dialog .el-select),
 :deep(.special-form-dialog .el-date-editor.el-input) {
@@ -2037,12 +2092,14 @@ onMounted(loadRows)
 }
 
 :deep(.customer-form-dialog .el-dialog__body),
-:deep(.customer-detail-dialog .el-dialog__body) {
+:deep(.customer-detail-dialog .el-dialog__body),
+:deep(.staff-form-dialog .el-dialog__body) {
   background: #f7f7f7;
 }
 
 :deep(.customer-form-dialog .el-dialog__footer),
-:deep(.customer-detail-dialog .el-dialog__footer) {
+:deep(.customer-detail-dialog .el-dialog__footer),
+:deep(.staff-form-dialog .el-dialog__footer) {
   background: #ffffff;
 }
 
@@ -2178,6 +2235,91 @@ onMounted(loadRows)
   height: 68px;
   color: #111111;
   font-size: 19px;
+}
+
+.staff-form-dialog .form-grid {
+  padding: 34px 38px 42px;
+  border-radius: 8px;
+  background: #ffffff;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px 42px;
+}
+
+.staff-form-dialog .form-item p {
+  color: #4b5870;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.staff-form-dialog .form-item p span {
+  color: inherit;
+}
+
+.staff-form-dialog .form-item--full {
+  grid-column: 1 / -1;
+}
+
+.staff-form-dialog .form-item--wide {
+  grid-column: 1 / -1;
+}
+
+:deep(.staff-form-dialog .el-input),
+:deep(.staff-form-dialog .el-select),
+:deep(.staff-form-dialog .el-date-editor.el-input),
+:deep(.reset-password-dialog .el-input) {
+  --el-input-height: 66px;
+  font-size: 22px;
+}
+
+:deep(.staff-form-dialog .el-input__wrapper),
+:deep(.staff-form-dialog .el-select__wrapper),
+:deep(.reset-password-dialog .el-input__wrapper) {
+  min-height: 66px;
+  border-radius: 0;
+  background: #f5f6f8;
+}
+
+:deep(.staff-form-dialog .el-input__inner::placeholder),
+:deep(.staff-form-dialog .el-select__placeholder),
+:deep(.reset-password-dialog .el-input__inner::placeholder) {
+  color: #b9b9b9;
+}
+
+:deep(.staff-form-dialog .el-radio-group),
+:deep(.staff-form-dialog .el-checkbox-group) {
+  min-height: 66px;
+  align-items: center;
+  gap: 28px;
+  font-size: 22px;
+}
+
+:deep(.staff-form-dialog .el-radio__label),
+:deep(.staff-form-dialog .el-checkbox__label) {
+  color: #333333;
+  font-size: 22px;
+}
+
+:deep(.staff-form-dialog .el-checkbox__inner),
+:deep(.staff-form-dialog .el-radio__inner) {
+  width: 24px;
+  height: 24px;
+}
+
+.reset-password-form {
+  display: grid;
+  gap: 28px;
+  padding: 20px 4px 40px;
+}
+
+.reset-password-form label {
+  display: grid;
+  gap: 12px;
+}
+
+.reset-password-form span {
+  color: #4b5870;
+  font-size: 22px;
+  font-weight: 700;
 }
 
 .section-stack {
