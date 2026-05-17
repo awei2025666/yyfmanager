@@ -553,6 +553,9 @@ const createConfigProfile = (moduleKey, overrides = {}) => {
     detailHighlights: overrides.detailHighlights || [],
     summaryText: overrides.summaryText || config.summaryText || '',
     dialogWidth: config.dialogWidth || '920px',
+    treeKey: config.treeKey,
+    treeTitle: config.treeTitle,
+    treeData: config.treeData || [],
     searchFields: (config.searchFields || []).map((field) => ({
       ...field,
       key: field.key,
@@ -1006,6 +1009,7 @@ const resetPasswordVisible = ref(false)
 const resetPasswordForm = reactive({
   password: ''
 })
+const treeSearch = ref('')
 const formState = reactive({})
 const sequence = ref(1)
 const state = reactive({
@@ -1063,6 +1067,23 @@ const activeFilters = computed(() =>
     }))
     .filter((item) => item.value !== '' && item.value !== null && item.value !== undefined)
 )
+const hasTreePanel = computed(() => Boolean(profile.treeData?.length && profile.treeKey))
+const currentTreeValue = computed(() => filters[profile.treeKey] || '全部')
+const visibleTreeNodes = computed(() => {
+  const keyword = treeSearch.value.trim()
+  if (!keyword) return profile.treeData || []
+
+  const matchNode = (node) => {
+    const selfMatched = String(node.label || '').includes(keyword)
+    const children = (node.children || []).filter(matchNode)
+    if (selfMatched || children.length) {
+      return { ...node, children }
+    }
+    return null
+  }
+
+  return (profile.treeData || []).map(matchNode).filter(Boolean)
+})
 
 const resetFilters = () => {
   Object.keys(filters).forEach((key) => {
@@ -1074,6 +1095,12 @@ const resetFilters = () => {
 
 const clearFilter = (key) => {
   filters[key] = ''
+  state.pageNum = 1
+  loadRows()
+}
+
+const selectTreeNode = (node) => {
+  filters[profile.treeKey] = node.value === '全部' ? '' : node.value
   state.pageNum = 1
   loadRows()
 }
@@ -1287,120 +1314,154 @@ onMounted(loadRows)
       </article>
     </section>
 
-    <PageBlock class="search-card">
-      <div class="search-grid">
-        <label v-for="field in profile.searchFields" :key="field.key" class="search-item">
-          <span>{{ field.label }}</span>
-          <el-select
-            v-if="field.type === 'select'"
-            v-model="filters[field.key]"
-            clearable
-            :placeholder="`请选择${field.label}`"
-          >
-            <el-option
-              v-for="option in searchOptions(field)"
-              :key="`${field.key}-${option.value}`"
-              :label="option.label"
-              :value="option.value"
-            />
-          </el-select>
-          <el-date-picker
-            v-else-if="field.type === 'date'"
-            v-model="filters[field.key]"
-            type="date"
-            value-format="YYYY-MM-DD"
-            :placeholder="`请选择${field.label}`"
-          />
-          <el-input v-else v-model="filters[field.key]" :placeholder="`请输入${field.label}`" />
-        </label>
-      </div>
-
-      <div class="toolbar search-toolbar">
-        <div class="toolbar__right">
-          <el-button type="primary" :icon="Search" @click="loadRows">查询</el-button>
-          <el-button :icon="Refresh" @click="resetFilters">重置</el-button>
+    <div class="module-grid" :class="{ 'module-grid--tree': hasTreePanel }">
+      <PageBlock v-if="hasTreePanel" class="tree-card">
+        <div class="tree-search">
+          <strong>{{ profile.treeTitle || '部门名称' }}</strong>
+          <el-input v-model="treeSearch" placeholder="请输入" :suffix-icon="Search" />
         </div>
-      </div>
-    </PageBlock>
-
-    <PageBlock class="table-card">
-      <div class="toolbar list-toolbar">
-        <div class="toolbar__left">
-          <el-button type="primary" :icon="Plus" @click="openCreate">
-            {{ profile.createText }}
-          </el-button>
-          <el-button v-if="profile.secondaryActionText" plain @click="notify('已准备导出模板')">{{ profile.secondaryActionText }}</el-button>
-        </div>
-      </div>
-
-      <div class="result-bar">
-        <strong>共 {{ filteredRows.length }} 条数据</strong>
-        <span>{{ profile.tableHint }} ｜ 当前数据源：真实接口</span>
-        <div v-if="profile.workflows?.length" class="result-pills">
-          <em v-for="item in profile.workflows" :key="item">{{ item }}</em>
-        </div>
-      </div>
-
-      <div v-if="activeFilters.length" class="filter-tags">
-        <span class="filter-tags__label">当前筛选</span>
-        <el-tag
-          v-for="item in activeFilters"
-          :key="item.key"
-          closable
-          effect="plain"
-          @close="clearFilter(item.key)"
-        >
-          {{ item.label }}：{{ item.value }}
-        </el-tag>
-      </div>
-
-      <div v-if="summaryText" class="summary-band" :class="themeClass">
-        {{ summaryText }}
-      </div>
-
-      <el-table v-loading="state.loading" :data="pagedRows" class="special-table" empty-text="当前筛选下暂无数据">
-        <el-table-column
-          v-for="column in profile.columns"
-          :key="column.key"
-          :prop="column.key"
-          :label="column.label"
-          min-width="132"
-          show-overflow-tooltip
-        >
-          <template #default="{ row }">
-            <el-tag v-if="column.tag" :type="tagType(row[column.key])">{{ row[column.key] }}</el-tag>
-            <el-tag v-else-if="column.switch" :type="formatCell(column, row) === '启用' ? 'success' : 'danger'">
-              {{ formatCell(column, row) }}
-            </el-tag>
-            <span v-else>{{ formatCell(column, row) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" fixed="right" min-width="180">
-          <template #default="{ row }">
-            <el-button
-              v-for="action in rowActions"
-              :key="action"
-              link
-              :type="action === '编辑' ? 'warning' : action === '打印' ? 'success' : 'primary'"
-              @click="handleRowAction(row, action)"
+        <div class="tree-list">
+          <div v-for="node in visibleTreeNodes" :key="node.value" class="tree-node">
+            <button
+              type="button"
+              class="tree-node__label"
+              :class="{ active: currentTreeValue === node.value }"
+              @click="selectTreeNode(node)"
             >
-              {{ action }}
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+              <span>▶</span>{{ node.label }}
+              <em v-if="node.children?.length">⌃</em>
+            </button>
+            <button
+              v-for="child in node.children || []"
+              :key="child.value"
+              type="button"
+              class="tree-node__child"
+              :class="{ active: currentTreeValue === child.value }"
+              @click="selectTreeNode(child)"
+            >
+              {{ child.label }}
+            </button>
+          </div>
+        </div>
+      </PageBlock>
 
-      <div class="pagination-wrap">
-        <el-pagination
-          v-model:current-page="state.pageNum"
-          v-model:page-size="state.pageSize"
-          background
-          layout="total, prev, pager, next, sizes"
-          :page-sizes="[10, 20, 30, 50]"
-          :total="filteredRows.length"
-        />
+      <div class="module-main">
+        <PageBlock class="search-card">
+          <div class="search-grid">
+            <label v-for="field in profile.searchFields" :key="field.key" class="search-item">
+              <span>{{ field.label }}</span>
+              <el-select
+                v-if="field.type === 'select'"
+                v-model="filters[field.key]"
+                clearable
+                :placeholder="`请选择${field.label}`"
+              >
+                <el-option
+                  v-for="option in searchOptions(field)"
+                  :key="`${field.key}-${option.value}`"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+              <el-date-picker
+                v-else-if="field.type === 'date'"
+                v-model="filters[field.key]"
+                type="date"
+                value-format="YYYY-MM-DD"
+                :placeholder="`请选择${field.label}`"
+              />
+              <el-input v-else v-model="filters[field.key]" :placeholder="`请输入${field.label}`" />
+            </label>
+          </div>
+
+          <div class="toolbar search-toolbar">
+            <div class="toolbar__right">
+              <el-button type="primary" :icon="Search" @click="loadRows">查询</el-button>
+              <el-button :icon="Refresh" @click="resetFilters">重置</el-button>
+            </div>
+          </div>
+        </PageBlock>
+
+        <PageBlock class="table-card">
+          <div class="toolbar list-toolbar">
+            <div class="toolbar__left">
+              <el-button type="primary" :icon="Plus" @click="openCreate">
+                {{ profile.createText }}
+              </el-button>
+              <el-button v-if="profile.secondaryActionText" plain @click="notify('已准备导出模板')">{{ profile.secondaryActionText }}</el-button>
+            </div>
+          </div>
+
+          <div class="result-bar">
+            <strong>共 {{ filteredRows.length }} 条数据</strong>
+            <span>{{ profile.tableHint }} ｜ 当前数据源：真实接口</span>
+            <div v-if="profile.workflows?.length" class="result-pills">
+              <em v-for="item in profile.workflows" :key="item">{{ item }}</em>
+            </div>
+          </div>
+
+          <div v-if="activeFilters.length" class="filter-tags">
+            <span class="filter-tags__label">当前筛选</span>
+            <el-tag
+              v-for="item in activeFilters"
+              :key="item.key"
+              closable
+              effect="plain"
+              @close="clearFilter(item.key)"
+            >
+              {{ item.label }}：{{ item.value }}
+            </el-tag>
+          </div>
+
+          <div v-if="summaryText" class="summary-band" :class="themeClass">
+            {{ summaryText }}
+          </div>
+
+          <el-table v-loading="state.loading" :data="pagedRows" class="special-table" empty-text="当前筛选下暂无数据">
+            <el-table-column
+              v-for="column in profile.columns"
+              :key="column.key"
+              :prop="column.key"
+              :label="column.label"
+              min-width="132"
+              show-overflow-tooltip
+            >
+              <template #default="{ row }">
+                <el-tag v-if="column.tag" :type="tagType(row[column.key])">{{ row[column.key] }}</el-tag>
+                <el-tag v-else-if="column.switch" :type="formatCell(column, row) === '启用' ? 'success' : 'danger'">
+                  {{ formatCell(column, row) }}
+                </el-tag>
+                <span v-else>{{ formatCell(column, row) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" fixed="right" min-width="180">
+              <template #default="{ row }">
+                <el-button
+                  v-for="action in rowActions"
+                  :key="action"
+                  link
+                  :type="action === '编辑' ? 'warning' : action === '打印' ? 'success' : 'primary'"
+                  @click="handleRowAction(row, action)"
+                >
+                  {{ action }}
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="pagination-wrap">
+            <el-pagination
+              v-model:current-page="state.pageNum"
+              v-model:page-size="state.pageSize"
+              background
+              layout="total, prev, pager, next, sizes"
+              :page-sizes="[10, 20, 30, 50]"
+              :total="filteredRows.length"
+            />
+          </div>
+        </PageBlock>
       </div>
-    </PageBlock>
+    </div>
 
     <el-dialog
       v-model="dialogVisible"
@@ -1671,6 +1732,113 @@ onMounted(loadRows)
   font-size: 12px;
 }
 
+.module-grid {
+  display: grid;
+  gap: 22px;
+}
+
+.module-grid--tree {
+  grid-template-columns: minmax(300px, 392px) minmax(0, 1fr);
+  align-items: start;
+}
+
+.module-main {
+  min-width: 0;
+  display: grid;
+  gap: 22px;
+}
+
+.module-main > * {
+  min-width: 0;
+}
+
+.tree-card {
+  min-height: 720px;
+}
+
+.tree-card :deep(.page-block__body) {
+  padding: 38px 28px;
+}
+
+.tree-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 22px;
+  padding: 0 0 30px;
+  border-bottom: 1px solid #a8a8a8;
+}
+
+.tree-search strong {
+  color: #111111;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.tree-search :deep(.el-input) {
+  --el-input-height: 56px;
+  font-size: 22px;
+}
+
+.tree-search :deep(.el-input__wrapper) {
+  border-radius: 6px;
+  background: #f5f6f8;
+  box-shadow: none;
+}
+
+.tree-list {
+  display: grid;
+  gap: 4px;
+  padding-top: 44px;
+}
+
+.tree-node {
+  display: grid;
+  gap: 0;
+}
+
+.tree-node__label,
+.tree-node__child {
+  width: 100%;
+  min-height: 68px;
+  border: 0;
+  background: transparent;
+  color: #4b4b4b;
+  text-align: left;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.tree-node__label {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 0 24px;
+  color: #1f66ff;
+}
+
+.tree-node__label span {
+  font-size: 22px;
+}
+
+.tree-node__label em {
+  margin-left: auto;
+  color: #1f66ff;
+  font-style: normal;
+  font-size: 30px;
+  line-height: 1;
+}
+
+.tree-node__child {
+  padding: 0 24px 0 112px;
+}
+
+.tree-node__label.active,
+.tree-node__child.active {
+  background: #e9eef7;
+  color: #1f66ff;
+}
+
 .hero-card {
   padding: 22px;
   border-radius: 26px;
@@ -1891,6 +2059,72 @@ onMounted(loadRows)
 
 .search-toolbar .toolbar__right {
   margin-left: 0;
+}
+
+.module-grid--tree .search-card :deep(.page-block__body) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 36px;
+  padding: 36px 42px;
+}
+
+.module-grid--tree .search-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 0;
+}
+
+.module-grid--tree .search-toolbar {
+  margin-bottom: 0;
+}
+
+.module-grid--tree .table-card :deep(.page-block__body) {
+  min-height: 564px;
+  padding: 36px 42px 42px;
+}
+
+.module-grid--tree .special-table :deep(.el-table__header th) {
+  height: 68px;
+  background: #f1f2f4 !important;
+  color: #111111;
+  font-size: 20px;
+}
+
+.module-grid--tree .special-table :deep(.el-table__body td) {
+  height: 68px;
+  color: #111111;
+  font-size: 19px;
+}
+
+@media (max-width: 1320px) {
+  .module-grid--tree {
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .module-grid--tree .search-card :deep(.page-block__body) {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 30px 34px;
+  }
+
+  .module-grid--tree .search-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+  }
+
+  .tree-card :deep(.page-block__body) {
+    padding: 32px 24px;
+  }
+
+  .tree-search {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .tree-node__child {
+    padding-left: 72px;
+  }
 }
 
 .list-toolbar {
@@ -2445,7 +2679,7 @@ onMounted(loadRows)
   color: #667085;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 860px) {
   .hero-grid,
   .workflow-strip,
   .overview-panels,

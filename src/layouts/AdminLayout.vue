@@ -403,7 +403,7 @@ const logout = () => {
   padding: 0 36px;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 860px) {
   .admin-shell {
     grid-template-columns: 1fr;
   }
