@@ -13,7 +13,6 @@ import {
   Memo,
   OfficeBuilding,
   Setting,
-  ShoppingCart,
   SwitchButton,
   Tickets,
   User,
@@ -26,38 +25,74 @@ const router = useRouter()
 
 const menus = [
   { name: 'dashboard', label: '工作台', icon: DataBoard },
-  { name: 'tenants', label: '会员管理', icon: OfficeBuilding },
-  { name: 'packages', label: '套餐管理', icon: Files },
-  { name: 'orders', label: '订单管理', icon: ShoppingCart },
-  { name: 'crafts', label: '工艺管理', icon: Setting },
-  { name: 'customers', label: '合作客户', icon: User },
-  { name: 'staff', label: '人员管理', icon: User },
-  { name: 'organization', label: '组织架构', icon: Fold },
-  { name: 'roles', label: '角色管理', icon: Tickets },
-  { name: 'durationPurchases', label: '购买时长', icon: Coin },
-  { name: 'materials', label: '耗材信息', icon: Goods },
-  { name: 'materialStock', label: '耗材库存', icon: Goods },
-  { name: 'materialDetails', label: '耗材明细', icon: DocumentCopy },
-  { name: 'craftStats', label: '工艺统计', icon: Histogram },
-  { name: 'craftPerformance', label: '工艺绩效', icon: Histogram },
-  { name: 'billingPerformance', label: '开单绩效', icon: Histogram },
-  { name: 'deliveryPerformance', label: '配送绩效', icon: Histogram },
-  { name: 'accounts', label: '账户列表', icon: Wallet },
-  { name: 'fundDetails', label: '资金明细', icon: Wallet },
-  { name: 'receivableOrders', label: '应收账款-订单明细', icon: Memo },
-  { name: 'receivableUnits', label: '应收账款-单位明细', icon: Memo },
-  { name: 'manualRecords', label: '手工记录', icon: List },
-  { name: 'reimbursements', label: '报销列表', icon: Memo },
-  { name: 'receipts', label: '收款信息', icon: Wallet },
-  { name: 'productCrafts', label: '产品工艺', icon: Setting },
-  { name: 'productCraftsOutsource', label: '产品工艺-外协', icon: Setting },
-  { name: 'outsourceIncoming', label: '外协订单-转入的', icon: DocumentCopy },
-  { name: 'outsourceOutgoing', label: '外协订单-转出的', icon: DocumentCopy },
-  { name: 'deliveryNotes', label: '配送单', icon: Van }
+  { name: 'customers', label: '合作客户', icon: OfficeBuilding },
+  { name: 'orders', label: '订单管理', icon: DocumentCopy },
+  { name: 'productCrafts', label: '产品工艺', icon: Tickets },
+  {
+    label: '外协管理',
+    icon: List,
+    children: [
+      { name: 'deliveryNotes', label: '配送单', icon: Van },
+      { name: 'outsourceIncoming', label: '外协订单-转入的', icon: DocumentCopy },
+      { name: 'outsourceOutgoing', label: '外协订单-转出的', icon: DocumentCopy },
+      { name: 'productCraftsOutsource', label: '产品工艺-外协', icon: Setting }
+    ]
+  },
+  {
+    label: '账务管理',
+    icon: Wallet,
+    children: [
+      { name: 'accounts', label: '账户列表', icon: Wallet },
+      { name: 'fundDetails', label: '资金明细', icon: Wallet },
+      { name: 'receivableOrders', label: '应收账款-订单明细', icon: Memo },
+      { name: 'receivableUnits', label: '应收账款-单位明细', icon: Memo },
+      { name: 'receipts', label: '收款信息', icon: Wallet },
+      { name: 'reimbursements', label: '报销列表', icon: Memo }
+    ]
+  },
+  {
+    label: '耗材管理',
+    icon: Goods,
+    children: [
+      { name: 'materials', label: '耗材信息', icon: Goods },
+      { name: 'materialStock', label: '耗材库存', icon: Goods },
+      { name: 'materialDetails', label: '耗材明细', icon: DocumentCopy }
+    ]
+  },
+  { name: 'manualRecords', label: '手工记录', icon: Files },
+  {
+    label: '数据统计',
+    icon: Histogram,
+    children: [
+      { name: 'craftStats', label: '工艺统计', icon: Histogram },
+      { name: 'craftPerformance', label: '工艺绩效', icon: Histogram },
+      { name: 'billingPerformance', label: '开单绩效', icon: Histogram },
+      { name: 'deliveryPerformance', label: '配送绩效', icon: Histogram }
+    ]
+  },
+  { name: 'crafts', label: '工艺管理', icon: Fold },
+  {
+    label: '系统管理',
+    icon: Setting,
+    children: [
+      { name: 'staff', label: '人员管理', icon: User },
+      { name: 'organization', label: '组织架构', icon: Fold },
+      { name: 'roles', label: '角色管理', icon: Tickets },
+      { name: 'tenants', label: '会员管理', icon: User },
+      { name: 'packages', label: '套餐管理', icon: Files },
+      { name: 'durationPurchases', label: '购买时长', icon: Coin }
+    ]
+  }
 ]
 
+const flatMenus = computed(() => menus.flatMap((item) => item.children || [item]))
+
 const activeTitle = computed(
-  () => menus.find((item) => item.name === route.name)?.label || route.meta.title || '平台管理'
+  () => {
+    if (route.name === 'orders' && route.query.mode === 'create') return '添加订单'
+    if (route.name === 'orders' && route.query.mode === 'detail') return '订单详情'
+    return flatMenus.value.find((item) => item.name === route.name)?.label || route.meta.title || '平台管理'
+  }
 )
 const currentAccount = computed(() => localStorage.getItem('platform_account') || 'admin')
 
@@ -79,19 +114,35 @@ const logout = () => {
       </div>
 
       <nav class="nav-list">
-        <router-link
-          v-for="item in menus"
-          :key="item.name"
-          :to="{ name: item.name }"
-          class="nav-item"
-          :class="{ active: route.name === item.name }"
-        >
-          <el-icon><component :is="item.icon" /></el-icon>
-          <span>{{ item.label }}</span>
-        </router-link>
+        <template v-for="item in menus" :key="item.name || item.label">
+          <router-link
+            v-if="item.name"
+            :to="{ name: item.name }"
+            class="nav-item"
+            :class="{ active: route.name === item.name }"
+          >
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.label }}</span>
+          </router-link>
+          <div v-else class="nav-group" :class="{ active: item.children?.some((child) => child.name === route.name) }">
+            <div class="nav-item nav-item--group">
+              <el-icon><component :is="item.icon" /></el-icon>
+              <span>{{ item.label }}</span>
+              <span class="nav-chevron">⌄</span>
+            </div>
+            <router-link
+              v-for="child in item.children"
+              :key="child.name"
+              :to="{ name: child.name }"
+              class="nav-subitem"
+              :class="{ active: route.name === child.name }"
+            >
+              <el-icon><component :is="child.icon" /></el-icon>
+              <span>{{ child.label }}</span>
+            </router-link>
+          </div>
+        </template>
       </nav>
-
-      <div class="sidebar-panel">系统管理</div>
     </aside>
 
     <div class="admin-main">
@@ -110,7 +161,7 @@ const logout = () => {
         <button class="tab active">{{ activeTitle }} <span>×</span></button>
       </div>
 
-      <router-view :key="route.fullPath" />
+      <router-view :key="route.name" />
     </div>
   </div>
 </template>
@@ -132,7 +183,7 @@ const logout = () => {
   flex-direction: column;
   gap: 18px;
   height: 100vh;
-  padding: 28px 22px;
+  padding: 58px 34px 36px;
   border-radius: 0;
   background: #2f3032;
   color: #e8e8e8;
@@ -144,7 +195,7 @@ const logout = () => {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 4px 4px 34px;
+  padding: 0 0 54px;
   border-radius: 0;
   background: transparent;
 }
@@ -180,7 +231,7 @@ const logout = () => {
 
 .nav-list {
   display: grid;
-  gap: 14px;
+  gap: 30px;
   overflow: auto;
   padding-right: 6px;
 }
@@ -188,8 +239,8 @@ const logout = () => {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 18px;
-  min-height: 52px;
+  gap: 28px;
+  min-height: 56px;
   padding: 8px 0;
   border-radius: 0;
   color: #d4d4d4;
@@ -200,8 +251,8 @@ const logout = () => {
 }
 
 .nav-item .el-icon {
-  width: 34px;
-  font-size: 22px;
+  width: 38px;
+  font-size: 30px;
 }
 
 .nav-item.active,
@@ -211,14 +262,46 @@ const logout = () => {
   box-shadow: none;
 }
 
-.sidebar-panel {
-  margin-top: auto;
+.nav-group {
+  display: grid;
+  gap: 26px;
+}
+
+.nav-item--group {
+  cursor: default;
+}
+
+.nav-group.active > .nav-item--group {
+  color: #fff;
+}
+
+.nav-chevron {
+  margin-left: auto;
+  color: #d8d8d8;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.nav-subitem {
   display: flex;
   align-items: center;
-  min-height: 52px;
+  gap: 22px;
+  min-height: 48px;
+  padding-left: 0;
   color: #d4d4d4;
-  font-size: 22px;
+  text-decoration: none;
+  font-size: 20px;
   font-weight: 600;
+}
+
+.nav-subitem .el-icon {
+  width: 38px;
+  font-size: 24px;
+}
+
+.nav-subitem.active,
+.nav-subitem:hover {
+  color: #fff;
 }
 
 .admin-main {

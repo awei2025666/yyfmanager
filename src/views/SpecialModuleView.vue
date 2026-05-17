@@ -1183,7 +1183,7 @@ onMounted(loadRows)
       </article>
     </section>
 
-    <PageBlock :title="profile.title" :subtitle="profile.subtitle">
+    <PageBlock class="search-card">
       <div class="search-grid">
         <label v-for="field in profile.searchFields" :key="field.key" class="search-item">
           <span>{{ field.label }}</span>
@@ -1211,16 +1211,21 @@ onMounted(loadRows)
         </label>
       </div>
 
-      <div class="toolbar">
+      <div class="toolbar search-toolbar">
+        <div class="toolbar__right">
+          <el-button type="primary" :icon="Search" @click="loadRows">查询</el-button>
+          <el-button :icon="Refresh" @click="resetFilters">重置</el-button>
+        </div>
+      </div>
+    </PageBlock>
+
+    <PageBlock class="table-card">
+      <div class="toolbar list-toolbar">
         <div class="toolbar__left">
           <el-button type="primary" :icon="Plus" @click="openCreate">
             {{ profile.createText }}
           </el-button>
-          <el-button plain @click="notify('已准备导出模板')">{{ profile.secondaryActionText }}</el-button>
-        </div>
-        <div class="toolbar__right">
-          <el-button type="primary" :icon="Search" @click="loadRows">查询</el-button>
-          <el-button :icon="Refresh" @click="resetFilters">重置</el-button>
+          <el-button v-if="profile.secondaryActionText" plain @click="notify('已准备导出模板')">{{ profile.secondaryActionText }}</el-button>
         </div>
       </div>
 
@@ -1651,7 +1656,7 @@ onMounted(loadRows)
   display: grid;
   grid-template-columns: repeat(4, minmax(180px, 1fr));
   gap: 26px 42px;
-  margin-bottom: 34px;
+  margin-bottom: 28px;
 }
 
 .search-item {
@@ -1679,6 +1684,27 @@ onMounted(loadRows)
   margin-bottom: 34px;
 }
 
+.search-card :deep(.page-block__body) {
+  padding: 40px 54px;
+}
+
+.table-card :deep(.page-block__body) {
+  padding: 38px 54px 46px;
+}
+
+.search-toolbar {
+  justify-content: flex-start;
+  margin-bottom: 0;
+}
+
+.search-toolbar .toolbar__right {
+  margin-left: 0;
+}
+
+.list-toolbar {
+  justify-content: flex-start;
+}
+
 .toolbar__left,
 .toolbar__right {
   display: flex;
@@ -1688,11 +1714,7 @@ onMounted(loadRows)
 }
 
 .result-bar {
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: #f8fbff;
-  border: 1px solid rgba(219, 234, 254, 0.95);
+  display: none;
 }
 
 .result-bar strong {

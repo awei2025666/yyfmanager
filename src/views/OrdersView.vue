@@ -1,9 +1,13 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Printer, Refresh, Search } from '@element-plus/icons-vue'
 import PageBlock from '../components/PageBlock.vue'
 import { getOrderList, getOrderTotal } from '../api/platform'
+
+const route = useRoute()
+const router = useRouter()
 
 const filters = reactive({
   pageNum: 1,
@@ -24,6 +28,8 @@ const rejectVisible = ref(false)
 const currentRecord = ref(null)
 const approvalRemark = ref('')
 const rejectRemark = ref('')
+const viewMode = ref(route.query.mode === 'create' ? 'form' : 'list')
+const currentStep = ref(1)
 
 const formState = reactive({
   id: null,
@@ -132,8 +138,81 @@ const localCards = computed(() => [
   { label: '已完成', value: rows.value.filter((item) => item.status === 6).length },
   { label: '已驳回', value: rows.value.filter((item) => item.status === 7).length }
 ])
+const orderStepItems = computed(() => [
+  { step: 1, label: '订单信息', done: currentStep.value > 1 },
+  { step: 2, label: '产品信息', done: currentStep.value > 2 },
+  { step: 3, label: '工艺信息', done: false }
+])
+const productRows = computed(() => currentRecord.value?.products?.length ? currentRecord.value.products : [
+  {
+    productName: formState.productInfo || '【颜色鲜艳】经汇-沃柑370*260、自带大度128克铜板345张',
+    finishedSpec: '--',
+    quantity: 2000,
+    unit: '张',
+    amount: 200
+  },
+  {
+    productName: '国学经典智慧封面',
+    finishedSpec: '--',
+    quantity: 1000,
+    unit: '张',
+    amount: 200
+  }
+])
+const craftRows = computed(() => currentRecord.value?.crafts?.length ? currentRecord.value.crafts : [
+  {
+    productName: '【颜色鲜艳】经汇-沃柑370*260、自带大度128克铜板345张',
+    craftName: '四色印刷',
+    spec: 'xxx',
+    openNum: 2000,
+    startPrice: '张',
+    finishNum: 20,
+    unit: '千印',
+    price: 200,
+    customerAmount: 1000,
+    remark: '加急'
+  },
+  {
+    productName: '国学经典智慧封面',
+    craftName: '双面印刷',
+    spec: 'xxx',
+    openNum: 1000,
+    startPrice: '张',
+    finishNum: 10,
+    unit: '千印',
+    price: 100,
+    customerAmount: 500,
+    remark: '无'
+  }
+])
+const detailInfo = computed(() => {
+  const row = currentRecord.value || formState
+  return [
+    { label: '订单号', value: row.orderId || '20260329001' },
+    { label: '单位名称', value: row.tenantName || '成都龙泉驿古月良品广告' },
+    { label: '联系人', value: row.userName || '丽丽' },
+    { label: '联系方式', value: row.userPhone || '1556246752' },
+    { label: '送货地址', value: row.address || '四川省成都市龙泉驿区万源路317号', wide: true },
+    { label: '交货日期', value: row.createTime || '2026-04-01 12:00:00' },
+    { label: '交货方式', value: row.deliveryType || '自提' },
+    { label: '印刷要求', value: row.remark || '无' },
+    { label: '备注', value: row.remark || '无' }
+  ]
+})
 
 const formatMoney = (value) => `¥${new Intl.NumberFormat('zh-CN').format(Number(value || 0).toFixed ? Number(value || 0) : value)}`
+
+const setOrderMode = (mode) => {
+  viewMode.value = mode
+  requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }))
+  const query = { ...route.query }
+  if (mode === 'list') {
+    delete query.mode
+  } else {
+    query.mode = mode === 'form' ? 'create' : mode
+  }
+  router.replace({ name: 'orders', query })
+}
 
 const resetFilters = () => {
   Object.assign(filters, {
@@ -192,12 +271,16 @@ const openAdd = () => {
     printCode: '--',
     remark: ''
   })
-  editVisible.value = true
+  currentStep.value = 1
+  setOrderMode('form')
+  editVisible.value = false
 }
 
 const openEdit = (row) => {
   Object.assign(formState, JSON.parse(JSON.stringify(row)))
-  editVisible.value = true
+  currentStep.value = 1
+  setOrderMode('form')
+  editVisible.value = false
 }
 
 const saveOrder = () => {
@@ -216,15 +299,21 @@ const saveOrder = () => {
     })
   }
   editVisible.value = false
+  setOrderMode('list')
   ElMessage.success('订单已保存')
 }
 
 const openDetail = (row) => {
   currentRecord.value = JSON.parse(JSON.stringify(row))
-  detailVisible.value = true
+  detailVisible.value = false
+  setOrderMode('detail')
 }
 
 const printOrder = () => ElMessage.success('已发送到打印队列')
+
+watch(currentStep, () => {
+  requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0 }))
+})
 
 const removeOrder = async (row) => {
   await ElMessageBox.confirm(`确认删除订单 ${row.orderId} 吗？`, '删除确认', { type: 'warning' })
@@ -302,7 +391,7 @@ onMounted(loadData)
 
 <template>
   <div class="page-stack">
-    <section class="summary-grid">
+    <section v-if="viewMode === 'list'" class="summary-grid">
       <article class="summary-card">
         <p>订单数合计</p>
         <strong>{{ stats.orderTotal }}</strong>
@@ -321,29 +410,45 @@ onMounted(loadData)
       </article>
     </section>
 
-    <PageBlock title="订单管理" subtitle="按原稿细化后的订单中心">
-      <template #extra>
-        <div class="toolbar-actions">
-          <span class="source-pill">真实接口</span>
-          <el-button :icon="Refresh" @click="loadData">刷新</el-button>
-          <el-button type="primary" :icon="Plus" @click="openAdd">添加</el-button>
-          <div class="auto-approve">
-            <span>自动审批</span>
-            <el-switch v-model="autoApprove" />
-          </div>
-        </div>
-      </template>
-
+    <PageBlock v-if="viewMode === 'list'" class="filter-card">
       <div class="filter-grid">
-        <el-input v-model="filters.tenantName" placeholder="单位名称" />
-        <el-input v-model="filters.userName" placeholder="业务员" />
-        <el-input v-model="filters.orderId" placeholder="订单号" />
-        <el-select v-model="filters.status" placeholder="订单状态" clearable>
-          <el-option v-for="(item, key) in statusMap" :key="key" :label="item.label" :value="Number(key)" />
-        </el-select>
-        <el-date-picker v-model="filters.orderTime" value-format="YYYY-MM-DD" placeholder="订单时间" />
-        <el-button type="primary" :icon="Search" @click="loadData">查询</el-button>
-        <el-button @click="resetFilters">重置</el-button>
+        <label>
+          <span>单位名称</span>
+          <el-input v-model="filters.tenantName" placeholder="请输入" />
+        </label>
+        <label>
+          <span>业务员</span>
+          <el-input v-model="filters.userName" placeholder="请输入" />
+        </label>
+        <label>
+          <span>订单号</span>
+          <el-input v-model="filters.orderId" placeholder="请输入" />
+        </label>
+        <label>
+          <span>订单状态</span>
+          <el-select v-model="filters.status" placeholder="请选择" clearable>
+            <el-option v-for="(item, key) in statusMap" :key="key" :label="item.label" :value="Number(key)" />
+          </el-select>
+        </label>
+        <label>
+          <span>订单时间</span>
+          <el-date-picker v-model="filters.orderTime" value-format="YYYY-MM-DD" placeholder="请选择" />
+        </label>
+        <div class="filter-actions">
+          <el-button type="primary" :icon="Search" @click="loadData">查询</el-button>
+          <el-button @click="resetFilters">重置</el-button>
+        </div>
+      </div>
+    </PageBlock>
+
+    <PageBlock v-if="viewMode === 'list'" class="table-card">
+      <div class="list-actions">
+        <el-button type="primary" :icon="Plus" @click="openAdd">添加</el-button>
+        <div class="auto-approve">
+          <span>自动审批</span>
+          <el-switch v-model="autoApprove" />
+        </div>
+        <el-button :icon="Refresh" @click="loadData">刷新</el-button>
       </div>
 
       <div v-if="activeFilters.length" class="filter-tags">
@@ -415,86 +520,140 @@ onMounted(loadData)
       </div>
     </PageBlock>
 
-    <el-dialog v-model="editVisible" :title="formState.id ? '编辑订单' : '添加订单'" width="840px">
-      <div class="form-grid">
-        <el-input v-model="formState.orderId" placeholder="订单号" />
-        <el-input v-model="formState.tenantName" placeholder="单位名称" />
-        <el-input v-model="formState.userName" placeholder="业务员" />
-        <el-input v-model="formState.userPhone" placeholder="联系方式" />
-        <el-input v-model="formState.createTime" placeholder="订单时间" />
-        <el-input v-model="formState.deliveryType" placeholder="交货方式" />
-        <el-input v-model="formState.address" placeholder="送货地址" class="full-span" />
-        <el-input v-model="formState.productInfo" placeholder="产品信息" class="full-span" />
-        <el-input-number v-model="formState.payMoney" :min="0" controls-position="right" />
-        <el-input v-model="formState.printCode" placeholder="工单打印" />
-      </div>
-      <el-input v-model="formState.remark" type="textarea" :rows="3" placeholder="备注" />
-      <template #footer>
-        <el-button @click="editVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveOrder">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="detailVisible" title="订单详情" width="1120px">
-      <template v-if="currentRecord">
-        <div class="status-banner">{{ statusMap[currentRecord.status].label }}</div>
-
-        <PageBlock title="订单信息">
-          <div class="detail-grid">
-            <div><span>订单号：</span><strong>{{ currentRecord.orderId }}</strong></div>
-            <div><span>单位名称：</span><strong>{{ currentRecord.tenantName }}</strong></div>
-            <div><span>联系人：</span><strong>{{ currentRecord.userName }}</strong></div>
-            <div><span>联系方式：</span><strong>{{ currentRecord.userPhone }}</strong></div>
-            <div><span>送货地址：</span><strong>{{ currentRecord.address }}</strong></div>
-            <div><span>交货方式：</span><strong>{{ currentRecord.deliveryType }}</strong></div>
-            <div><span>订单时间：</span><strong>{{ currentRecord.createTime }}</strong></div>
-            <div><span>印刷要求：</span><strong>{{ currentRecord.remark || '无' }}</strong></div>
-          </div>
-        </PageBlock>
-
-        <PageBlock title="产品信息">
-          <el-table :data="currentRecord.products">
-            <el-table-column prop="productName" label="产品名称" min-width="220" />
-            <el-table-column prop="finishedSpec" label="成品规格" min-width="120" />
-            <el-table-column prop="quantity" label="订货数量" min-width="100" />
-            <el-table-column prop="unit" label="单位" min-width="90" />
-            <el-table-column prop="amount" label="金额" min-width="100" />
-          </el-table>
-        </PageBlock>
-
-        <PageBlock title="工艺信息">
-          <el-table :data="currentRecord.crafts">
-            <el-table-column prop="productName" label="产品名称" min-width="180" />
-            <el-table-column prop="craftName" label="工艺名称" min-width="120" />
-            <el-table-column prop="spec" label="规格" min-width="100" />
-            <el-table-column prop="openNum" label="开数" min-width="90" />
-            <el-table-column prop="startPrice" label="起价" min-width="90" />
-            <el-table-column prop="finishNum" label="成品数量" min-width="90" />
-            <el-table-column prop="unit" label="单位" min-width="90" />
-            <el-table-column prop="price" label="单价" min-width="90" />
-            <el-table-column prop="customerAmount" label="客户金额" min-width="100" />
-            <el-table-column prop="remark" label="备注" min-width="120" />
-          </el-table>
-        </PageBlock>
-
-        <PageBlock title="订单记录">
-          <div class="timeline-card" v-for="item in currentRecord.timeline" :key="`${item.date}-${item.title}`">
-            <p>{{ item.date }}</p>
-            <strong>{{ item.title }}</strong>
-            <span>{{ item.desc }}</span>
-          </div>
-        </PageBlock>
-
-        <div class="detail-footer">
-          <div class="detail-total">订单合计：{{ formatMoney(currentRecord.payMoney) }}</div>
-          <div class="detail-actions">
-            <el-button @click="detailVisible = false">返回</el-button>
-            <el-button v-if="currentRecord.status === 1" type="danger" @click="openReject(currentRecord)">驳回</el-button>
-            <el-button v-if="currentRecord.status === 1" type="primary" @click="openApprove(currentRecord)">通过</el-button>
+    <section v-else-if="viewMode === 'form'" class="order-flow">
+      <PageBlock class="step-card">
+        <div class="steps-line">
+          <div
+            v-for="item in orderStepItems"
+            :key="item.step"
+            class="step-node"
+            :class="{ active: currentStep === item.step, done: item.done }"
+          >
+            <span>{{ item.done ? '✓' : item.step }}</span>
+            <strong>{{ item.label }}</strong>
           </div>
         </div>
-      </template>
-    </el-dialog>
+      </PageBlock>
+
+      <PageBlock class="form-panel">
+        <template v-if="currentStep === 1">
+          <h3>订单信息</h3>
+          <div class="form-grid design-form-grid">
+            <label><span>订单号</span><el-input v-model="formState.orderId" placeholder="请输入" /></label>
+            <label><span>单位名称</span><el-input v-model="formState.tenantName" placeholder="请选择" /></label>
+            <label><span>联系人</span><el-input v-model="formState.userName" placeholder="请输入" /></label>
+            <label><span>联系方式</span><el-input v-model="formState.userPhone" placeholder="请输入" /></label>
+            <label class="full-span"><span>送货地址</span><el-input v-model="formState.address" placeholder="请输入" /></label>
+            <label><span>交货日期</span><el-input v-model="formState.createTime" placeholder="请输入" /></label>
+            <label><span>交货方式</span><el-input v-model="formState.deliveryType" placeholder="请输入" /></label>
+            <label class="full-span"><span>印刷要求</span><el-input v-model="formState.remark" type="textarea" :rows="4" placeholder="请输入" /></label>
+          </div>
+        </template>
+        <template v-else-if="currentStep === 2">
+          <el-button type="primary" class="flow-add-button">添加</el-button>
+          <el-table :data="productRows" class="design-table">
+            <el-table-column prop="productName" label="产品名称" min-width="520" />
+            <el-table-column prop="finishedSpec" label="成品规格" min-width="170" />
+            <el-table-column prop="quantity" label="订货数量" min-width="170" />
+            <el-table-column prop="unit" label="单位" min-width="130" />
+            <el-table-column prop="amount" label="金额" min-width="160">
+              <template #default="{ row }">{{ formatMoney(row.amount) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" min-width="150">
+              <template #default>删除</template>
+            </el-table-column>
+          </el-table>
+        </template>
+        <template v-else>
+          <el-button type="primary" class="flow-add-button">添加</el-button>
+          <el-table :data="craftRows" class="design-table">
+            <el-table-column prop="productName" label="产品名称" min-width="320" />
+            <el-table-column prop="craftName" label="工艺名称" min-width="160" />
+            <el-table-column prop="spec" label="规格" min-width="120" />
+            <el-table-column prop="openNum" label="开数" min-width="120" />
+            <el-table-column prop="startPrice" label="起价" min-width="120" />
+            <el-table-column prop="finishNum" label="成品数量" min-width="150" />
+            <el-table-column prop="unit" label="单位" min-width="120" />
+            <el-table-column prop="price" label="单价" min-width="120" />
+            <el-table-column prop="customerAmount" label="客户金额" min-width="150" />
+            <el-table-column prop="remark" label="备注" min-width="120" />
+            <el-table-column label="操作" min-width="120">
+              <template #default>删除</template>
+            </el-table-column>
+          </el-table>
+        </template>
+      </PageBlock>
+
+      <div class="sticky-total">
+        <strong>订单合计：<span>{{ formatMoney(formState.payMoney || 1200) }}</span></strong>
+        <div>
+          <el-button @click="setOrderMode('list')">取消</el-button>
+          <el-button v-if="currentStep > 1" type="primary" @click="currentStep -= 1">上一步</el-button>
+          <el-button v-if="currentStep < 3" type="primary" @click="currentStep += 1">下一步</el-button>
+          <el-button v-else type="primary" @click="saveOrder">保存</el-button>
+        </div>
+      </div>
+    </section>
+
+    <section v-else-if="viewMode === 'detail' && currentRecord" class="order-detail-page">
+      <div class="status-banner">{{ statusMap[currentRecord.status]?.label || '订单详情' }}</div>
+
+      <PageBlock title="订单信息">
+        <div class="detail-grid design-detail-grid">
+          <div v-for="item in detailInfo" :key="item.label" :class="{ 'full-span': item.wide }">
+            <span>{{ item.label }}：</span><strong>{{ item.value }}</strong>
+          </div>
+        </div>
+      </PageBlock>
+
+      <PageBlock title="产品信息">
+        <el-table :data="productRows" class="design-table">
+          <el-table-column prop="productName" label="产品名称" min-width="520" />
+          <el-table-column prop="finishedSpec" label="成品规格" min-width="160" />
+          <el-table-column prop="quantity" label="订货数量" min-width="150" />
+          <el-table-column prop="unit" label="单位" min-width="120" />
+          <el-table-column prop="amount" label="金额" min-width="150">
+            <template #default="{ row }">{{ formatMoney(row.amount) }}</template>
+          </el-table-column>
+        </el-table>
+      </PageBlock>
+
+      <PageBlock title="工艺信息">
+        <el-table :data="craftRows" class="design-table">
+          <el-table-column prop="productName" label="产品名称" min-width="320" />
+          <el-table-column prop="craftName" label="工艺名称" min-width="150" />
+          <el-table-column prop="spec" label="规格" min-width="110" />
+          <el-table-column prop="openNum" label="开数" min-width="110" />
+          <el-table-column prop="startPrice" label="起价" min-width="110" />
+          <el-table-column prop="finishNum" label="成品数量" min-width="140" />
+          <el-table-column prop="unit" label="单位" min-width="110" />
+          <el-table-column prop="price" label="单价" min-width="110">
+            <template #default="{ row }">{{ formatMoney(row.price) }}</template>
+          </el-table-column>
+          <el-table-column prop="customerAmount" label="客户金额" min-width="150">
+            <template #default="{ row }">{{ formatMoney(row.customerAmount) }}</template>
+          </el-table-column>
+          <el-table-column prop="remark" label="备注" min-width="120" />
+        </el-table>
+      </PageBlock>
+
+      <PageBlock title="订单记录">
+        <div class="timeline-card" v-for="item in currentRecord.timeline" :key="`${item.date}-${item.title}`">
+          <p>{{ item.date }}</p>
+          <strong>{{ item.title }}</strong>
+          <span>{{ item.desc }}</span>
+        </div>
+      </PageBlock>
+
+      <div class="sticky-total">
+        <strong>订单合计：<span>{{ formatMoney(currentRecord.payMoney || 1200) }}</span></strong>
+        <div>
+          <el-button @click="setOrderMode('list')">返回</el-button>
+          <el-button v-if="currentRecord.status === 1" type="danger" @click="openReject(currentRecord)">驳回</el-button>
+          <el-button v-if="currentRecord.status === 1" type="primary" @click="openApprove(currentRecord)">通过</el-button>
+        </div>
+      </div>
+    </section>
 
     <el-dialog v-model="approveVisible" title="通过订单" width="620px">
       <el-input v-model="approvalRemark" type="textarea" :rows="5" placeholder="备注" />
@@ -584,12 +743,46 @@ onMounted(loadData)
   grid-template-columns: repeat(4, minmax(180px, 1fr));
   gap: 26px 42px;
   align-items: end;
-  margin-bottom: 34px;
 }
 
-.filter-grid :deep(.el-button) {
+.filter-grid label,
+.design-form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.filter-grid label span,
+.design-form-grid label span {
+  color: #9a9a9a;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.filter-actions {
+  display: flex;
+  gap: 18px;
+}
+
+.filter-grid :deep(.el-button),
+.filter-actions :deep(.el-button) {
   width: 100%;
   height: 56px;
+}
+
+.filter-card :deep(.page-block__body) {
+  padding: 40px 54px;
+}
+
+.table-card :deep(.page-block__body) {
+  padding: 38px 54px 46px;
+}
+
+.list-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 34px;
 }
 
 .table-meta {
@@ -620,18 +813,160 @@ onMounted(loadData)
   margin-bottom: 16px;
 }
 
+.order-flow,
+.order-detail-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.step-card :deep(.page-block__body) {
+  padding: 104px 220px 100px;
+}
+
+.steps-line {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+}
+
+.steps-line::before {
+  position: absolute;
+  top: 34px;
+  left: 15%;
+  right: 15%;
+  height: 2px;
+  background: #bdbdbd;
+  content: "";
+}
+
+.step-node {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 28px;
+  color: #b7b7b7;
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.step-node span {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border: 6px solid #b7b7b7;
+  border-radius: 50%;
+  background: #fff;
+  color: currentColor;
+}
+
+.step-node.active {
+  color: #1764ff;
+}
+
+.step-node.active span {
+  border-color: #1764ff;
+}
+
+.step-node.done {
+  color: #5abc3c;
+}
+
+.step-node.done span {
+  border-color: #5abc3c;
+}
+
+.form-panel {
+  min-height: 560px;
+}
+
+.form-panel h3 {
+  margin: 0 0 40px;
+  font-size: 30px;
+  line-height: 1.2;
+}
+
+.design-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 30px 80px;
+}
+
+.flow-add-button {
+  min-width: 224px;
+  height: 90px;
+  margin-bottom: 36px;
+  font-size: 32px;
+}
+
+.design-table {
+  width: 100%;
+}
+
+.design-table :deep(.el-table__header th) {
+  background: #f0f1f3;
+}
+
+.sticky-total {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  min-height: 126px;
+  margin: 0 -36px -28px;
+  padding: 24px 48px;
+  background: #ffffff;
+  border-top: 1px solid #efefef;
+}
+
+.sticky-total strong {
+  font-size: 32px;
+}
+
+.sticky-total strong span {
+  color: #ff9200;
+}
+
+.sticky-total > div {
+  display: flex;
+  gap: 26px;
+}
+
+.sticky-total :deep(.el-button) {
+  min-width: 170px;
+  height: 72px;
+  font-size: 26px;
+}
+
 .detail-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .detail-grid div {
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: #f8faff;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .detail-grid span {
-  color: #8a94a8;
+  color: #9a9a9a;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.detail-grid strong {
+  color: #111;
+  font-size: 24px;
+}
+
+.design-detail-grid {
+  gap: 34px 120px;
+  padding: 22px 0 12px;
 }
 
 .full-span {
@@ -639,11 +974,11 @@ onMounted(loadData)
 }
 
 .status-banner {
-  margin-bottom: 16px;
-  padding: 18px;
-  border-radius: 18px;
+  margin-bottom: 0;
+  padding: 34px;
+  border-radius: 6px;
   text-align: center;
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 700;
   color: #fff;
   background: #ff3058;
@@ -696,8 +1031,13 @@ onMounted(loadData)
   }
 
   .detail-footer,
-  .toolbar-actions {
+  .toolbar-actions,
+  .sticky-total {
     flex-wrap: wrap;
+  }
+
+  .step-card :deep(.page-block__body) {
+    padding: 54px 28px;
   }
 }
 </style>
