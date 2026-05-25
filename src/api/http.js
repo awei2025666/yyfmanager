@@ -1,8 +1,9 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { redirectToLogin } from './authGuard'
 
 const http = axios.create({
-  baseURL: 'http://hunike.nat100.top/7777',
+  baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api-proxy' : 'http://hunike.nat100.top/7888'),
   timeout: 12000
 })
 
@@ -26,7 +27,7 @@ http.interceptors.response.use(
     }
 
     if (payload?.code === 1002) {
-      localStorage.removeItem('platform_token')
+      redirectToLogin()
     }
 
     return Promise.reject(new Error(payload?.message || '请求失败'))

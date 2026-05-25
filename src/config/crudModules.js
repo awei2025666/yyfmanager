@@ -7,7 +7,7 @@ export const crudModuleConfigs = {
     dialogWidth: '920px',
     searchFields: [
       { key: 'name', label: '单位名称', type: 'input' },
-      { key: 'sales', label: '业务员', type: 'input' },
+      { key: 'sales', label: '业务员', type: 'select', options: [] },
       { key: 'customerType', label: '客户类型', type: 'select', options: ['月结客户', '现结客户', '供应商', '货运站代收'] },
       { key: 'contact', label: '联系人', type: 'input' },
       { key: 'phone', label: '联系方式', type: 'input' },
@@ -20,8 +20,7 @@ export const crudModuleConfigs = {
       { key: 'phone', label: '联系方式', type: 'input' },
       { key: 'address', label: '单位地址', type: 'input' },
       { key: 'customerType', label: '客户类型', type: 'select', options: ['月结客户', '现结客户', '供应商', '货运站代收'] },
-      { key: 'sales', label: '业务员', type: 'input' },
-      { key: 'payAccount', label: '收款账户', type: 'select', options: ['微信', '支付宝', '建设银行基本户'] },
+      { key: 'sales', label: '业务员', type: 'select', options: [] },
       { key: 'createdAt', label: '创建时间', type: 'input' },
       { key: 'remark', label: '备注', type: 'textarea' }
     ],
@@ -94,21 +93,17 @@ export const crudModuleConfigs = {
       {
         label: '全部',
         value: '全部',
-        children: [
-          { label: '业务部', value: '业务部' },
-          { label: '生产部', value: '生产部' },
-          { label: '运输部', value: '运输部' },
-          { label: '管理部', value: '管理部' }
-        ]
+        children: []
       }
     ],
     searchFields: [
-      { key: 'name', label: '人员姓名', type: 'input' },
-      { key: 'phone', label: '联系方式', type: 'input' },
+      { key: 'name', label: '人员姓名', type: 'input', placeholder: '请输入' },
+      { key: 'phone', label: '联系方式', type: 'input', placeholder: '请输入' },
       {
         key: 'status',
         label: '用户状态',
         type: 'select',
+        placeholder: '请选择',
         options: [
           { label: '启用', value: '启用' },
           { label: '禁用', value: '禁用' }
@@ -117,21 +112,20 @@ export const crudModuleConfigs = {
     ],
     formFields: [
       { key: 'name', label: '姓名', type: 'input' },
-      { key: 'gender', label: '性别', type: 'radio', options: ['男', '女'] },
+      { key: 'gender', label: '性别', type: 'radio', options: ['男', '女'], defaultValue: '男' },
       { key: 'age', label: '年龄', type: 'number' },
       { key: 'phone', label: '联系方式（账号）', type: 'input' },
       { key: 'loginPassword', label: '登录密码', type: 'input' },
-      { key: 'tenantId', label: '所属会员', type: 'select', options: [] },
       { key: 'position', label: '职位', type: 'input' },
       { key: 'title', label: '职称', type: 'input' },
-      { key: 'jobNo', label: '工号', type: 'input' },
       { key: 'hireDate', label: '入职日期', type: 'date' },
-      { key: 'department', label: '所属部门', type: 'select', options: ['业务部', '生产部', '运输部', '管理部'] },
+      { key: 'department', label: '所属部门', type: 'select', options: [] },
+      { key: 'jobNo', label: '工号', type: 'input' },
       {
         key: 'menuIdList',
         label: '角色',
         type: 'checkbox',
-        options: []
+        options: ['业务员', '业务员（自动审批）', '生产员', '耗材记录员', '物流调度员', '物流司机']
       },
       { key: 'remark', label: '备注', type: 'textarea' }
     ],
@@ -159,12 +153,7 @@ export const crudModuleConfigs = {
       {
         label: '全部',
         value: '全部',
-        children: [
-          { label: '业务部', value: '业务部' },
-          { label: '生产部', value: '生产部' },
-          { label: '运输部', value: '运输部' },
-          { label: '管理部', value: '管理部' }
-        ]
+        children: []
       }
     ],
     searchFields: [
@@ -173,8 +162,7 @@ export const crudModuleConfigs = {
     ],
     formFields: [
       { key: 'name', label: '部门名称', type: 'input' },
-      { key: 'remark', label: '备注', type: 'textarea' },
-      { key: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
+      { key: 'remark', label: '备注', type: 'textarea' }
     ],
     columns: [
       { key: 'name', label: '部门名称' },
@@ -240,9 +228,7 @@ export const crudModuleConfigs = {
       { key: 'name', label: '耗材名称', type: 'input' },
       { key: 'unit', label: '单位', type: 'input' },
       { key: 'price', label: '耗材价值', type: 'number' },
-      { key: 'remark', label: '备注', type: 'input' },
-      { key: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] },
-      { key: 'detailNote', label: '补充说明', type: 'textarea' }
+      { key: 'remark', label: '备注', type: 'input' }
     ],
     columns: [
       { key: 'name', label: '耗材名称' },
@@ -256,7 +242,7 @@ export const crudModuleConfigs = {
   materialStock: {
     title: '耗材库存',
     subtitle: '仓库库存与预警',
-    createText: '添加',
+    createText: '',
     searchFields: [
       { key: 'name', label: '耗材名称', type: 'input' },
       { key: 'status', label: '状态', type: 'select', options: ['充足', '预警'] }
@@ -280,7 +266,7 @@ export const crudModuleConfigs = {
       { key: 'stock', label: '当前库存' },
       { key: 'cost', label: '耗材成本' }
     ],
-    rowActions: ['详情']
+    rowActions: ['明细']
   },
   materialDetails: {
     title: '耗材明细',
@@ -292,15 +278,13 @@ export const crudModuleConfigs = {
       { key: 'orderNo', label: '关联订单', type: 'input' }
     ],
     formFields: [
-      { key: 'name', label: '耗材名称', type: 'input' },
-      { key: 'type', label: '明细类型', type: 'select', options: ['系统入库', '手工出库', '订单消耗'] },
+      { key: 'name', label: '耗材名称', type: 'select', options: [] },
+      { key: 'unit', label: '耗材单位', type: 'input' },
+      { key: 'price', label: '耗材价值', type: 'number' },
+      { key: 'type', label: '明细类型', type: 'radio', options: ['系统入库', '手工出库', '订单消耗'], defaultValue: '系统入库' },
       { key: 'quantity', label: '数量', type: 'number' },
-      { key: 'remark', label: '备注', type: 'input' },
-      { key: 'orderNo', label: '关联订单', type: 'input' },
-      { key: 'operator', label: '操作员', type: 'input' },
-      { key: 'updatedAt', label: '操作时间', type: 'input' },
-      { key: 'status', label: '状态', type: 'select', options: ['系统入库', '手工出库', '订单消耗'] },
-      { key: 'detailNote', label: '补充说明', type: 'textarea' }
+      { key: 'imageRemark', label: '图片备注', type: 'file' },
+      { key: 'remark', label: '备注', type: 'textarea' }
     ],
     columns: [
       { key: 'name', label: '耗材名称' },
@@ -319,9 +303,9 @@ export const crudModuleConfigs = {
     createText: '导出',
     summaryText: '生产合计：10,034    待生产合计：120    已生产合计：9,810',
     searchFields: [
-      { key: 'craftId', label: '工艺id', type: 'input' },
-      { key: 'name', label: '工艺名称', type: 'input' },
-      { key: 'time', label: '起始时间', type: 'input' }
+      { key: 'craftId', label: '工艺id', type: 'input', placeholder: '请输入' },
+      { key: 'name', label: '工艺名称', type: 'input', placeholder: '请输入' },
+      { key: 'time', label: '起始时间', type: 'input', placeholder: 'xx-xx-xx至xx-xx-xx' }
     ],
     formFields: [
       { key: 'craftId', label: '工艺id', type: 'input' },
@@ -346,11 +330,11 @@ export const crudModuleConfigs = {
     subtitle: '个人与班组绩效统计',
     createText: '导出',
     searchFields: [
-      { key: 'time', label: '时间', type: 'input' },
-      { key: 'customer', label: '客户名称', type: 'input' },
-      { key: 'productName', label: '产品名称', type: 'input' },
-      { key: 'department', label: '所在部门', type: 'select', options: ['生产部', '后道部', '外协部'] },
-      { key: 'role', label: '用户角色', type: 'select', options: ['业务员', '生产员', '后道员'] }
+      { key: 'time', label: '时间', type: 'input', placeholder: 'xx-xx-xx至xx-xx-xx' },
+      { key: 'customer', label: '客户名称', type: 'input', placeholder: '请输入' },
+      { key: 'productName', label: '产品名称', type: 'input', placeholder: '请输入' },
+      { key: 'department', label: '所在部门', type: 'select', placeholder: '请选择', options: ['生产部', '后道部', '外协部'] },
+      { key: 'role', label: '用户角色', type: 'select', placeholder: '请选择', options: ['业务员', '生产员', '后道员'] }
     ],
     formFields: [
       { key: 'name', label: '人员姓名', type: 'input' },
@@ -386,9 +370,9 @@ export const crudModuleConfigs = {
     createText: '导出',
     summaryText: '已完成订单数合计：914    已完成订单金额 合计：5,299',
     searchFields: [
-      { key: 'time', label: '时间', type: 'input' },
-      { key: 'name', label: '人员姓名', type: 'input' },
-      { key: 'phone', label: '联系方式', type: 'input' }
+      { key: 'time', label: '时间', type: 'input', placeholder: 'xx-xx-xx至xx-xx-xx' },
+      { key: 'name', label: '人员姓名', type: 'input', placeholder: '请输入' },
+      { key: 'phone', label: '联系方式', type: 'input', placeholder: '请输入' }
     ],
     formFields: [
       { key: 'name', label: '人员姓名', type: 'input' },
@@ -410,9 +394,9 @@ export const crudModuleConfigs = {
     createText: '导出',
     summaryText: '待配送订单合计：914    已配送订单合计：5,299',
     searchFields: [
-      { key: 'time', label: '时间', type: 'input' },
-      { key: 'name', label: '人员姓名', type: 'input' },
-      { key: 'phone', label: '联系方式', type: 'input' }
+      { key: 'time', label: '时间', type: 'input', placeholder: 'xx-xx-xx至xx-xx-xx' },
+      { key: 'name', label: '人员姓名', type: 'input', placeholder: '请输入' },
+      { key: 'phone', label: '联系方式', type: 'input', placeholder: '请输入' }
     ],
     formFields: [
       { key: 'name', label: '人员姓名', type: 'input' },
@@ -429,7 +413,7 @@ export const crudModuleConfigs = {
     rowActions: []
   },
   accounts: {
-    title: '账户列表',
+    title: '账户管理',
     subtitle: '公司账户与收支载体',
     createText: '添加',
     searchFields: [
@@ -529,7 +513,7 @@ export const crudModuleConfigs = {
       { key: 'unpaid', label: '剩余尾款' },
       { key: 'status', label: '订单状态', tag: true }
     ],
-    rowActions: ['详情']
+    rowActions: []
   },
   receivableUnits: {
     title: '应收账款-单位明细',
@@ -575,10 +559,8 @@ export const crudModuleConfigs = {
     formFields: [
       { key: 'name', label: '手工名称', type: 'input' },
       { key: 'quantity', label: '数量', type: 'number' },
-      { key: 'remark', label: '备注', type: 'input' },
-      { key: 'orderNo', label: '关联订单', type: 'input' },
-      { key: 'operator', label: '操作员', type: 'input' },
-      { key: 'updatedAt', label: '操作时间', type: 'input' }
+      { key: 'imageRemark', label: '图片备注', type: 'file' },
+      { key: 'remark', label: '备注', type: 'textarea' }
     ],
     columns: [
       { key: 'name', label: '手工名称' },
@@ -1137,7 +1119,7 @@ export const crudModuleConfigs = {
     title: '配送单',
     subtitle: '配送任务与司机安排',
     createText: '添加',
-    footerHint: '待配送量：459    已配送量：2155',
+    footerHint: '',
     detailDialogWidth: '1280px',
     detailStatusKey: 'status',
     searchFields: [

@@ -4,17 +4,32 @@ import * as echarts from 'echarts/core'
 import { BarChart, LineChart } from 'echarts/charts'
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
-import { CollectionTag, Histogram, OfficeBuilding, ShoppingCart } from '@element-plus/icons-vue'
+import {
+  CollectionTag,
+  Connection,
+  DocumentChecked,
+  DocumentCopy,
+  Files,
+  Histogram,
+  Memo,
+  OfficeBuilding,
+  Plus,
+  ShoppingCart,
+  TrendCharts,
+  Wallet
+} from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import PageBlock from '../components/PageBlock.vue'
 import {
-  getCraftList,
-  getOverview,
-  getRealtimeOrders,
-  getRecentUpdates,
-  getTenantList,
-  getTrend
-} from '../api/platform'
+  getTenantUserInfo,
+  getTenantOrderList,
+  getWorkbenchOverview,
+  getWorkbenchRealtimeCrafts,
+  getWorkbenchRealtimeOrders,
+  getWorkbenchRecentUpdates,
+  getWorkbenchTrend
+} from '../api/tenant'
+import { getAvatarUrl, getNameInitial } from '../utils/userProfile'
 
 echarts.use([BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
@@ -24,11 +39,14 @@ let chart = null
 const resizeChart = () => chart?.resize()
 
 const state = reactive({
-  overview: { orderTotal: 0, orderMoneyTotal: 0, tenantTotal: 0, craftTotal: 219 },
+  overview: { orderTotal: 0, orderMoneyTotal: 0, cooperativeClientTotal: 0, craftTotal: 0 },
   trend: [],
   orders: [],
   updates: [],
-  tenants: []
+  crafts: [],
+  userName: '',
+  avatar: localStorage.getItem('platform_avatar') || '',
+  pendingOrderTotal: 0
 })
 
 const trendOptions = [
@@ -37,14 +55,66 @@ const trendOptions = [
   { label: '近1年', value: 3 }
 ]
 
+const pendingActions = [
+  { label: '订单审批', icon: DocumentChecked, getBadge: () => state.pendingOrderTotal },
+  { label: '产品工艺', icon: Files },
+  { label: '外协订单', icon: DocumentCopy }
+]
+
+const quickActions = [
+  { label: '新建订单', icon: DocumentChecked },
+  { label: '新建客户', icon: Plus },
+  { label: '新建收款', icon: Wallet },
+  { label: '新建报销', icon: Memo },
+  { label: '应收账款', icon: Connection },
+  { label: '绩效统计', icon: TrendCharts }
+]
+
+const currentAccount = computed(() => state.userName || localStorage.getItem('platform_account') || 'admin')
+const accountInitial = computed(() => getNameInitial(currentAccount.value))
+
 const stats = computed(() => [
-  { label: '订单总数', value: state.overview.orderTotal, unit: '', icon: ShoppingCart, trend: '↑10.4%', good: true },
-  { label: '订单总金额', value: state.overview.orderMoneyTotal, unit: 'money', icon: Histogram, trend: '↓0.03%', good: false },
-  { label: '工艺总数', value: state.overview.craftTotal, unit: '', icon: CollectionTag, trend: '↑8.11%', good: true },
-  { label: '合作客户总数', value: state.overview.tenantTotal, unit: '', icon: OfficeBuilding, trend: '↑20%', good: true }
+  {
+    label: '订单总数',
+    value: state.overview.orderTotal,
+    unit: '',
+    icon: ShoppingCart,
+    trend: state.overview.orderTotalRate
+  },
+  {
+    label: '订单总金额',
+    value: state.overview.orderMoneyTotal,
+    unit: 'money',
+    icon: Histogram,
+    trend: state.overview.orderMoneyTotalRate
+  },
+  {
+    label: '工艺总数',
+    value: state.overview.craftTotal,
+    unit: '',
+    icon: CollectionTag,
+    trend: state.overview.craftTotalRate
+  },
+  {
+    label: '合作客户总数',
+    value: state.overview.cooperativeClientTotal,
+    unit: '',
+    icon: OfficeBuilding,
+    trend: state.overview.cooperativeClientTotalRate
+  }
 ])
 
 const formatNumber = (value) => new Intl.NumberFormat('zh-CN').format(Number(value || 0))
+
+const formatTrend = (value) => {
+  if (value === null || value === undefined || value === '') return '暂无上月数据'
+  const number = Number(value)
+  if (Number.isNaN(number)) return `${value} 较上月`
+  const prefix = number > 0 ? '↑' : number < 0 ? '↓' : ''
+  return `${prefix}${Math.abs(number).toFixed(2).replace(/\.?0+$/, '')}% 较上月`
+}
+
+const isTrendDown = (value) => Number(value) < 0
 
 const orderStatus = {
   1: '待审批',
@@ -56,9 +126,45 @@ const orderStatus = {
   7: '已驳回'
 }
 
+const craftStatus = {
+  1: '待生产',
+  2: '已生产'
+}
+
+const normalizeRecentTime = (item) => item.time || item.createTime || item.updateTime || ''
+
 const renderChart = () => {
   if (!chartRef.value) return
   if (!chart) chart = echarts.init(chartRef.value)
+
+  const hasOrderNum = state.trend.some((item) =>
+    ['orderNum', 'orderCount', 'orderTotal'].some((key) => item[key] !== undefined && item[key] !== null)
+  )
+  const series = [
+    hasOrderNum && {
+      name: '订单数量',
+      type: 'bar',
+      barWidth: 34,
+      data: state.trend.map((item) => item.orderNum ?? item.orderCount ?? item.orderTotal ?? 0),
+      itemStyle: { color: '#2673f5' }
+    },
+    {
+      name: '合作客户',
+      type: 'bar',
+      barWidth: 34,
+      data: state.trend.map((item) => item.cooperativeClientNum ?? item.tenantNum ?? 0),
+      itemStyle: { color: '#83b6f3' }
+    },
+    {
+      name: '订单金额',
+      type: 'line',
+      smooth: false,
+      yAxisIndex: 1,
+      data: state.trend.map((item) => item.orderMoney ?? 0),
+      lineStyle: { width: 3, color: '#5d99f6' },
+      itemStyle: { color: '#5d99f6' }
+    }
+  ].filter(Boolean)
 
   chart.setOption({
     tooltip: { trigger: 'axis' },
@@ -74,50 +180,29 @@ const renderChart = () => {
       { type: 'value', axisLabel: { fontSize: 16 }, splitLine: { lineStyle: { color: '#d7d7d7' } } },
       { type: 'value', axisLabel: { fontSize: 16 }, splitLine: { show: false } }
     ],
-    series: [
-      {
-        name: '订单数量',
-        type: 'bar',
-        barWidth: 34,
-        data: state.trend.map((item) => item.tenantNum),
-        itemStyle: { color: '#2673f5' }
-      },
-      {
-        name: '合作客户',
-        type: 'bar',
-        barWidth: 34,
-        data: state.trend.map((item) => Math.max(0, Number(item.tenantNum || 0) + 70)),
-        itemStyle: { color: '#83b6f3' }
-      },
-      {
-        name: '订单金额',
-        type: 'line',
-        smooth: false,
-        yAxisIndex: 1,
-        data: state.trend.map((item) => item.orderMoney),
-        lineStyle: { width: 3, color: '#5d99f6' },
-        itemStyle: { color: '#5d99f6' }
-      }
-    ]
-  })
+    series
+  }, true)
 }
 
 const loadData = async () => {
   try {
-    const [overview, trend, orders, updates, tenants, crafts] = await Promise.all([
-      getOverview(),
-      getTrend(trendType.value),
-      getRealtimeOrders(),
-      getRecentUpdates(),
-      getTenantList({ pageNum: 1, pageSize: 5 }),
-      getCraftList({ pageNum: 1, pageSize: 1 })
+    const [userInfo, overview, trend, orders, updates, crafts, pendingOrders] = await Promise.all([
+      getTenantUserInfo(),
+      getWorkbenchOverview(),
+      getWorkbenchTrend(trendType.value),
+      getWorkbenchRealtimeOrders(),
+      getWorkbenchRecentUpdates(),
+      getWorkbenchRealtimeCrafts(),
+      getTenantOrderList({ pageNum: 1, pageSize: 1, status: 1 })
     ])
-    state.overview = overview
-    state.overview.craftTotal = crafts.total || 0
+    state.userName = userInfo?.name || ''
+    state.avatar = getAvatarUrl(userInfo)
+    state.overview = { ...state.overview, ...(overview || {}) }
     state.trend = trend || []
     state.orders = orders || []
     state.updates = updates || []
-    state.tenants = tenants.records || []
+    state.crafts = crafts || []
+    state.pendingOrderTotal = pendingOrders.total || 0
   } catch (error) {
     ElMessage.error(error?.message || '工作台数据加载失败')
   } finally {
@@ -142,8 +227,11 @@ onBeforeUnmount(() => {
   <div class="dashboard-page">
     <section class="welcome-panel">
       <div class="welcome-user">
-        <div class="welcome-avatar"></div>
-        <strong>张*敏，欢迎回来</strong>
+        <div class="welcome-avatar">
+          <img v-if="state.avatar" :src="state.avatar" alt="头像" />
+          <span v-else>{{ accountInitial }}</span>
+        </div>
+        <strong>{{ currentAccount }}，欢迎回来</strong>
       </div>
       <p>欢迎使用印刷ERP管理系统</p>
     </section>
@@ -157,7 +245,7 @@ onBeforeUnmount(() => {
               <div>
                 <p>{{ item.label }}</p>
                 <strong>{{ item.unit === 'money' ? `¥${formatNumber(item.value)}` : formatNumber(item.value) }}</strong>
-                <span :class="{ down: !item.good }">{{ item.trend }} 较上月</span>
+                <span v-if="formatTrend(item.trend)" :class="{ down: isTrendDown(item.trend) }">{{ formatTrend(item.trend) }}</span>
               </div>
             </article>
           </div>
@@ -173,7 +261,7 @@ onBeforeUnmount(() => {
           <PageBlock title="实时订单">
             <el-table :data="state.orders" empty-text="暂无实时订单">
               <el-table-column prop="orderId" label="订单号" min-width="150" />
-              <el-table-column prop="tenantName" label="单位名称" min-width="180" />
+              <el-table-column prop="companyName" label="单位名称" min-width="180" />
               <el-table-column prop="status" label="订单状态" min-width="120">
                 <template #default="{ row }">
                   <span class="status-text">{{ orderStatus[row.status] || '待审批' }}</span>
@@ -188,14 +276,12 @@ onBeforeUnmount(() => {
           </PageBlock>
 
           <PageBlock title="产品工艺">
-            <el-table :data="state.tenants" empty-text="暂无工艺看板数据">
-              <el-table-column label="工艺名称" min-width="150">
-                <template #default="{ row }">{{ ['双面光膜', '四色印刷', '双面哑膜', '单色印刷'][row.id ? row.id % 4 : 0] }}</template>
-              </el-table-column>
-              <el-table-column prop="tenantName" label="单位名称" min-width="180" />
+            <el-table :data="state.crafts" empty-text="暂无工艺看板数据">
+              <el-table-column prop="companyName" label="单位名称" min-width="150" />
+              <el-table-column prop="craftName" label="工艺名称" min-width="150" />
               <el-table-column label="工艺状态" min-width="120">
                 <template #default="{ row }">
-                  <span class="status-text produced">{{ row.status === 1 ? '已生产' : '待生产' }}</span>
+                  <span class="status-text produced">{{ craftStatus[row.craftStatus] || '-' }}</span>
                 </template>
               </el-table-column>
               <el-table-column label="操作" min-width="90">
@@ -209,31 +295,34 @@ onBeforeUnmount(() => {
       </main>
 
       <aside class="dashboard-side">
-        <PageBlock title="最近动态">
+        <PageBlock title="最近动态" class="side-card side-card--updates">
+          <template #extra>
+            <router-link :to="{ name: 'recentUpdates' }" class="side-more">查看更多</router-link>
+          </template>
           <div class="activity-list">
             <div v-for="item in state.updates.slice(0, 3)" :key="`${item.time}-${item.content}`">
               <span>{{ item.content }}</span>
-              <time>{{ item.time }}</time>
+              <time>{{ normalizeRecentTime(item) }}</time>
             </div>
           </div>
         </PageBlock>
 
-        <PageBlock title="待办事项">
+        <PageBlock title="待办事项" class="side-card side-card--todo">
           <div class="quick-grid compact">
-            <button><span>4</span>订单审批</button>
-            <button>产品工艺</button>
-            <button>外协订单</button>
+            <button v-for="item in pendingActions" :key="item.label" type="button">
+              <span v-if="item.getBadge?.()">{{ item.getBadge() }}</span>
+              <em><el-icon><component :is="item.icon" /></el-icon></em>
+              <strong>{{ item.label }}</strong>
+            </button>
           </div>
         </PageBlock>
 
-        <PageBlock title="快捷功能">
+        <PageBlock title="快捷功能" class="side-card side-card--quick">
           <div class="quick-grid">
-            <button>新建订单</button>
-            <button>新建客户</button>
-            <button>新建收款</button>
-            <button>新建报销</button>
-            <button>应收账款</button>
-            <button>绩效统计</button>
+            <button v-for="item in quickActions" :key="item.label" type="button">
+              <em><el-icon><component :is="item.icon" /></el-icon></em>
+              <strong>{{ item.label }}</strong>
+            </button>
           </div>
         </PageBlock>
       </aside>
@@ -267,8 +356,20 @@ onBeforeUnmount(() => {
 .welcome-avatar {
   width: 62px;
   height: 62px;
+  display: grid;
+  place-items: center;
   border-radius: 50%;
   background: linear-gradient(135deg, #caa17d, #1f2933);
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 800;
+  overflow: hidden;
+}
+
+.welcome-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .welcome-user strong {
@@ -284,8 +385,9 @@ onBeforeUnmount(() => {
 
 .dashboard-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) 370px;
+  align-items: start;
+  gap: 18px;
 }
 
 .dashboard-main,
@@ -293,6 +395,10 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.dashboard-side {
+  min-width: 0;
 }
 
 .data-overview {
@@ -381,7 +487,7 @@ onBeforeUnmount(() => {
 
 .activity-list {
   display: grid;
-  gap: 18px;
+  gap: 24px;
   color: #7a8594;
   font-size: 18px;
 }
@@ -389,39 +495,116 @@ onBeforeUnmount(() => {
 .activity-list div {
   display: grid;
   grid-template-columns: 1fr auto;
+  align-items: center;
   gap: 18px;
+}
+
+.activity-list span,
+.activity-list time {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-card :deep(.page-block__head) {
+  padding: 34px 42px 0;
+}
+
+.side-card :deep(.page-block__title) {
+  font-size: 28px;
+}
+
+.side-card :deep(.page-block__body) {
+  padding: 34px 42px 42px;
+}
+
+.side-more {
+  border: 0;
+  background: transparent;
+  color: #1f66ff;
+  font-size: 20px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.side-card--updates {
+  min-height: 230px;
+}
+
+.side-card--todo {
+  min-height: 238px;
+}
+
+.side-card--quick {
+  min-height: 418px;
 }
 
 .quick-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 22px 16px;
+  gap: 30px 22px;
 }
 
 .quick-grid button {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
   border: 0;
-  min-height: 84px;
-  border-radius: 6px;
-  background: #f6f7f9;
+  min-height: 96px;
+  padding: 0;
+  background: transparent;
+  color: #111111;
   font-size: 18px;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.quick-grid em {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #f6f7f9;
+  color: #202124;
+  font-style: normal;
+  font-size: 30px;
+}
+
+.quick-grid strong {
+  max-width: 100%;
+  color: #111111;
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .quick-grid span {
   position: absolute;
   top: -10px;
-  left: 12px;
-  width: 26px;
-  height: 26px;
+  left: calc(50% - 42px);
+  z-index: 1;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: #ff4261;
   color: #ffffff;
-  line-height: 26px;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 30px;
 }
 
-@media (max-width: 1500px) {
-  .dashboard-layout,
+@media (max-width: 1180px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+
   .bottom-tables {
     grid-template-columns: 1fr;
   }

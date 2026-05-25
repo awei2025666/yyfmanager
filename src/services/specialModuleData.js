@@ -7,22 +7,24 @@ import {
 
 const aliasMap = {
   receipts: {
-    receiptNo: ['receiptNo', 'orderId', 'code'],
-    customer: ['customer', 'tenantName', 'customerName'],
-    collector: ['collector', 'userName', 'operator'],
-    account: ['account', 'accountName', 'payType'],
-    amount: ['amount', 'payMoney', 'money'],
-    discount: ['discount', 'discountMoney', 'reduceMoney'],
-    updatedAt: ['updatedAt', 'createTime', 'time']
-  },
-  reimbursements: {
-    name: ['name', 'reimbursementNo', 'code'],
-    applicant: ['applicant', 'userName', 'operator'],
+    receiptNo: ['receiptNo', 'orderId', 'orderNo', 'code'],
+    customer: ['customer', 'companyName', 'tenantName', 'customerName'],
+    collector: ['collector', 'collectionUserName', 'userName', 'operator'],
     account: ['account', 'accountName', 'payType'],
     amount: ['amount', 'money', 'payMoney'],
-    discount: ['discount', 'discountMoney', 'reduceMoney'],
+    discount: ['discount', 'allowanceMoney', 'discountMoney', 'reduceMoney'],
+    remark: ['remark', 'digest'],
+    updatedAt: ['updatedAt', 'collectionTime', 'createTime', 'time']
+  },
+  reimbursements: {
+    name: ['name', 'orderId', 'reimburseNo', 'reimbursementNo', 'code'],
+    applicant: ['applicant', 'createTenantUserName', 'reimburseUserName', 'userName', 'operator'],
+    account: ['account', 'accountName', 'payType'],
+    amount: ['amount', 'money', 'payMoney'],
+    discount: ['discount', 'allowanceMoney', 'discountMoney', 'reduceMoney'],
+    remark: ['remark', 'digest'],
     status: ['status', 'approveStatus'],
-    updatedAt: ['updatedAt', 'createTime', 'time']
+    updatedAt: ['updatedAt', 'reimburseTime', 'reimbursementTime', 'createTime', 'time']
   },
   accounts: {
     name: ['name', 'accountName'],
@@ -32,6 +34,7 @@ const aliasMap = {
   },
   fundDetails: {
     bizNo: ['bizNo', 'orderId', 'code'],
+    type: ['type', 'businessType'],
     account: ['account', 'accountName'],
     accountType: ['accountType', 'typeName'],
     accountNo: ['accountNo', 'cardNo'],

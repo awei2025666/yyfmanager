@@ -5,7 +5,14 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     host: '0.0.0.0',
-    port: 5173
+    port: 5173,
+    proxy: {
+      '/api-proxy': {
+        target: 'http://hunike.nat100.top/7888',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-proxy/, '')
+      }
+    }
   },
   build: {
     rollupOptions: {

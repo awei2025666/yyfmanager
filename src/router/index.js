@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 const AdminLayout = () => import('../layouts/AdminLayout.vue')
 const LoginView = () => import('../views/LoginView.vue')
 const DashboardView = () => import('../views/DashboardView.vue')
+const RecentUpdatesView = () => import('../views/RecentUpdatesView.vue')
 const TenantsView = () => import('../views/TenantsView.vue')
 const PackagesView = () => import('../views/PackagesView.vue')
 const OrdersView = () => import('../views/OrdersView.vue')
@@ -27,6 +28,12 @@ const routes = [
         name: 'dashboard',
         component: DashboardView,
         meta: { title: '工作台' }
+      },
+      {
+        path: 'recent-updates',
+        name: 'recentUpdates',
+        component: RecentUpdatesView,
+        meta: { title: '最近动态', parent: 'dashboard' }
       },
       {
         path: 'tenants',

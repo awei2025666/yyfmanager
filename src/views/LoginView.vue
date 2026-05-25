@@ -2,7 +2,8 @@
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { loginApi } from '../api/platform'
+import { getTenantUserInfo, tenantLoginApi } from '../api/tenant'
+import { getAvatarUrl } from '../utils/userProfile'
 
 const router = useRouter()
 const route = useRoute()
@@ -16,12 +17,17 @@ const form = reactive({
 const submit = async () => {
   loading.value = true
   try {
-    const token = form.token.trim() || (await loginApi({ account: form.account, password: form.password }))
+    const token = form.token.trim() || (await tenantLoginApi({ account: form.account, password: form.password }))
     localStorage.setItem('platform_token', token)
-    localStorage.setItem('platform_account', form.account)
+    const userInfo = await getTenantUserInfo()
+    localStorage.setItem('platform_account', userInfo?.name || form.account)
+    localStorage.setItem('platform_vip_day', String(userInfo?.vipDay ?? ''))
+    const avatar = getAvatarUrl(userInfo)
+    if (avatar) localStorage.setItem('platform_avatar', avatar)
     ElMessage.success('登录成功')
     router.push((route.query.redirect || '/dashboard').toString())
   } catch (error) {
+    localStorage.removeItem('platform_token')
     ElMessage.error(error?.message || '登录失败，请检查账号密码或接口服务')
   } finally {
     loading.value = false
@@ -50,7 +56,7 @@ const submit = async () => {
             v-model="form.token"
             type="textarea"
             :rows="4"
-            placeholder="如果你已经有平台 token，可以直接填入；留空则走登录接口。"
+            placeholder="如果你已经有租户端 token，可以直接填入；留空则走登录接口。"
           />
         </el-form-item>
         <el-button type="primary" class="login-button" :loading="loading" @click="submit">

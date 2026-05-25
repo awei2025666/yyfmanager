@@ -71,8 +71,44 @@ a {
 
 .el-input__wrapper,
 .el-select__wrapper {
+  background: #f5f6f8 !important;
   box-shadow: none !important;
   border-radius: 6px;
+}
+
+.el-input-number.is-controls-right .el-input__wrapper {
+  padding-right: 38px;
+}
+
+.el-input-number.is-controls-right .el-input-number__increase,
+.el-input-number.is-controls-right .el-input-number__decrease {
+  right: 1px;
+  width: 36px;
+  height: calc(50% - 1px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f6f8;
+  color: #8a93a3;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.el-input-number.is-controls-right .el-input-number__increase {
+  top: 1px;
+  border-bottom: 1px solid #e1e5ec;
+  border-radius: 0 6px 0 0;
+}
+
+.el-input-number.is-controls-right .el-input-number__decrease {
+  right: 1px;
+  bottom: 1px;
+  border-radius: 0 0 6px 0;
+}
+
+.el-input-number.is-controls-right .el-input-number__increase .el-icon,
+.el-input-number.is-controls-right .el-input-number__decrease .el-icon {
+  font-size: 16px;
 }
 
 .el-button {

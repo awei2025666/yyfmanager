@@ -35,6 +35,9 @@ const filters = reactive({
 
 const state = reactive({
   loading: false,
+  saving: false,
+  rechargeSaving: false,
+  tenantUserSaving: false,
   records: [],
   total: 0,
   detail: null,
@@ -162,6 +165,7 @@ const openEdit = (row) => {
 }
 
 const submitTenant = async () => {
+  if (state.saving) return
   const payload = {
     id: form.id,
     tenantName: form.tenantName,
@@ -173,10 +177,15 @@ const submitTenant = async () => {
     remark: form.remark
   }
   const request = isEdit.value ? editTenant : addTenant
-  await request(payload)
-  ElMessage.success(`${isEdit.value ? '编辑' : '新增'}会员成功`)
-  dialogVisible.value = false
-  loadTenants()
+  state.saving = true
+  try {
+    await request(payload)
+    ElMessage.success(`${isEdit.value ? '编辑' : '新增'}会员成功`)
+    dialogVisible.value = false
+    loadTenants()
+  } finally {
+    state.saving = false
+  }
 }
 
 const uploadLicense = async ({ file }) => {
@@ -206,10 +215,16 @@ const openRecharge = (row) => {
 }
 
 const submitRecharge = async () => {
-  await rechargeTenant(rechargeForm)
-  ElMessage.success('充值时长成功')
-  rechargeVisible.value = false
-  loadTenants()
+  if (state.rechargeSaving) return
+  state.rechargeSaving = true
+  try {
+    await rechargeTenant(rechargeForm)
+    ElMessage.success('充值时长成功')
+    rechargeVisible.value = false
+    loadTenants()
+  } finally {
+    state.rechargeSaving = false
+  }
 }
 
 const toggleStatus = async (row) => {
@@ -281,12 +296,18 @@ const openTenantUserEdit = (row) => {
 }
 
 const submitTenantUser = async () => {
+  if (state.tenantUserSaving) return
   tenantUserForm.menuIdList = tenantMenuTreeRef.value?.getCheckedKeys?.() || tenantUserForm.menuIdList
   const request = isTenantUserEdit.value ? editTenantUser : addTenantUser
-  await request({ ...tenantUserForm })
-  ElMessage.success(`${isTenantUserEdit.value ? '编辑' : '新增'}子账号成功`)
-  tenantUserFormVisible.value = false
-  loadTenantUsers()
+  state.tenantUserSaving = true
+  try {
+    await request({ ...tenantUserForm })
+    ElMessage.success(`${isTenantUserEdit.value ? '编辑' : '新增'}子账号成功`)
+    tenantUserFormVisible.value = false
+    loadTenantUsers()
+  } finally {
+    state.tenantUserSaving = false
+  }
 }
 
 const toggleTenantUserStatus = async (row) => {
@@ -449,16 +470,16 @@ onMounted(loadTenants)
         <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注" />
       </div>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitTenant">保存</el-button>
+        <el-button :disabled="state.saving" @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="state.saving" @click="submitTenant">保存</el-button>
       </template>
     </el-dialog>
 
     <el-dialog v-model="rechargeVisible" title="充值会员时长" width="420px">
       <el-input-number v-model="rechargeForm.day" :min="1" :step="30" />
       <template #footer>
-        <el-button @click="rechargeVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitRecharge">确认</el-button>
+        <el-button :disabled="state.rechargeSaving" @click="rechargeVisible = false">取消</el-button>
+        <el-button type="primary" :loading="state.rechargeSaving" @click="submitRecharge">确认</el-button>
       </template>
     </el-dialog>
 
@@ -568,8 +589,8 @@ onMounted(loadTenants)
         />
       </div>
       <template #footer>
-        <el-button @click="tenantUserFormVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitTenantUser">保存</el-button>
+        <el-button :disabled="state.tenantUserSaving" @click="tenantUserFormVisible = false">取消</el-button>
+        <el-button type="primary" :loading="state.tenantUserSaving" @click="submitTenantUser">保存</el-button>
       </template>
     </el-dialog>
   </div>

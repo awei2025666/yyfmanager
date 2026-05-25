@@ -21,6 +21,7 @@ const filters = reactive({
 
 const state = reactive({
   loading: false,
+  saving: false,
   records: [],
   total: 0,
   stats: { orderTotal: 0, orderMoneyTotal: 0 }
@@ -89,10 +90,16 @@ const openEdit = (row) => {
 }
 
 const submit = async () => {
-  await (isEdit.value ? editVip : addVip)({ ...form })
-  ElMessage.success(`${isEdit.value ? '编辑' : '新增'}套餐成功`)
-  dialogVisible.value = false
-  loadData()
+  if (state.saving) return
+  state.saving = true
+  try {
+    await (isEdit.value ? editVip : addVip)({ ...form })
+    ElMessage.success(`${isEdit.value ? '编辑' : '新增'}套餐成功`)
+    dialogVisible.value = false
+    loadData()
+  } finally {
+    state.saving = false
+  }
 }
 
 const toggleStatus = async (row) => {
@@ -233,8 +240,8 @@ onMounted(loadData)
         <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注" />
       </div>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submit">保存</el-button>
+        <el-button :disabled="state.saving" @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="state.saving" @click="submit">保存</el-button>
       </template>
     </el-dialog>
   </div>
