@@ -1,0 +1,115 @@
+{
+	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+		{
+					"path": "pages/login/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+		{
+					"path": "pages/index/index",
+					"style": {
+						"navigationBarTitleText": "首页",
+						"backgroundColor": "#00b9ff",
+						"navigationBarBackgroundColor": "#00b9ff",
+						"navigationStyle": "custom",
+						"navigationBarTextStyle": "white"
+					}
+				},
+				{
+					"path": "pages/mine/index",
+					"style": {
+						"navigationBarTitleText": "我的",
+						"backgroundColor": "#00b9ff",
+						"navigationBarBackgroundColor": "#00b9ff",
+						"navigationStyle": "custom",
+						"navigationBarTextStyle": "white"
+					}
+				},
+				{
+					"path": "pages/orderDetail/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
+					"path": "pages/orderCreate/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
+					"path": "pages/production/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
+					"path": "pages/productionComplete/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
+					"path": "pages/productionConsumableAdd/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
+					"path": "pages/handRecord/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
+					"path": "pages/deliveryPending/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
+					"path": "pages/deliveryCreate/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
+					"path": "pages/deliveryTransit/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
+					"path": "pages/deliveryDetail/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				}
+				
+	],
+	"tabBar": {
+			"color": "#7A7E83",
+			"selectedColor": "#2c3167",
+			"borderStyle": "black",
+			"backgroundColor": "#ffffff",
+			"list": [{
+				"pagePath": "pages/index/index",
+				"iconPath": "/static/tab/home.png",
+				"selectedIconPath": "/static/tab/homeSelected.png",
+				"text": "首页"
+			}, {
+				"pagePath": "pages/mine/index",
+				"iconPath": "/static/tab/mine.png",
+				"selectedIconPath": "/static/tab/mineSlected.png",
+				"text": "我的"
+			}]
+		},
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "uni-app",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	},
+	"uniIdRouter": {}
+}

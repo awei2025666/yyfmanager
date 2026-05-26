@@ -1,0 +1,38 @@
+import { http, uploadFile } from './index.js'
+
+const api = {
+	uploadFile,
+	login: (params) => http('/api/user/login', 'POST', params),
+	selfInfo: () => http('/api/user/tenantUser/info', 'GET'),
+	editPassword: (params) => http('/api/user/tenantUser/editPassword', 'POST', params),
+	deliveryUnprocessed: () => http('/api/user/data/deliveryUnprocessed', 'GET'),
+	performance: (params) => http('/api/user/data/performance', 'GET', params),
+	cooperativeClientAll: (params) => http('/api/user/cooperativeClient/all', 'POST', params),
+	craftAll: (params) => http('/api/user/craft/all', 'POST', params),
+	orderAdd: (params) => http('/api/user/order/add', 'POST', params),
+	orderList: (params) => http('/api/user/order/list', 'POST', params),
+	orderDel: (params) => http('/api/user/order/del', 'GET', params),
+	orderInfo: (params) => http('/api/user/order/info', 'GET', params),
+	orderProcessInfo: (params) => http('/api/user/order/processInfo', 'GET', params),
+	productsCraftInfo: (params) => http('/api/user/order/productsCraftInfo', 'GET', params),
+	completeProduction: (params) => http('/api/user/order/completeProduction', 'POST', params),
+	consumableInfo: (params) => http('/api/user/order/consumableInfo', 'GET', params),
+	consumableAll: (params) => http('/api/user/order/all', 'POST', params),
+	consumableAdd: (params) => http('/api/user/order/consumableAdd', 'POST', params),
+	productionUserList: () => http('/api/user/delivery/driver', 'POST'),
+	handKeptList: (params) => http('/api/user/handKept/list', 'POST', params),
+	handKeptAdd: (params) => http('/api/user/handKept/add', 'POST', params),
+	productsCraftList: (params) => http('/api/user/productsCraft/list', 'POST', params),
+	deliveryList: (params) => http('/api/user/delivery/list', 'POST', params),
+	deliveryOrderList: (params) => http('/api/user/delivery/deliveryOrderList', 'POST', params),
+	deliveryDriver: () => http('/api/user/delivery/driver', 'POST'),
+	deliveryAdd: (params) => http('/api/user/delivery/add', 'POST', params),
+	deliveryInTransitList: (params) => http('/api/user/delivery/orderList', 'POST', params),
+	deliveryOrderDetail: (params) => http('/api/user/delivery/orderDetail', 'GET', params),
+	completeDelivery: (params) => http('/api/user/delivery/completeDelivery', 'POST', params),
+	deliveryDetail: (params) => http('/api/user/delivery/detail', 'GET', params),
+	deliveryProcessInfo: (params) => http('/api/user/delivery/processInfo', 'GET', params)
+}
+uni.$api = api
+
+export default api
