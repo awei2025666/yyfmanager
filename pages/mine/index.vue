@@ -8,7 +8,7 @@
 			</view>
 		</view>
 
-		<view class="profile-band">
+		<view class="profile-band" @click="toPage('/pages/mine/info')">
 			<view class="avatar">头像</view>
 			<view class="profile-main">
 				<view class="nickname">{{ userName }}</view>
@@ -18,7 +18,7 @@
 		</view>
 
 		<view class="menu-list">
-			<view class="menu-item" @click="showInfo">
+			<view class="menu-item" @click="toPage('/pages/mine/info')">
 				<view class="menu-left">
 					<view class="menu-icon info-icon">
 						<view class="icon-paper"></view>
@@ -28,14 +28,14 @@
 				</view>
 				<text class="arrow">›</text>
 			</view>
-			<view class="menu-item" @click="showPasswordTip">
+			<view class="menu-item" @click="toPage('/pages/mine/password')">
 				<view class="menu-left">
 					<view class="menu-icon shield-icon">✓</view>
 					<text>修改密码</text>
 				</view>
 				<text class="arrow">›</text>
 			</view>
-			<view class="menu-item" @click="logout">
+			<view class="menu-item" @click="toPage('/pages/mine/logout')">
 				<view class="menu-left">
 					<view class="menu-icon logout-icon">
 						<view class="logout-door"></view>
@@ -79,38 +79,8 @@ const getSelfInfo = async () => {
 	}
 }
 
-const showInfo = () => {
-	uni.showModal({
-		title: '个人信息',
-		content: `昵称：${userName.value}\n手机号：${maskedPhone.value}`,
-		showCancel: false
-	})
-}
-
-const showPasswordTip = () => {
-	uni.showToast({
-		title: '请联系管理员修改密码',
-		icon: 'none'
-	})
-}
-
-const logout = () => {
-	uni.showModal({
-		title: '提示',
-		content: '确认退出登录吗？',
-		success: res => {
-			if (!res.confirm) return
-			uni.removeStorageSync('Authorization')
-			uni.removeStorageSync('token')
-			uni.showToast({
-				title: '已退出登录',
-				icon: 'none'
-			})
-			setTimeout(() => {
-				uni.reLaunch({ url: '/pages/login/index' })
-			}, 300)
-		}
-	})
+const toPage = url => {
+	uni.navigateTo({ url })
 }
 
 onMounted(getSelfInfo)

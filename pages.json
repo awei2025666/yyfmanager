@@ -27,6 +27,24 @@
 					}
 				},
 				{
+					"path": "pages/mine/info",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
+					"path": "pages/mine/password",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
+					"path": "pages/mine/logout",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
 					"path": "pages/orderDetail/index",
 					"style": {
 						"navigationStyle": "custom"
