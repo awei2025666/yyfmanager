@@ -122,6 +122,11 @@ const handleMenuSelect = (name) => {
   router.push({ name })
 }
 
+const openDurationPurchase = () => {
+  if (route.name === 'durationPurchases') return
+  router.push({ name: 'durationPurchases' })
+}
+
 const logout = () => {
   localStorage.removeItem('platform_token')
   localStorage.removeItem('platform_account')
@@ -193,7 +198,7 @@ onMounted(loadUserInfo)
       <header class="admin-topbar">
         <button type="button" class="screen-button">可视化大屏</button>
         <div class="topbar-actions">
-          <span class="vip-pill">剩余<strong>{{ vipDayText }}</strong>天到期</span>
+          <button type="button" class="vip-pill" @click="openDurationPurchase">剩余<strong>{{ vipDayText }}</strong>天到期</button>
           <button type="button" class="avatar-button" :title="currentAccount">
             <img v-if="userState.avatar" :src="userState.avatar" alt="头像" />
             <span v-else>{{ accountInitial }}</span>
@@ -405,11 +410,13 @@ onMounted(loadUserInfo)
   display: inline-flex;
   align-items: center;
   padding: 0 20px;
+  border: 0;
   border-radius: 23px;
   background: #d8e8ff;
   color: #111111;
   font-size: 18px;
   font-weight: 700;
+  cursor: pointer;
 }
 
 .vip-pill strong {

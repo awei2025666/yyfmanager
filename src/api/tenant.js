@@ -70,6 +70,10 @@ export const deleteTenantConsumable = (id) => tenantHttp.post('/api/tenant/consu
 export const changeTenantConsumableStatus = (payload = {}) => tenantHttp.post('/api/tenant/consumable/status', payload)
 export const getTenantHandKeptList = (payload = {}) => tenantHttp.post('/api/tenant/handKept/list', payload)
 export const getTenantHandKeptDetail = (id) => tenantHttp.get('/api/tenant/handKept/detail', { params: { id } })
+export const addTenantHandKept = (payload = {}) => tenantHttp.post('/api/tenant/handKept/add', payload)
+export const editTenantHandKept = (payload = {}) => tenantHttp.post('/api/tenant/handKept/edit', payload)
+export const deleteTenantHandKept = (id) => tenantHttp.get('/api/tenant/handKept/del', { params: { id } })
+export const exportTenantHandKept = (payload = {}) => tenantHttp.post('/api/tenant/handKept/export', payload)
 export const getTenantDeliveryList = (payload = {}) => tenantHttp.post('/api/tenant/delivery/list', payload)
 export const getTenantDeliveryDetail = (id) => tenantHttp.get('/api/tenant/delivery/detail', { params: { id } })
 export const getTenantDeliveryProcess = (id) => tenantHttp.get('/api/tenant/delivery/processInfo', { params: { id } })
@@ -114,6 +118,41 @@ export const editTenantClient = (payload) => tenantHttp.post('/api/tenant/cooper
 export const deleteTenantClient = (id) =>
   tenantHttp.get('/api/tenant/cooperativeClient/del', { params: { id } })
 export const getTenantCraftList = (payload) => tenantHttp.post('/api/tenant/craft/list', payload)
+export const searchTenantCrafts = (payload = {}) => tenantHttp.post('/api/tenant/craft/all', payload)
+export const addTenantCraft = (payload = {}) => tenantHttp.post('/api/tenant/craft/add', payload)
+export const editTenantCraft = (payload = {}) => tenantHttp.post('/api/tenant/craft/edit', payload)
+export const changeTenantCraftStatus = (payload = {}) => tenantHttp.post('/api/tenant/craft/status', payload)
+export const deleteTenantCraft = (id) => tenantHttp.get('/api/tenant/craft/del', { params: { id } })
+
+export const getTenantCraftPerformanceList = (payload = {}) =>
+  tenantHttp.post('/api/tenant/performance/craftStatisticsList', payload)
+export const exportTenantCraftPerformance = (payload = {}) =>
+  tenantHttp.post('/api/tenant/performance/craftStatisticsExport', payload)
+export const getTenantPerformanceCraftList = (payload = {}) =>
+  tenantHttp.post('/api/tenant/performance/craftList', payload)
+export const getTenantPerformanceCraftTotal = () => tenantHttp.get('/api/tenant/performance/craftTotal')
+export const exportTenantPerformanceCraft = (payload = {}) =>
+  tenantHttp.post('/api/tenant/performance/craftExport', payload)
+export const getTenantPerformanceDriverList = (payload = {}) =>
+  tenantHttp.post('/api/tenant/performance/driverList', payload)
+export const getTenantPerformanceDriverTotal = () => tenantHttp.get('/api/tenant/performance/driverTotal')
+export const exportTenantPerformanceDriver = (payload = {}) =>
+  tenantHttp.post('/api/tenant/performance/driverExport', payload)
+export const getTenantPerformanceOrderList = (payload = {}) =>
+  tenantHttp.post('/api/tenant/performance/orderList', payload)
+export const getTenantPerformanceOrderTotal = () => tenantHttp.get('/api/tenant/performance/orderTotal')
+export const exportTenantPerformanceOrder = (payload = {}) =>
+  tenantHttp.post('/api/tenant/performance/orderExport', payload)
+
+export const getTenantDepartmentOptions = (payload = {}) => tenantHttp.post('/api/tenant/dept/all', payload)
+export const getTenantRoleList = (payload = {}) => tenantHttp.post('/api/tenant/role/list', payload)
+export const getTenantProductionUsers = (payload = {}) => tenantHttp.post('/api/tenant/user/production', payload)
+export const getTenantStaffList = (payload = {}) => tenantHttp.post('/api/tenant/user/list', payload)
+export const addTenantStaff = (payload = {}) => tenantHttp.post('/api/tenant/user/add', payload)
+export const editTenantStaff = (payload = {}) => tenantHttp.post('/api/tenant/user/edit', payload)
+export const resetTenantStaffPassword = (id) => tenantHttp.get('/api/tenant/user/resetPassword', { params: { id } })
+export const deleteTenantStaff = (id) => tenantHttp.get('/api/tenant/user/del', { params: { id } })
+export const changeTenantStaffStatus = (payload = {}) => tenantHttp.post('/api/tenant/user/status', payload)
 
 const tryTenantRequests = async (requests) => {
   let lastError
@@ -131,6 +170,13 @@ export const getTenantDepartmentList = (payload = {}) =>
   tryTenantRequests([
     () => tenantHttp.post('/api/tenant/dept/list', payload),
     () => tenantHttp.post('/api/tenant/department/list', payload)
+  ])
+export const getTenantVipList = (payload = {}) => tenantHttp.get('/api/tenant/vip/plan', payload)
+export const createTenantVipOrder = (payload = {}) =>
+  tryTenantRequests([
+    () => tenantHttp.post('/api/tenant/vip/order', payload),
+    () => tenantHttp.post('/api/tenant/vipOrder/add', payload),
+    () => tenantHttp.post('/api/tenant/vip/buy', payload)
   ])
 export const addTenantDepartment = (payload = {}) =>
   tryTenantRequests([

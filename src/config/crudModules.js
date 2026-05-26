@@ -147,7 +147,7 @@ export const crudModuleConfigs = {
     title: '组织架构',
     subtitle: '部门层级与成员编排',
     createText: '添加',
-    treeKey: 'group',
+    treeKey: 'name',
     treeTitle: '部门名称',
     treeData: [
       {
@@ -558,6 +558,7 @@ export const crudModuleConfigs = {
     ],
     formFields: [
       { key: 'name', label: '手工名称', type: 'input' },
+      { key: 'orderId', label: '关联订单ID', type: 'input' },
       { key: 'quantity', label: '数量', type: 'number' },
       { key: 'imageRemark', label: '图片备注', type: 'file' },
       { key: 'remark', label: '备注', type: 'textarea' }

@@ -1,15 +1,5 @@
 import http from './http'
 import {
-  addTenantUser,
-  changeTenantUserStatus,
-  deleteTenantUser,
-  editTenantUser,
-  getTenantList,
-  getTenantUserList,
-  getTenantUserMenus,
-  resetTenantUserPassword
-} from './platform'
-import {
   addTenantDelivery,
   addTenantReceipt,
   addTenantReimburse,
@@ -17,23 +7,35 @@ import {
   addTenantConsumable,
   addTenantDepartment,
   addTenantAccount,
+  addTenantHandKept,
+  addTenantStaff,
   changeTenantAccountStatus,
   changeTenantConsumableStatus,
   changeTenantDepartmentStatus,
+  changeTenantStaffStatus,
   deleteTenantAccount,
   deleteTenantConsumable,
   deleteTenantDepartment,
+  deleteTenantHandKept,
   deleteTenantReceipt,
   deleteTenantReimburse,
   deleteTenantOrder,
   deleteTenantClient,
+  deleteTenantStaff,
   editTenantAccount,
   editTenantClient,
   editTenantConsumable,
   editTenantDepartment,
   editTenantDelivery,
+  editTenantHandKept,
   editTenantReceipt,
   editTenantReimburse,
+  editTenantStaff,
+  exportTenantCraftPerformance,
+  exportTenantHandKept,
+  exportTenantPerformanceCraft,
+  exportTenantPerformanceDriver,
+  exportTenantPerformanceOrder,
   exportTenantReceipt,
   exportTenantReimburse,
   exportTenantReceivableClient,
@@ -42,7 +44,9 @@ import {
   getTenantDeliveryDetail,
   getTenantDeliveryList,
   getTenantDeliveryProcess,
+  getTenantDepartmentOptions,
   getTenantDepartmentList,
+  getTenantCraftPerformanceList,
   getTenantOrderConsumables,
   getTenantOrderDetail,
   getTenantOrderHandKept,
@@ -72,8 +76,17 @@ import {
   getTenantReimburseTotal,
   getTenantReceivableClientList,
   getTenantReceivableOrderList,
+  getTenantPerformanceCraftList,
+  getTenantPerformanceCraftTotal,
+  getTenantPerformanceDriverList,
+  getTenantPerformanceDriverTotal,
+  getTenantPerformanceOrderList,
+  getTenantPerformanceOrderTotal,
+  getTenantRoleList,
+  getTenantStaffList,
   outsourceTenantOrder,
   returnTenantOrder,
+  resetTenantStaffPassword,
   searchTenantAccounts,
   searchTenantClients
 } from './tenant'
@@ -94,6 +107,19 @@ const staffStatusFromApi = (status) => {
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
   return payload?.records || payload?.list || payload?.rows || []
+}
+
+const flattenRows = (rows = []) => {
+  const result = []
+  const visit = (items) => {
+    if (!Array.isArray(items)) return
+    items.forEach((item) => {
+      result.push(item)
+      visit(item.children || item.childList || item.deptList || item.departmentList)
+    })
+  }
+  visit(rows)
+  return result
 }
 
 const customerTypeMap = {
@@ -209,40 +235,39 @@ const normalizeStaffUser = (row, tenant = {}, menuNameMap = new Map()) => ({
   tenantId: row.tenantId || tenant.id,
   tenantName: row.tenantName || tenant.tenantName,
   userId: row.userId || row.id,
+  name: row.name || row.userName || '-',
+  gender: row.sex === 0 ? '女' : row.sex === 1 ? '男' : row.gender,
+  age: row.age ?? '',
+  phone: row.phone || row.userPhone || '',
+  department: row.deptName || row.department || '',
+  deptId: row.deptId,
+  position: row.job || row.position || '',
+  title: row.jobTitle || row.title || '',
+  jobNo: row.jobNumber || row.jobNo || '',
+  hireDate: row.hiredate || row.hireDate || '',
+  menuIdList: row.roleIdList || row.menuIdList || [],
   status: staffStatusFromApi(row.status),
   roleText: staffRoleText(row, menuNameMap)
 })
 
-const fallbackStaffMenus = [
-  { label: '业务员', value: '业务员' },
-  { label: '业务员（自动审批）', value: '业务员（自动审批）' },
-  { label: '生产员', value: '生产员' },
-  { label: '耗材记录员', value: '耗材记录员' },
-  { label: '物流调度员', value: '物流调度员' },
-  { label: '物流司机', value: '物流司机' }
-]
-
-const roleRows = [
-  { id: 1, name: '业务员', remark: '负责订单开单' },
-  { id: 2, name: '业务员（带自动审批）', remark: '负责订单开单，可选择自动审批模式' },
-  { id: 3, name: '耗材记录员', remark: '负责记录订单中所消耗的耗材' },
-  { id: 4, name: '生产员', remark: '负责完成生产工艺' },
-  { id: 5, name: '物流调度员', remark: '负责分配配送订单' },
-  { id: 6, name: '物流司机', remark: '负责配送与运输货物' },
-  { id: 7, name: '总经理', remark: '拥有小程序所有权限' }
-]
-
 const listRoles = async (payload = {}) =>
-  roleRows.filter((row) => !payload.name || String(row.name || '').includes(payload.name))
+  listRows(await getTenantRoleList({ name: payload.name || undefined }))
 
 const departmentOptionsFromRows = (rows = []) => {
   const options = new Map()
-  rows.forEach((row) => {
-    const value = row.group || row.parentName || row.parentDeptName || row.parentDepartmentName || row.name
-    if (!value || value === '-' || value === '全部') return
-    options.set(value, { label: value, value })
+  flattenRows(rows).forEach((row) => {
+    const label = row.name || row.deptName || row.group || row.parentName
+    const value = row.id || row.deptId || label
+    if (!label || label === '-' || label === '全部') return
+    options.set(String(value), { label, value })
   })
   return Array.from(options.values())
+}
+
+const listStaffDepartments = async () => {
+  const optionRows = listRows(await getTenantDepartmentOptions({ name: '' }).catch(() => []))
+  if (departmentOptionsFromRows(optionRows).length) return optionRows
+  return listOrganization({})
 }
 
 const departmentStatusFromApi = (status) => {
@@ -311,175 +336,25 @@ const changeOrganizationStatus = async (payload = {}) => {
   return { success: true }
 }
 
-const fallbackStaffRows = [
-  {
-    id: 6886,
-    userId: '6886',
-    name: '庞慧',
-    phone: '19876782134',
-    department: '生产部',
-    roleText: '业务员',
-    status: '启用',
-    gender: '男',
-    age: '',
-    position: '',
-    title: '',
-    jobNo: '',
-    hireDate: '',
-    menuIdList: ['业务员'],
-    remark: ''
-  },
-  {
-    id: 6898,
-    userId: '6898',
-    name: '王泽',
-    phone: '19578012123',
-    department: '生产部',
-    roleText: '生产员',
-    status: '启用',
-    gender: '男',
-    age: '',
-    position: '',
-    title: '',
-    jobNo: '',
-    hireDate: '',
-    menuIdList: ['生产员'],
-    remark: ''
-  },
-  {
-    id: 8165,
-    userId: '8165',
-    name: '胡允',
-    phone: '19113212388',
-    department: '管理部',
-    roleText: '物流调度员、物流司机',
-    status: '禁用',
-    gender: '男',
-    age: '',
-    position: '',
-    title: '',
-    jobNo: '',
-    hireDate: '',
-    menuIdList: ['物流调度员', '物流司机'],
-    remark: ''
-  }
-]
-
-const staffDraftStorageKey = 'yyfmanager_staff_drafts'
-
-const readStaffDraftRows = () => {
-  try {
-    if (typeof localStorage === 'undefined') return []
-    const value = localStorage.getItem(staffDraftStorageKey)
-    return value ? JSON.parse(value) : []
-  } catch {
-    return []
-  }
-}
-
-const writeStaffDraftRows = (rows = []) => {
-  try {
-    if (typeof localStorage === 'undefined') return
-    localStorage.setItem(staffDraftStorageKey, JSON.stringify(rows))
-  } catch {
-    // 忽略本地缓存写入失败，真实接口仍然可用。
-  }
-}
-
-let staffDraftRows = readStaffDraftRows()
-
-const normalizeStaffDraft = (payload = {}) => {
-  const id = payload.id || payload.userId || Date.now()
-  return {
-    ...payload,
-    id,
-    userId: String(payload.userId || id),
-    name: payload.name || payload.userName || '-',
-    phone: payload.phone || payload.userPhone || '',
-    department: payload.department || payload.deptName || '其他',
-    roleText: payload.roleText || (payload.menuIdList || []).join('、') || '-',
-    status: payload.status || '启用',
-    menuIdList: payload.menuIdList || []
-  }
-}
-
-const upsertStaffDraft = (payload = {}) => {
-  const row = normalizeStaffDraft(payload)
-  const key = String(row.id || row.userId)
-  const index = staffDraftRows.findIndex((item) => String(item.id || item.userId) === key)
-  if (index >= 0) {
-    staffDraftRows.splice(index, 1, row)
-  } else {
-    staffDraftRows.unshift(row)
-  }
-  writeStaffDraftRows(staffDraftRows)
-  return row
-}
-
-const removeStaffDraft = (payload = {}) => {
-  const key = String(payload.id || payload.userId || '')
-  const before = staffDraftRows.length
-  staffDraftRows = staffDraftRows.filter((item) => String(item.id || item.userId) !== key)
-  if (staffDraftRows.length !== before) writeStaffDraftRows(staffDraftRows)
-}
-
 const filterStaffRows = (rows = [], payload = {}) =>
   rows.filter((row) =>
     (!payload.name || String(row.name || '').includes(payload.name)) &&
     (!payload.phone || String(row.phone || '').includes(payload.phone)) &&
     (!payload.status || row.status === payload.status) &&
-    (!payload.department || String(row.department || '').includes(payload.department))
+    (!payload.department || String(row.department || '').includes(payload.department) || String(row.deptId || '') === String(payload.department))
   )
 
 const listStaff = async (payload = {}) => {
   const status = staffStatusToApi(payload.status)
-  const baseQuery = {
+  const data = await getTenantStaffList({
+    pageNum: payload.pageNum || 1,
+    pageSize: payload.pageSize || 999,
     name: payload.name || undefined,
     phone: payload.phone || undefined,
-    status: status === '' ? undefined : status
-  }
-
-  const draftRows = readStaffDraftRows()
-  staffDraftRows = draftRows
-
-  try {
-    const data = await getTenantClientUsers({
-      name: payload.name || undefined,
-      phone: payload.phone || undefined
-    })
-    const rows = listRows(data).map((row) => normalizeStaffUser(row))
-    return filterStaffRows([...draftRows, ...rows], payload)
-  } catch (error) {
-    // 租户侧用户列表不可用时，继续尝试旧平台接口；都不可用再用本地兜底。
-  }
-
-  try {
-    const menuResult = await getTenantUserMenus().catch(() => [])
-    const menuNameMap = new Map(
-      flattenMenus(Array.isArray(menuResult) ? menuResult : []).map((item) => [String(item.id), item.name])
-    )
-
-    if (payload.tenantId) {
-      const data = await getTenantUserList({ tenantId: payload.tenantId, ...baseQuery })
-      return listRows(data).map((row) => normalizeStaffUser(row, { id: payload.tenantId }, menuNameMap))
-    }
-
-    const tenantResult = await getTenantList({
-      pageNum: 1,
-      pageSize: 999,
-      status: 1
-    })
-    const tenants = listRows(tenantResult)
-    const nested = await Promise.all(
-      tenants.map(async (tenant) => {
-        const data = await getTenantUserList({ tenantId: tenant.id, ...baseQuery })
-        return listRows(data).map((row) => normalizeStaffUser(row, tenant, menuNameMap))
-      })
-    )
-    return filterStaffRows([...draftRows, ...nested.flat()], payload)
-  } catch (error) {
-    return filterStaffRows([...draftRows, ...fallbackStaffRows], payload)
-  }
+    status: status === '' ? undefined : status,
+    deptId: payload.department || payload.deptId || undefined
+  })
+  return filterStaffRows(listRows(data).map((row) => normalizeStaffUser(row)), payload)
 }
 
 const normalizeCustomer = (row = {}) => ({
@@ -1396,7 +1271,7 @@ const normalizeHandKept = (row = {}) => ({
   quantity: row.num ?? row.quantity ?? 0,
   imageRemark: row.imageRemark || row.img || row.picture || row.proofImg || '',
   remark: row.remark || row.detailNote || '',
-  orderNo: row.orderId || row.order?.orderId || '-',
+  orderNo: row.order?.orderId || row.orderId || '-',
   orderId: row.order?.id || row.orderId || row.id,
   operator: row.createUserName || row.operator || '-',
   updatedAt: row.createTime || row.updatedAt || '-'
@@ -1426,96 +1301,114 @@ const detailManualRecord = async (payload = {}) => {
   }
 }
 
-const craftPerformanceRows = [
-  {
-    id: 1,
-    name: '胡允',
-    customer: '成都印刷公司',
-    productName: '青溪建文街兵...',
-    department: '生产部',
-    role: '生产员',
-    bigMachine: 0,
-    smallMachine: 0,
-    film: 0,
-    lamination: 0,
-    singleColor: 26,
-    plate: 0,
-    bronzing: 35,
-    total: 811
-  },
-  {
-    id: 2,
-    name: '潘夏彤',
-    customer: '成都印刷公司',
-    productName: '青溪建文街兵...',
-    department: '生产部',
-    role: '生产员',
-    bigMachine: 0,
-    smallMachine: 0,
-    film: 0,
-    lamination: 0,
-    singleColor: 37,
-    plate: 0,
-    bronzing: 0,
-    total: 783
-  },
-  {
-    id: 3,
-    name: '刘大大',
-    customer: '成都印刷公司',
-    productName: '青溪建文街兵...',
-    department: '后道部',
-    role: '后道员',
-    bigMachine: 72,
-    smallMachine: 72,
-    film: 72,
-    lamination: 4,
-    singleColor: 0,
-    plate: 0,
-    bronzing: 57,
-    total: 314
+const normalizeHandKeptPayload = (payload = {}) => ({
+  id: payload.id || undefined,
+  name: payload.name,
+  orderId: payload.orderPrimaryId || payload.orderDbId || payload.orderRecordId || payload.orderId || undefined,
+  num: payload.quantity ?? payload.num,
+  remark: payload.remark,
+  imgRemark: payload.imgRemark || payload.imageRemark || undefined
+})
+
+const saveManualRecord = (payload = {}) =>
+  payload.id ? editTenantHandKept(normalizeHandKeptPayload(payload)) : addTenantHandKept(normalizeHandKeptPayload(payload))
+
+const deleteManualRecord = (payload = {}) => {
+  if (!payload.id) return Promise.reject(new Error('缺少手工记录ID'))
+  return deleteTenantHandKept(payload.id)
+}
+
+const performanceQuery = (payload = {}) => {
+  const [start, end] = splitRange(payload.time)
+  return {
+    pageNum: payload.pageNum || 1,
+    pageSize: payload.pageSize || 999,
+    name: payload.name || undefined,
+    phone: payload.phone || undefined,
+    createTimeStart: start || undefined,
+    createTimeEnd: end || undefined
   }
-]
+}
 
-const listCraftPerformance = async (payload = {}) => craftPerformanceRows.filter((row) =>
-  (!payload.customer || String(row.customer || '').includes(payload.customer)) &&
-  (!payload.productName || String(row.productName || '').includes(payload.productName)) &&
-  (!payload.department || row.department === payload.department) &&
-  (!payload.role || row.role === payload.role)
-)
+const normalizeCraftPerformance = (row = {}) => {
+  const machineNum = Number(row.machineNum || 0)
+  const craftNum = Number(row.craftNum || 0)
+  return {
+    ...row,
+    name: row.userName || row.name || '-',
+    customer: row.companyName || row.customer || '-',
+    productName: row.productName || '-',
+    craftName: row.craftName || '-',
+    bigMachine: Number(row.machineType) === 1 ? machineNum : 0,
+    smallMachine: Number(row.machineType) === 2 ? machineNum : 0,
+    total: craftNum
+  }
+}
 
-const craftStatsRows = [
-  { id: 1, craftId: '6886', name: '双面光膜', unit: '千', count: 5570, pending: 41, completed: 939 },
-  { id: 2, craftId: '6898', name: '四色印刷', unit: '千印', count: 9737, pending: 72, completed: 515 },
-  { id: 3, craftId: '8165', name: '双面哑膜', unit: '千印', count: 3121, pending: 40, completed: 865 }
-]
+const craftPerformanceQuery = (payload = {}) => {
+  const [start, end] = splitRange(payload.time)
+  return {
+    pageNum: payload.pageNum || 1,
+    pageSize: payload.pageSize || 999,
+    companyName: payload.customer || undefined,
+    productName: payload.productName || undefined,
+    deptId: payload.department || undefined,
+    startTime: start || undefined,
+    endTime: end || undefined,
+    userIds: payload.userIds || undefined,
+    machineTypes: payload.machineTypes || undefined,
+    craftIds: payload.craftIds || undefined
+  }
+}
 
-const listCraftStats = async (payload = {}) => craftStatsRows.filter((row) =>
-  (!payload.craftId || String(row.craftId || '').includes(payload.craftId)) &&
-  (!payload.name || String(row.name || '').includes(payload.name))
-)
+const listCraftPerformance = async (payload = {}) => {
+  const data = await getTenantCraftPerformanceList(craftPerformanceQuery(payload))
+  return listRows(data).map(normalizeCraftPerformance)
+}
 
-const deliveryPerformanceRows = [
-  { id: 1, name: '庞慧', phone: '19876782134', pendingOrders: 41, completedOrders: 811 },
-  { id: 2, name: '王泽', phone: '19578012123', pendingOrders: 72, completedOrders: 783 },
-  { id: 3, name: '胡允', phone: '19113212388', pendingOrders: 40, completedOrders: 314 }
-]
+const normalizeCraftStats = (row = {}, index = 0) => ({
+  ...row,
+  id: row.id || row.craftId || index + 1,
+  craftId: row.craftId || row.id || '-',
+  name: row.craftName || row.name || '-',
+  unit: row.unit || '-',
+  count: row.totalProductionNum ?? row.count ?? 0,
+  pending: row.pendingProductionNum ?? row.pending ?? 0,
+  completed: row.producedNum ?? row.completed ?? 0
+})
 
-const listDeliveryPerformance = async (payload = {}) => deliveryPerformanceRows.filter((row) =>
-  (!payload.name || String(row.name || '').includes(payload.name)) &&
-  (!payload.phone || String(row.phone || '').includes(payload.phone))
-)
+const listCraftStats = async (payload = {}) => {
+  const query = performanceQuery(payload)
+  const data = await getTenantPerformanceCraftList({
+    ...query,
+    name: payload.name || payload.craftId || undefined
+  })
+  return listRows(data).map(normalizeCraftStats)
+}
 
-const billingPerformanceRows = [
-  { id: 1, name: '庞慧', phone: '19876782134', completedOrders: 811, amount: 1000 },
-  { id: 2, name: '王泽', phone: '19578012123', completedOrders: 783, amount: 1000 },
-  { id: 3, name: '胡允', phone: '19113212388', completedOrders: 314, amount: 1000 }
-]
+const normalizeDeliveryPerformance = (row = {}, index = 0) => ({
+  ...row,
+  id: row.id || row.userId || index + 1,
+  pendingOrders: row.pendingCount ?? row.pendingOrders ?? 0,
+  completedOrders: row.completedCount ?? row.completedOrders ?? 0
+})
 
-const listBillingPerformance = async (payload = {}) => billingPerformanceRows.filter((row) =>
-  (!payload.name || String(row.name || '').includes(payload.name)) &&
-  (!payload.phone || String(row.phone || '').includes(payload.phone))
-)
+const listDeliveryPerformance = async (payload = {}) => {
+  const data = await getTenantPerformanceDriverList(performanceQuery(payload))
+  return listRows(data).map(normalizeDeliveryPerformance)
+}
+
+const normalizeBillingPerformance = (row = {}, index = 0) => ({
+  ...row,
+  id: row.id || row.userId || index + 1,
+  completedOrders: row.completedCount ?? row.completedOrders ?? 0,
+  amount: row.completedMoney ?? row.amount ?? 0
+})
+
+const listBillingPerformance = async (payload = {}) => {
+  const data = await getTenantPerformanceOrderList(performanceQuery(payload))
+  return listRows(data).map(normalizeBillingPerformance)
+}
 
 const normalizeDelivery = (row = {}) => ({
   ...row,
@@ -1693,48 +1586,41 @@ const deleteOrder = async (payload = {}) => {
 const saveStaff = (payload = {}) => {
   const requestPayload = {
     id: payload.id || undefined,
-    tenantId: payload.tenantId,
+    age: payload.age || undefined,
+    deptId: payload.deptId || payload.department || undefined,
+    hiredate: payload.hireDate || payload.hiredate || undefined,
+    job: payload.position || payload.job || undefined,
+    jobNumber: payload.jobNo || payload.jobNumber || undefined,
+    jobTitle: payload.title || payload.jobTitle || undefined,
     name: payload.name,
     phone: payload.phone,
-    department: payload.department,
-    deptName: payload.department,
-    menuIdList: payload.menuIdList || []
+    remark: payload.remark,
+    roleIdList: payload.roleIdList || payload.menuIdList || [],
+    sex: payload.gender === '女' ? 0 : 1
   }
   const password = payload.loginPassword || payload.password
   if (password) requestPayload.password = password
 
-  const localRow = upsertStaffDraft(payload)
-  if (!payload.tenantId) {
-    return Promise.resolve(localRow)
-  }
-
-  return (payload.id ? editTenantUser(requestPayload) : addTenantUser(requestPayload)).catch(() => localRow)
+  return payload.id ? editTenantStaff(requestPayload) : addTenantStaff(requestPayload)
 }
 
 const resetStaffPassword = (payload = {}) => {
   if (!payload.id) return Promise.reject(new Error('缺少人员ID'))
-  return resetTenantUserPassword(payload.id).catch(() => ({ success: true }))
+  return resetTenantStaffPassword(payload.id)
 }
 
 const deleteStaff = (payload = {}) => {
   if (!payload.id) return Promise.reject(new Error('缺少人员ID'))
-  removeStaffDraft(payload)
-  return deleteTenantUser(payload.id).catch(() => ({ success: true }))
+  return deleteTenantStaff(payload.id)
 }
 
 const changeStaffStatus = (payload = {}) => {
   if (!payload.id) return Promise.reject(new Error('缺少人员ID'))
-  const draft = staffDraftRows.find((item) => String(item.id || item.userId) === String(payload.id || payload.userId))
-  if (draft) upsertStaffDraft({ ...draft, status: payload.status })
-  return changeTenantUserStatus({
+  return changeTenantStaffStatus({
     id: payload.id,
-    tenantId: payload.tenantId,
     status: staffStatusToApi(payload.status)
-  }).catch(() => ({ success: true }))
+  })
 }
-
-const flattenMenus = (menus = []) =>
-  menus.flatMap((item) => [item, ...flattenMenus(item.children || [])])
 
 const moduleApiMap = {
   accounts: {
@@ -1776,30 +1662,17 @@ const moduleApiMap = {
     delete: deleteStaff,
     changeStatus: changeStaffStatus,
     formOptions: async () => {
-      try {
-        const [tenantResult, menuResult, departmentRows] = await Promise.all([
-          getTenantList({ pageNum: 1, pageSize: 999, status: 1 }),
-          getTenantUserMenus(),
-          listOrganization({}).catch(() => [])
-        ])
-        const menus = flattenMenus(Array.isArray(menuResult) ? menuResult : []).map((item) => ({
+      const [roleRows, departments] = await Promise.all([
+        listRoles({}).catch(() => []),
+        listStaffDepartments()
+      ])
+      return {
+        tenants: [],
+        departments: departmentOptionsFromRows(departments),
+        menus: listRows(roleRows).map((item) => ({
           label: item.name,
           value: item.id
         }))
-        return {
-          tenants: listRows(tenantResult).map((item) => ({
-            label: item.tenantName,
-            value: item.id
-          })),
-          departments: departmentOptionsFromRows(departmentRows),
-          menus: menus.length ? menus : fallbackStaffMenus
-        }
-      } catch (error) {
-        return {
-          tenants: [],
-          departments: [],
-          menus: fallbackStaffMenus
-        }
       }
     }
   },
@@ -1885,19 +1758,35 @@ const moduleApiMap = {
   },
   manualRecords: {
     list: listManualRecords,
-    detail: detailManualRecord
+    detail: detailManualRecord,
+    save: saveManualRecord,
+    delete: deleteManualRecord,
+    export: (payload) => exportTenantHandKept({
+      pageNum: payload.pageNum || 1,
+      pageSize: payload.pageSize || 999,
+      name: payload.name || undefined,
+      orderId: payload.orderNo || undefined,
+      createUserName: payload.operator || undefined
+    })
   },
   craftStats: {
-    list: listCraftStats
+    list: listCraftStats,
+    export: (payload) => exportTenantPerformanceCraft(performanceQuery(payload)),
+    total: getTenantPerformanceCraftTotal
   },
   craftPerformance: {
-    list: listCraftPerformance
+    list: listCraftPerformance,
+    export: (payload) => exportTenantCraftPerformance(craftPerformanceQuery(payload))
   },
   billingPerformance: {
-    list: listBillingPerformance
+    list: listBillingPerformance,
+    export: (payload) => exportTenantPerformanceOrder(performanceQuery(payload)),
+    total: getTenantPerformanceOrderTotal
   },
   deliveryPerformance: {
-    list: listDeliveryPerformance
+    list: listDeliveryPerformance,
+    export: (payload) => exportTenantPerformanceDriver(performanceQuery(payload)),
+    total: getTenantPerformanceDriverTotal
   },
   outsourceIncoming: {
     list: (payload) => listOutsourceOrders(payload, 'incoming'),

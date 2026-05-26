@@ -11,7 +11,7 @@ import {
   loadSpecialModuleRows,
   persistSpecialModuleRow
 } from '../services/specialModuleData'
-import { getTenantOutsourceTenants } from '../api/tenant'
+import { createTenantVipOrder, getTenantOutsourceTenants, getTenantVipList } from '../api/tenant'
 
 const props = defineProps({
   moduleKey: {
@@ -21,12 +21,11 @@ const props = defineProps({
 })
 const router = useRouter()
 const route = useRoute()
-const durationPackages = [
-  { key: 'monthly', name: '月卡', days: '有效时长30天', price: '¥100.00', original: '¥999.00' },
-  { key: 'quarterly', name: '季卡', days: '有效时长120天', price: '¥300.00', original: '¥999.00' },
-  { key: 'yearly', name: '年卡', days: '有效时长365天', price: '¥700.00', original: '¥999.00' }
-]
-const selectedDurationPackage = ref('monthly')
+const durationPackages = ref([])
+const durationLoading = ref(false)
+const durationPayLoading = ref(false)
+const durationPayInfo = ref(null)
+const selectedDurationPackage = ref('')
 const selectedPayment = ref('wechat')
 const durationAgreement = ref(true)
 
@@ -560,6 +559,32 @@ function sumMoney(rows, key) {
   return `¥${rows.reduce((sum, item) => sum + money(item[key]), 0).toFixed(2)}`
 }
 
+const listFromPayload = (payload) => {
+  if (Array.isArray(payload)) return payload
+  return payload?.records || payload?.list || payload?.rows || []
+}
+
+const formatDurationMoney = (value) => `¥${money(value).toFixed(2)}`
+
+const normalizeDurationPackage = (item = {}) => {
+  const id = item.id || item.vipId || item.packageId || item.key || item.name
+  const day = item.day ?? item.days ?? item.vipDay ?? item.durationDay ?? item.duration
+  const currentPrice = item.currentPrice ?? item.price ?? item.amount ?? item.payMoney ?? 0
+  const oldPrice = item.oldPrice ?? item.originPrice ?? item.originalPrice ?? item.marketPrice
+  return {
+    ...item,
+    key: String(id),
+    id,
+    name: item.name || item.vipName || item.packageName || '-',
+    days: day ? `有效时长${day}天` : item.durationLabel || '有效时长-',
+    price: formatDurationMoney(currentPrice),
+    original: oldPrice === undefined || oldPrice === null || oldPrice === '' ? '' : formatDurationMoney(oldPrice),
+    day,
+    currentPrice,
+    oldPrice
+  }
+}
+
 function averageMoney(rows, key) {
   if (!rows.length) return '¥0.00'
   return `¥${(rows.reduce((sum, item) => sum + money(item[key]), 0) / rows.length).toFixed(2)}`
@@ -867,6 +892,8 @@ const configProfiles = {
   craftStats: createConfigProfile('craftStats', {
     theme: 'indigo',
     workflows: ['工艺汇总', '产量统计', '状态分析'],
+    summaryText: (rows) =>
+      `生产合计：${rows.reduce((sum, item) => sum + Number(item.count || 0), 0)}    待生产合计：${rows.reduce((sum, item) => sum + Number(item.pending || 0), 0)}    已生产合计：${rows.reduce((sum, item) => sum + Number(item.completed || 0), 0)}`,
     sections: [
       { title: '工艺统计信息', type: 'grid', fields: crudModuleConfigs.craftStats.formFields }
     ],
@@ -897,6 +924,8 @@ const configProfiles = {
   billingPerformance: createConfigProfile('billingPerformance', {
     theme: 'cyan',
     workflows: ['开单统计', '金额汇总', '人员对比'],
+    summaryText: (rows) =>
+      `已完成订单数合计：${rows.reduce((sum, item) => sum + Number(item.completedOrders || 0), 0)}    已完成订单金额合计：${sumMoney(rows, 'amount')}`,
     sections: [
       { title: '开单绩效信息', type: 'grid', fields: crudModuleConfigs.billingPerformance.formFields }
     ],
@@ -910,6 +939,8 @@ const configProfiles = {
   deliveryPerformance: createConfigProfile('deliveryPerformance', {
     theme: 'amber',
     workflows: ['配送统计', '司机对比', '订单分析'],
+    summaryText: (rows) =>
+      `待配送订单合计：${rows.reduce((sum, item) => sum + Number(item.pendingOrders || 0), 0)}    已配送订单合计：${rows.reduce((sum, item) => sum + Number(item.completedOrders || 0), 0)}`,
     sections: [
       { title: '配送绩效信息', type: 'grid', fields: crudModuleConfigs.deliveryPerformance.formFields }
     ],
@@ -1216,6 +1247,7 @@ const state = reactive({
 })
 const dataset = ref([])
 const staffDepartmentCache = ref(new Set())
+const organizationRowsCache = ref([])
 
 const normalizeForm = () => {
   Object.keys(formState).forEach((key) => delete formState[key])
@@ -1279,7 +1311,7 @@ const tableColumns = computed(() => {
   )
 })
 
-const staffRoleOptions = computed(() => staffFallbackRoleOptions)
+const staffRoleOptions = computed(() => (staffMenuOptions.value.length ? staffMenuOptions.value : staffFallbackRoleOptions))
 const staffConfiguredDepartmentOptions = computed(() => {
   const departmentField = (crudModuleConfigs.staff?.formFields || []).find((field) => field.key === 'department')
   return normalizeFieldOptions(departmentField?.options || [])
@@ -1288,6 +1320,9 @@ const staffDepartmentOptions = computed(() => {
   const optionsMap = new Map()
   staffDepartmentRemoteOptions.value.forEach((item) => {
     if (item.value && !optionsMap.has(item.value)) optionsMap.set(item.value, item)
+  })
+  staffDepartmentCache.value.forEach((value) => {
+    if (value && !optionsMap.has(value)) optionsMap.set(value, { label: value, value })
   })
   dataset.value.forEach((row) => {
     const value = row.department || row.deptName
@@ -1309,6 +1344,16 @@ const rememberStaffDepartments = (rows = []) => {
   }
 }
 
+const rememberOrganizationRows = (rows = []) => {
+  if (!isOrganizationModule.value || !rows.length) return
+  const next = new Map(organizationRowsCache.value.map((row) => [String(row.id || row.name), row]))
+  rows.forEach((row) => {
+    const key = String(row.id || row.name || '')
+    if (key) next.set(key, row)
+  })
+  organizationRowsCache.value = Array.from(next.values())
+}
+
 const materialDetailNameOptions = computed(() => {
   const options = new Map()
   dataset.value.forEach((item) => {
@@ -1326,6 +1371,14 @@ const matchesTreeFilter = (row) => {
   if (!hasTreePanel.value) return true
   const value = filters[profile.treeKey]
   if (!value) return true
+  if (isStaffModule.value) {
+    const selectedDepartment = staffDepartmentOptions.value.find((item) => String(item.value) === String(value))
+    const selectedLabel = selectedDepartment?.label || value
+    return (
+      String(row.department || row.deptName || '').includes(String(selectedLabel)) ||
+      String(row.deptId || '') === String(value)
+    )
+  }
   return String(row[profile.treeKey] ?? '').includes(String(value))
 }
 const matchesCraftPerformanceChecks = (row) => {
@@ -1349,6 +1402,19 @@ const pagedRows = computed(() => {
   const start = (state.pageNum - 1) * state.pageSize
   return filteredRows.value.slice(start, start + state.pageSize)
 })
+const selectedDurationPlan = computed(() =>
+  durationPackages.value.find((item) => item.key === selectedDurationPackage.value)
+)
+const durationPayQr = computed(() =>
+  durationPayInfo.value?.qrCode ||
+  durationPayInfo.value?.qrcode ||
+  durationPayInfo.value?.codeUrl ||
+  durationPayInfo.value?.payUrl ||
+  ''
+)
+const durationPayAmount = computed(() =>
+  durationPayInfo.value?.amount || durationPayInfo.value?.payMoney || selectedDurationPlan.value?.currentPrice
+)
 
 const statCards = computed(() => profile.stats(filteredRows.value))
 const spotlight = computed(() => profile.spotlight(filteredRows.value))
@@ -1385,7 +1451,8 @@ const staffTreeData = computed(() => {
 })
 const organizationTreeData = computed(() => {
   const childrenMap = new Map()
-  rows.value.forEach((row) => {
+  const sourceRows = organizationRowsCache.value.length ? organizationRowsCache.value : rows.value
+  sourceRows.forEach((row) => {
     const parentName = row.group || row.parentName || row.parentDeptName || row.parentDepartmentName || ''
     if (parentName && parentName !== '-' && parentName !== '全部') {
       childrenMap.set(parentName, { label: parentName, value: parentName })
@@ -1599,6 +1666,58 @@ const loadFormOptions = async () => {
       return
     }
     ElMessage.error(error?.message || '表单选项加载失败')
+  }
+}
+
+const loadDurationPackages = async () => {
+  if (!isDurationPurchaseModule.value) return
+  durationLoading.value = true
+  try {
+    const result = await getTenantVipList({ pageNum: 1, pageSize: 999, status: 1 })
+    const packages = listFromPayload(result)
+      .filter((item) => item.status === undefined || Number(item.status) === 1)
+      .map(normalizeDurationPackage)
+    durationPackages.value = packages
+    if (!packages.some((item) => item.key === selectedDurationPackage.value)) {
+      selectedDurationPackage.value = packages[0]?.key || ''
+    }
+    durationPayInfo.value = null
+  } catch (error) {
+    durationPackages.value = []
+    selectedDurationPackage.value = ''
+    durationPayInfo.value = null
+    ElMessage.error(error?.message || '套餐接口加载失败')
+  } finally {
+    durationLoading.value = false
+  }
+}
+
+const selectDurationPackage = async (item) => {
+  selectedDurationPackage.value = item.key
+  durationPayInfo.value = null
+}
+
+const createDurationPayment = async () => {
+  if (!selectedDurationPlan.value) {
+    ElMessage.error('请选择套餐')
+    return
+  }
+  if (!durationAgreement.value) {
+    ElMessage.error('请先勾选服务协议')
+    return
+  }
+  durationPayLoading.value = true
+  try {
+    durationPayInfo.value = await createTenantVipOrder({
+      vipId: selectedDurationPlan.value.id,
+      packageId: selectedDurationPlan.value.id,
+      payType: selectedPayment.value === 'wechat' ? 1 : 2
+    })
+  } catch (error) {
+    durationPayInfo.value = null
+    ElMessage.error(error?.message || '支付二维码获取失败')
+  } finally {
+    durationPayLoading.value = false
   }
 }
 
@@ -2385,7 +2504,7 @@ const requiredFieldMap = {
   receipts: ['cooperativeClientId', 'collectionTime', 'accountId'],
   reimbursements: ['reimburseTime', 'accountId', 'amount'],
   materialDetails: ['name', 'type', 'quantity'],
-  manualRecords: ['name', 'quantity']
+  manualRecords: ['name', 'orderId', 'quantity']
 }
 const displayFormFields = computed(() => {
   if (!isCustomerModule.value) return profile.formFields
@@ -2708,6 +2827,7 @@ const loadRows = async () => {
     const result = await loadSpecialModuleRows(props.moduleKey, filters)
     dataset.value = result.rows
     rememberStaffDepartments(result.rows)
+    rememberOrganizationRows(result.rows)
     syncCraftPerformanceChecks()
     sequence.value = Math.max(...[0, ...result.rows.map((item) => Number(item.id) || 0)]) + 1
     if ((state.pageNum - 1) * state.pageSize >= result.rows.length) {
@@ -2793,7 +2913,7 @@ const submitSave = async () => {
     ElMessage.error(`请填写${missingField.label}`)
     return
   }
-  if (!payload.id && props.moduleKey !== 'staff' && !isCustomerModule.value && !isReceiptsModule.value && !isReimbursementsModule.value) {
+  if (!payload.id && !['staff', 'organization', 'manualRecords'].includes(props.moduleKey) && !isCustomerModule.value && !isReceiptsModule.value && !isReimbursementsModule.value) {
     payload.id = sequence.value
     sequence.value += 1
   }
@@ -2820,6 +2940,7 @@ onMounted(() => {
   applyRouteQuery()
   loadRows()
   loadFormOptions()
+  loadDurationPackages()
 })
 
 watch(
@@ -2827,6 +2948,8 @@ watch(
   () => {
     applyRouteQuery()
     loadRows()
+    loadFormOptions()
+    loadDurationPackages()
   }
 )
 
@@ -2873,25 +2996,26 @@ watch(
     </section>
 
     <section v-if="isDurationPurchaseModule" class="duration-purchase-shell">
-      <div class="duration-purchase-card">
+      <div v-loading="durationLoading" class="duration-purchase-card">
         <header class="duration-purchase-head">
           <h2>购买时长</h2>
         </header>
         <div class="duration-purchase-body">
           <div class="duration-plan-grid">
+            <el-empty v-if="!durationLoading && !durationPackages.length" description="暂无可购买套餐" />
             <button
               v-for="item in durationPackages"
               :key="item.key"
               type="button"
               class="duration-plan-card"
               :class="{ active: selectedDurationPackage === item.key }"
-              @click="selectedDurationPackage = item.key"
+              @click="selectDurationPackage(item)"
             >
               <span class="duration-plan-card__mark"></span>
               <strong>{{ item.name }}</strong>
               <em>{{ item.days }}</em>
               <b>{{ item.price }}</b>
-              <del>{{ item.original }}</del>
+              <del v-if="item.original">{{ item.original }}</del>
             </button>
           </div>
           <aside class="duration-payment-panel">
@@ -2900,13 +3024,25 @@ watch(
               <button type="button" :class="{ active: selectedPayment === 'alipay' }" @click="selectedPayment = 'alipay'">支</button>
             </div>
             <span>扫码支付</span>
-            <div class="duration-qr">支付二维码</div>
-            <strong>{{ durationPackages.find((item) => item.key === selectedDurationPackage)?.price }}</strong>
-            <del>¥999.00</del>
+            <div class="duration-qr" :class="{ 'duration-qr--empty': !durationPayQr }">
+              <img v-if="durationPayQr" :src="durationPayQr" alt="支付二维码" />
+              <span v-else>{{ durationPayLoading ? '生成中' : '请先生成二维码' }}</span>
+            </div>
+            <strong>{{ formatDurationMoney(durationPayAmount) }}</strong>
+            <del v-if="selectedDurationPlan?.original">{{ selectedDurationPlan.original }}</del>
             <label class="duration-agreement">
               <input v-model="durationAgreement" type="checkbox" />
               <span>服务协议</span>
             </label>
+            <el-button
+              type="primary"
+              class="duration-pay-button"
+              :loading="durationPayLoading"
+              :disabled="!selectedDurationPlan"
+              @click="createDurationPayment"
+            >
+              生成支付二维码
+            </el-button>
           </aside>
         </div>
       </div>
@@ -4540,6 +4676,11 @@ watch(
   gap: 18px;
 }
 
+.duration-plan-grid :deep(.el-empty) {
+  grid-column: 1 / -1;
+  min-height: 300px;
+}
+
 .duration-plan-card {
   min-height: 380px;
   display: flex;
@@ -4649,6 +4790,19 @@ watch(
   font-weight: 800;
 }
 
+.duration-qr img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+.duration-qr--empty {
+  background: #f4f6fb;
+  color: #8a94a6;
+  font-size: 16px;
+}
+
 .duration-payment-panel > strong {
   margin-top: 28px;
   color: #2a2a2a;
@@ -4669,6 +4823,11 @@ watch(
   width: 18px;
   height: 18px;
   accent-color: #1f66ff;
+}
+
+.duration-pay-button {
+  width: 162px;
+  margin-top: 18px;
 }
 
 .module-grid {

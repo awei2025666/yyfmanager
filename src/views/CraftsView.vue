@@ -2,18 +2,18 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { Refresh, Search } from '@element-plus/icons-vue'
 import PageBlock from '../components/PageBlock.vue'
-import { getTenantCraftList } from '../api/tenant'
+import {
+  addTenantCraft,
+  changeTenantCraftStatus,
+  deleteTenantCraft,
+  editTenantCraft,
+  getTenantCraftList
+} from '../api/tenant'
 
 const router = useRouter()
 const route = useRoute()
-
-const sampleCrafts = [
-  { id: 1, name: '双面光膜', priceBase: 10, unit: '千', sort: 1, remark: 'xxxxx', formatSize: 19, spotColors: '--', status: 1 },
-  { id: 2, name: '四色印刷', priceBase: 0, unit: '千印', sort: 0, remark: 'xxxxx', formatSize: '--', spotColors: '--', status: 1 },
-  { id: 3, name: '双面哑膜', priceBase: 10, unit: '千印', sort: 2, remark: 'xxxxx', formatSize: '--', spotColors: '--', status: 0 }
-]
 
 const filters = reactive({
   pageNum: 1,
@@ -50,7 +50,7 @@ const normalizeCraft = (row = {}, index = 0) => ({
   priceBase: row.priceBase ?? row.basePrice ?? 0,
   unit: row.unit || '-',
   sort: row.sort ?? row.sortNum ?? 0,
-  remark: row.remark || row.description || 'xxxxx',
+  remark: row.remark || row.description || '',
   formatSize: row.formatSize ?? row.openCount ?? '--',
   spotColors: row.spotColors || row.spotColor || row.specialColor || '--',
   status: Number(row.status ?? 1)
@@ -69,15 +69,12 @@ const loadData = async () => {
       status: filters.status === '' ? undefined : filters.status
     })
     const rows = data?.records || data?.list || data?.rows || []
-    state.records = rows.length ? rows.map(normalizeCraft) : sampleCrafts
+    state.records = rows.map(normalizeCraft)
     state.total = data?.total || state.records.length
-  } catch {
-    state.records = sampleCrafts.filter((row) =>
-      (!filters.name || row.name.includes(filters.name)) &&
-      (!filters.unit || row.unit.includes(filters.unit)) &&
-      (filters.status === '' || Number(row.status) === Number(filters.status))
-    )
-    state.total = state.records.length
+  } catch (error) {
+    state.records = []
+    state.total = 0
+    ElMessage.error(error?.message || '工艺列表加载失败')
   } finally {
     state.loading = false
   }
@@ -136,30 +133,47 @@ const submit = async () => {
   if (!form.unit) return ElMessage.error('请填写单位')
   state.saving = true
   try {
-    const next = normalizeCraft({ ...form, status: 1 }, state.records.length)
-    if (isEdit.value) {
-      state.records = state.records.map((item) => (item.id === form.id ? { ...item, ...next } : item))
-    } else {
-      state.records = [{ ...next, id: Date.now() }, ...state.records]
-      state.total += 1
+    const payload = {
+      id: form.id || undefined,
+      name: form.name,
+      unit: form.unit,
+      priceBase: form.priceBase,
+      formatSize: form.formatSize,
+      spotColors: form.spotColors,
+      sort: form.sort,
+      remark: form.remark
     }
+    await (isEdit.value ? editTenantCraft(payload) : addTenantCraft(payload))
     ElMessage.success('保存成功')
     closeForm()
+    loadData()
+  } catch (error) {
+    ElMessage.error(error?.message || '保存失败')
   } finally {
     state.saving = false
   }
 }
 
-const toggleStatus = (row) => {
-  row.status = Number(row.status) === 1 ? 0 : 1
-  ElMessage.success('状态已更新')
+const toggleStatus = async (row) => {
+  const nextStatus = Number(row.status) === 1 ? 0 : 1
+  try {
+    await changeTenantCraftStatus({ id: row.id, status: nextStatus })
+    row.status = nextStatus
+    ElMessage.success('状态已更新')
+  } catch (error) {
+    ElMessage.error(error?.message || '状态更新失败')
+  }
 }
 
 const remove = async (row) => {
   await ElMessageBox.confirm(`确认删除工艺“${row.name}”吗？`, '删除确认', { type: 'warning' })
-  state.records = state.records.filter((item) => item.id !== row.id)
-  state.total = Math.max(0, state.total - 1)
-  ElMessage.success('删除成功')
+  try {
+    await deleteTenantCraft(row.id)
+    ElMessage.success('删除成功')
+    loadData()
+  } catch (error) {
+    ElMessage.error(error?.message || '删除失败')
+  }
 }
 
 watch(
