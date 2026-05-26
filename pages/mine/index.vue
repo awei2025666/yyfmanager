@@ -1,7 +1,59 @@
+<template>
+	<view class="mine-page">
+		<view class="nav-wrap">
+			<view class="nav-row">
+				<view></view>
+				<text>我的</text>
+				<view></view>
+			</view>
+		</view>
+
+		<view class="profile-band">
+			<view class="avatar">头像</view>
+			<view class="profile-main">
+				<view class="nickname">{{ userName }}</view>
+				<view class="phone">{{ maskedPhone }}</view>
+			</view>
+			<view class="profile-arrow">›</view>
+		</view>
+
+		<view class="menu-list">
+			<view class="menu-item" @click="showInfo">
+				<view class="menu-left">
+					<view class="menu-icon info-icon">
+						<view class="icon-paper"></view>
+						<view class="icon-pen"></view>
+					</view>
+					<text>个人信息</text>
+				</view>
+				<text class="arrow">›</text>
+			</view>
+			<view class="menu-item" @click="showPasswordTip">
+				<view class="menu-left">
+					<view class="menu-icon shield-icon">✓</view>
+					<text>修改密码</text>
+				</view>
+				<text class="arrow">›</text>
+			</view>
+			<view class="menu-item" @click="logout">
+				<view class="menu-left">
+					<view class="menu-icon logout-icon">
+						<view class="logout-door"></view>
+						<view class="logout-arrow">›</view>
+					</view>
+					<text>退出登录</text>
+				</view>
+				<text class="arrow">›</text>
+			</view>
+		</view>
+	</view>
+</template>
+
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 
 const userInfo = ref({})
+
 const userName = computed(() => (
 	userInfo.value.name ||
 	userInfo.value.nickname ||
@@ -9,204 +61,237 @@ const userName = computed(() => (
 	userInfo.value.userName ||
 	userInfo.value.realName ||
 	userInfo.value.account ||
-	'未登录'
+	'微信昵称'
 ))
-const userPhone = computed(() => userInfo.value.phone || userInfo.value.mobile || userInfo.value.tel || '-')
+
+const userPhone = computed(() => userInfo.value.phone || userInfo.value.mobile || userInfo.value.tel || '')
+const maskedPhone = computed(() => {
+	const phone = String(userPhone.value || '')
+	if (!phone) return '-'
+	return phone.replace(/^(\d{3})\d{4}(\d+)/, '$1****$2')
+})
 
 const getSelfInfo = async () => {
 	try {
 		userInfo.value = await uni.$api.selfInfo()
-	} catch (e) {}
+	} catch (e) {
+		userInfo.value = {}
+	}
+}
+
+const showInfo = () => {
+	uni.showModal({
+		title: '个人信息',
+		content: `昵称：${userName.value}\n手机号：${maskedPhone.value}`,
+		showCancel: false
+	})
+}
+
+const showPasswordTip = () => {
+	uni.showToast({
+		title: '请联系管理员修改密码',
+		icon: 'none'
+	})
 }
 
 const logout = () => {
-	uni.removeStorageSync('Authorization')
-	uni.removeStorageSync('token')
-	uni.showToast({
-		title: '已退出登录',
-		icon: 'none'
+	uni.showModal({
+		title: '提示',
+		content: '确认退出登录吗？',
+		success: res => {
+			if (!res.confirm) return
+			uni.removeStorageSync('Authorization')
+			uni.removeStorageSync('token')
+			uni.showToast({
+				title: '已退出登录',
+				icon: 'none'
+			})
+			setTimeout(() => {
+				uni.reLaunch({ url: '/pages/login/index' })
+			}, 300)
+		}
 	})
-	setTimeout(() => {
-		uni.reLaunch({ url: '/pages/login/index' })
-	}, 300)
 }
 
 onMounted(getSelfInfo)
 </script>
 
-<template>
-	<view class="mine">
-		<view class="top">
-	
-			<view class="nav">
-				<view></view>
-				<text>我的</text>
-		
-		
-			</view>
-			<view class="profile">
-				<view class="avatar">
-					<u-avatar size="large"></u-avatar>
-				</view>
-				<view class="user">
-					<view class="nick">{{ userName }}</view>
-					<view class="phone">{{ userPhone }}</view>
-				</view>
-			</view>
-		</view>
-		<view class="panel">
-			<view class="section">
-				<view class="left">
-					<view class="icon-wrap blue"><u-icon name="account-fill" color="#1f7cff" size="36"></u-icon></view>
-					<view class="title">个人信息</view>
-				</view>
-				<u-icon name="arrow-right" color="#b8b8b8" size="30"></u-icon>
-			</view>
-
-			<view class="section">
-				<view class="left">
-					<view class="icon-wrap green"><u-icon name="edit-pen-fill" color="#18b77a" size="36"></u-icon></view>
-					<view class="title">修改密码</view>
-				</view>
-				<u-icon name="arrow-right" color="#b8b8b8" size="30"></u-icon>
-			</view>
-
-			<view class="section" @click="logout">
-				<view class="left">
-					<view class="icon-wrap red"><u-icon name="person-delete-fill" color="#ff4d4f" size="36"></u-icon></view>
-					<view class="title">退出登录</view>
-				</view>
-				<u-icon name="arrow-right" color="#b8b8b8" size="30"></u-icon>
-			</view>
-		</view>
-	</view>
-</template>
-
 <style lang="scss" scoped>
-.mine{
+.mine-page{
 	min-height: 100vh;
-	background: #f7f7f7;
-	.section{
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		height: 112rpx;
+	background: #fff;
+	color: #282828;
+}
+.nav-wrap{
+	background: #fff;
+	border-bottom: 1rpx solid #eeeeee;
+}
+.nav-row{
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
+	align-items: center;
+	height: 108rpx;
+	padding: 0 24rpx;
+	font-size: 34rpx;
+	font-weight: 500;
+}
+.profile-band{
+	display: flex;
+	align-items: center;
+	height: 224rpx;
+	padding: 0 56rpx 0 32rpx;
+	background: #1f7cff;
+	color: #fff;
+	box-sizing: border-box;
+}
+.avatar{
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 128rpx;
+	height: 128rpx;
+	border: 4rpx solid #fff;
+	border-radius: 50%;
+	background: #3500a8;
+	color: #fff;
+	font-size: 28rpx;
+	box-sizing: border-box;
+}
+.profile-main{
+	min-width: 0;
+	flex: 1;
+	margin-left: 26rpx;
+}
+.nickname{
+	font-size: 34rpx;
+	line-height: 48rpx;
+	word-break: break-all;
+}
+.phone{
+	margin-top: 20rpx;
+	font-size: 28rpx;
+	line-height: 38rpx;
+	opacity: .9;
+}
+.profile-arrow{
+	margin-left: 20rpx;
+	font-size: 68rpx;
+	font-weight: 200;
+	line-height: 1;
+}
+.menu-list{
+	padding: 24rpx 32rpx 0;
+	background: #fff;
+}
+.menu-item{
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 110rpx;
+	border-bottom: 1rpx solid #eeeeee;
+}
+.menu-left{
+	display: flex;
+	align-items: center;
+	gap: 18rpx;
+	color: #4a4a4a;
+	font-size: 31rpx;
+	line-height: 44rpx;
+}
+.menu-icon{
+	position: relative;
+	flex: 0 0 auto;
+	width: 42rpx;
+	height: 42rpx;
+	color: #1f7cff;
+}
+.info-icon{
+	.icon-paper{
+		position: absolute;
+		left: 4rpx;
+		top: 2rpx;
+		width: 24rpx;
+		height: 34rpx;
+		border-left: 7rpx solid #1f7cff;
+		border-top: 5rpx solid #1f7cff;
+		border-bottom: 5rpx solid #1f7cff;
+		box-sizing: border-box;
+	}
+	.icon-paper::before,
+	.icon-paper::after{
+		content: '';
+		position: absolute;
+		left: 8rpx;
+		width: 18rpx;
+		height: 4rpx;
+		background: #1f7cff;
+	}
+	.icon-paper::before{ top: 8rpx; }
+	.icon-paper::after{ top: 18rpx; }
+	.icon-pen{
+		position: absolute;
+		right: 2rpx;
+		bottom: 2rpx;
+		width: 25rpx;
+		height: 8rpx;
+		border-radius: 8rpx;
+		background: #1f7cff;
+		transform: rotate(-45deg);
+	}
+}
+.shield-icon{
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 8rpx 8rpx 18rpx 18rpx;
+	background: #1f7cff;
+	color: #fff;
+	font-size: 30rpx;
+	font-weight: 700;
+}
+.shield-icon::before{
+	content: '';
+	position: absolute;
+	left: 0;
+	top: -5rpx;
+	width: 42rpx;
+	height: 18rpx;
+	border-radius: 50% 50% 0 0;
+	background: #1f7cff;
+}
+.logout-icon{
+	.logout-door{
+		position: absolute;
+		left: 2rpx;
+		top: 4rpx;
+		width: 27rpx;
+		height: 34rpx;
+		border-radius: 4rpx;
+		background: #1f7cff;
+	}
+	.logout-door::before{
+		content: '';
+		position: absolute;
+		right: -9rpx;
+		top: 0;
+		width: 10rpx;
+		height: 8rpx;
 		background: #fff;
-		border-bottom: 1rpx solid #f2f2f2;
-		.left{
-			display: flex;
-			justify-content: start;
-			align-items: center;
-			gap: 20rpx;
-			font-size: 29rpx;
-			color: #252525;
-			.icon-wrap{
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				width: 58rpx;
-				height: 58rpx;
-				border-radius: 50%;
-				&.blue{ background: #edf5ff; }
-				&.green{ background: #eaf8f2; }
-				&.red{ background: #fff1f0; }
-			}
-		}
 	}
-	.top{
-		background: #00b9ff;
-		padding: 34rpx 40rpx 110rpx;
-		.fake-status{
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
-			color: #fff;
-			font-size: 30rpx;
-			font-weight: 600;
-			.status-icons{
-				display: flex;
-				align-items: center;
-				gap: 8rpx;
-				.signal{
-					width: 30rpx;
-					height: 22rpx;
-					border-radius: 3rpx;
-					background: #fff;
-				}
-				.wifi{
-					width: 26rpx;
-					height: 18rpx;
-					border-top: 6rpx solid #fff;
-					border-radius: 50%;
-				}
-				.battery{
-					width: 42rpx;
-					height: 20rpx;
-					border: 3rpx solid #fff;
-					border-radius: 5rpx;
-				}
-			}
-		}
-		.nav{
-			display: grid;
-			grid-template-columns: 1fr auto 1fr;
-			align-items: center;
-			margin-top: 44rpx;
-			color: #fff;
-			font-size: 34rpx;
-			font-weight: 600;
-			.capsule{
-				justify-self: end;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				width: 174rpx;
-				height: 64rpx;
-				border-radius: 64rpx;
-				background: rgba(255,255,255,.18);
-				font-size: 32rpx;
-				.divider{
-					width: 1rpx;
-					height: 36rpx;
-					margin: 0 24rpx;
-					background: rgba(255,255,255,.24);
-				}
-				.circle{
-					width: 34rpx;
-					height: 34rpx;
-					border-radius: 50%;
-					border: 7rpx solid #fff;
-				}
-			}
-		}
-		.profile{
-			display: flex;
-			align-items: center;
-			gap: 24rpx;
-			margin-top: 50rpx;
-		}
-		.user{
-			display: flex;
-			flex-direction: column;
-			justify-content: center;
-			align-items: start;
-			gap: 10rpx;
-			color: #fff;
-			.nick{
-				font-size: 34rpx;
-				font-weight: 400;
-			}
-			.phone{
-				font-size: 25rpx;
-			}
-		}
+	.logout-arrow{
+		position: absolute;
+		right: 0;
+		top: 7rpx;
+		color: #1f7cff;
+		font-size: 44rpx;
+		font-weight: 700;
+		line-height: 28rpx;
 	}
-	.panel{
-		margin: -62rpx 30rpx 0;
-		padding: 0 28rpx;
-		overflow: hidden;
-		border-radius: 18rpx;
-		background: #fff;
-	}
+}
+.arrow{
+	color: #222;
+	font-size: 60rpx;
+	font-weight: 200;
+	line-height: 1;
 }
 </style>
