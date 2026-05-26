@@ -32,7 +32,10 @@ const confirmLogout = () => {
 }
 
 const goBack = () => {
-	uni.navigateBack()
+	uni.switchTab({
+		url: '/pages/mine/index',
+		fail: () => uni.reLaunch({ url: '/pages/mine/index' })
+	})
 }
 </script>
 
