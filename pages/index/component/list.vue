@@ -25,7 +25,7 @@
 							</view>
 						</view>
 						<template v-if="type === 0">
-							<view class="item-desc">{{ item.products.map(item=>{return item.name+'*'+item.orderQuantity}).join(',') }}</view>
+							<view class="item-desc">{{ getOrderProducts(item) }}</view>
 							<view class="item-company">{{ item.companyName || '-' }}</view>
 							<view class="item-meta">{{ getMeta(item) }}</view>
 						</template>
@@ -62,7 +62,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 const props = defineProps({
 	type: {
 		type: Number,
@@ -72,6 +72,8 @@ const props = defineProps({
 const keyword = ref('')
 const dataList = ref([])
 const paging = ref()
+const queryToken = ref(0)
+const destroyed = ref(false)
 const orderStatusMap = {
 	1: '待审批',
 	2: '待生产',
@@ -103,20 +105,45 @@ const fetchers = [
 ]
 
 const queryList = async (pageNo, pageSize) => {
+	const token = ++queryToken.value
+	const queryType = props.type
+	const fetcher = fetchers[queryType]
+	if (!fetcher) {
+		paging.value && paging.value.complete([])
+		return
+	}
 	try {
-		const data = await fetchers[props.type]({
+		const data = await fetcher({
 			pageNum: pageNo,
 			pageSize
 		})
+		if (destroyed.value || token !== queryToken.value || queryType !== props.type) return
 		const records = data?.records || data
-		paging.value.complete(Array.isArray(records) ? records : [])
+		paging.value && paging.value.complete(Array.isArray(records) ? records : [])
 	} catch (e) {
-		paging.value.complete([])
+		if (destroyed.value || token !== queryToken.value || queryType !== props.type) return
+		paging.value && paging.value.complete([])
 	}
 }
 
 const refresh = () => {
-	paging.value && paging.value.reload()
+	queryToken.value++
+	dataList.value = []
+	nextTick(() => {
+		paging.value && paging.value.reload()
+	})
+}
+
+const getOrderProducts = item => {
+	if (!Array.isArray(item.products) || !item.products.length) return item.productInfo || '-'
+	return item.products
+		.map(product => {
+			const name = product.name || product.productName || product.productInfo || ''
+			const quantity = product.orderQuantity || product.quantity || product.num
+			return `${name}${quantity ? `*${quantity}` : ''}`
+		})
+		.filter(Boolean)
+		.join(',')
 }
 
 const getDeliveryOrders = item => Array.isArray(item.orders) ? item.orders : []
@@ -207,6 +234,11 @@ const toDetail = item => {
 
 watch(() => props.type, refresh)
 watch(keyword, refresh)
+
+onBeforeUnmount(() => {
+	destroyed.value = true
+	queryToken.value++
+})
 </script>
 
 <style lang="scss">

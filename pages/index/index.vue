@@ -37,7 +37,7 @@
 				{{ item.name }}
 			</view>
 		</view>
-		<listViews :type="currentTab"></listViews>
+		<listViews :key="currentTab" :type="currentTab"></listViews>
 	 </view>
   </view>
 </template>
