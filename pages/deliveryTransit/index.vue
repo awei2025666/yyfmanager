@@ -22,7 +22,7 @@
 				<view class="product">{{ getProducts(item) || '-' }}</view>
 				<view class="company">{{ item.companyName || item.clientName || '-' }}</view>
 				<view class="time">{{ item.orderTime || item.createTime || '-' }}</view>
-				<button v-if="!isDone(item)" class="complete-btn" @click.stop="complete(item)">已完成配送</button>
+				<button v-if="!isDone(item)" class="complete-btn" @click.stop="toComplete(item)">已完成配送</button>
 			</view>
 		</view>
 	</view>
@@ -51,14 +51,9 @@ const loadList = async () => {
 	}
 }
 
-const complete = async item => {
-	try {
-		await uni.$api.completeDelivery({ id: item.id })
-		uni.showToast({ title: '已完成', icon: 'none' })
-		item.deliveryStatus = 3
-	} catch (e) {
-		uni.showToast({ title: e?.message || '完成配送失败', icon: 'none' })
-	}
+const toComplete = item => {
+	if (!item.id) return
+	uni.navigateTo({ url: `/pages/deliveryComplete/index?id=${item.id}` })
 }
 
 const toDetail = item => {

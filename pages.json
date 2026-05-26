@@ -81,6 +81,12 @@
 					}
 				},
 				{
+					"path": "pages/deliveryComplete/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
 					"path": "pages/deliveryDetail/index",
 					"style": {
 						"navigationStyle": "custom"
