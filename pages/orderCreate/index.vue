@@ -42,18 +42,6 @@
 				</view>
 			</view>
 
-			<view class="form-row">
-				<text class="label required">审批模式</text>
-				<view class="radio-group">
-					<view :class="['radio', form.approvalMode === 1 ? 'checked' : '']" @click="form.approvalMode = 1"></view>
-					<text>人工审批</text>
-					<view :class="['radio', form.approvalMode === 2 ? 'checked' : '']" @click="form.approvalMode = 2"></view>
-					<text>自动审批</text>
-				</view>
-			</view>
-
-			<view class="divider"></view>
-
 			<picker mode="date" :value="deliveryDateValue" @change="handleDeliveryDateChange">
 				<view class="form-row">
 					<text class="label required">交货日期</text>
@@ -328,8 +316,7 @@ const openClientPicker = async () => {
 
 const handleDeliveryDateChange = event => {
 	const date = event.detail.value
-	const time = (form.deliveryDate || '').slice(11) || '20:22:20'
-	form.deliveryDate = `${date} ${time}`
+	form.deliveryDate = date
 }
 
 const openDeliveryTypePicker = () => {

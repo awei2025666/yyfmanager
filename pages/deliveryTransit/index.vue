@@ -35,9 +35,25 @@ const list = ref([])
 
 const normalizeStatus = item => Number(item.deliveryStatus || item.status || 2)
 const isDone = item => normalizeStatus(item) === 3 || item.statusName === '已完成'
+const formatProduct = product => {
+	const name = product.name || product.productName || product.productInfo || ''
+	const quantity = product.orderQuantity || product.quantity || product.num
+	return `${name}${quantity ? `*${quantity}` : ''}`
+}
+
+const getOrderProducts = order => {
+	if (Array.isArray(order.products) && order.products.length) {
+		return order.products.map(formatProduct).filter(Boolean).join('\n')
+	}
+	return order.productInfo || order.productName || order.name || ''
+}
+
 const getProducts = item => {
+	if (Array.isArray(item.products) && item.products.length) {
+		return item.products.map(formatProduct).filter(Boolean).join('\n')
+	}
 	const orders = item.orders || item.orderList || []
-	const text = orders.map(order => order.productInfo || order.name).filter(Boolean).join('\n')
+	const text = orders.map(getOrderProducts).filter(Boolean).join('\n')
 	return item.productInfo || text
 }
 

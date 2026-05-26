@@ -25,7 +25,7 @@
 						<text class="arrow" v-if="!selectMode">›</text>
 					</view>
 				</view>
-				<view class="product">{{ item.productInfo || '-' }}</view>
+				<view class="product">{{ getProducts(item) || '-' }}</view>
 				<view class="time">{{ item.orderTime || item.createTime || '-' }}</view>
 			</view>
 		</view>
@@ -43,6 +43,20 @@ import { onMounted, ref } from 'vue'
 const list = ref([])
 const selectMode = ref(false)
 const selectedOrders = ref([])
+
+const formatProduct = product => {
+	const name = product.name || product.productName || product.productInfo || ''
+	const quantity = product.orderQuantity || product.quantity || product.num
+	return `${name}${quantity ? `*${quantity}` : ''}`
+}
+
+const getProducts = item => {
+	if (Array.isArray(item.products) && item.products.length) {
+		return item.products.map(formatProduct).filter(Boolean).join('\n')
+	}
+	return item.productInfo || item.productName || item.name || ''
+}
+
 const loadList = async () => {
 	try {
 		const data = await uni.$api.deliveryOrderList({ pageNum: 1, pageSize: 20 })
