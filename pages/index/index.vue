@@ -45,7 +45,8 @@
 <script setup>
 import pageHeader from './component/header.vue'
 import listViews from './component/list.vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
+import {onShow} from "@dcloudio/uni-app";
 const list = ref(['今日','累计'])
 const currentTab = ref(0)
 const performanceType = ref(1)
@@ -127,7 +128,7 @@ const initPage = async () => {
 	getPerformance()
 }
 
-onMounted(initPage)
+onShow(initPage)
 </script>
 
 <style lang="scss">

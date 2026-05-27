@@ -7,17 +7,16 @@
 			</view>
 		</view>
 
-		<view class="status-band">配送中</view>
+    <view :class="['status-band', detail.status === 2 ? 'done' : 'active']">{{ deliveryStatusText }}</view>
 
 		<view class="section order-section">
 			<view class="section-title"><view class="mark"></view><text>订单信息</text></view>
 			<view class="order-card" v-for="order in orderList" :key="order.id || order.orderId">
 				<view class="order-title">
 					<u-icon name="order" color="#1f7cff" size="30"></u-icon>
-					<text>{{ order.orderId || detail.orderId || '-' }}（订单号）</text>
+					<text>{{ order.orderNum || '-' }}（订单号）</text>
 				</view>
 				<view class="product">{{ getOrderProducts(order) || '-' }}</view>
-				<view class="time">{{ order.orderTime || order.createTime || detail.orderTime || detail.createTime || '-' }}</view>
 			</view>
 		</view>
 
@@ -34,30 +33,8 @@
 			</view>
 		</view>
 
-		<view class="gap"></view>
 
-		<view class="section record-section">
-			<view class="section-title"><view class="mark"></view><text>配送记录</text></view>
-			<view class="timeline">
-				<view class="record-item" v-for="(item,index) in processList" :key="item.id || index">
-					<view class="dot"></view>
-					<view class="record-card">
-						<view class="record-time">{{ formatTime(item.createTime || item.time) }}</view>
-						<view class="record-content">{{ item.content || item.remark || '-' }}</view>
-						<view v-if="getImages(item).length" class="thumbs">
-							<image v-for="(image,index) in getImages(item)" :key="index" :src="image" mode="aspectFill"></image>
-						</view>
-						<view class="record-user">
-							<text>{{ item.tenantUserName || item.userName || driverName || '-' }}</text>
-							<text>{{ maskPhone(item.tenantUserPhone || item.phone || driverPhone) || '-' }}</text>
-						</view>
-					</view>
-				</view>
-				<view v-if="!processList.length" class="empty-state">暂无数据</view>
-			</view>
-		</view>
-
-		<view class="bottom-bar">
+		<view class="bottom-bar" v-if="detail.status === 1">
 			<button class="complete-btn" @click="toComplete">已完成配送</button>
 		</view>
 	</view>
@@ -95,6 +72,7 @@ const companyInfo = computed(() => {
 
 const driverName = computed(() => detail.value.driverName || detail.value.deliveryTenantUserName || detail.value.tenantUserName || '')
 const driverPhone = computed(() => detail.value.driverPhone || detail.value.deliveryTenantUserPhone || detail.value.tenantUserPhone || '')
+const deliveryStatusText = computed(() => detail.value.status === 2 ? '已完成' : '配送中')
 
 const formatProduct = product => {
 	const name = product.name || product.productName || product.productInfo || ''
@@ -196,6 +174,12 @@ onLoad(options => {
 	font-size: 25rpx;
 	line-height: 52rpx;
 	text-align: center;
+  &.active{
+    background: #ff9f18;
+  }
+  &.done{
+    background: #18bf7b;
+  }
 }
 .section{
 	padding: 28rpx 30rpx;

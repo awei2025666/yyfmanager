@@ -31,7 +31,6 @@
 						</template>
 						<template v-else-if="type === 1">
 							<!-- TODO -->
-							<view class="item-desc">{{ item.productInfo || '-' }}</view>
 							<view class="item-company">
 								{{ item.craftName || '' }}{{ item.orderQuantity ? `*${item.orderQuantity}` : '' }}{{ item.unitPrice ? `*¥${item.unitPrice}` : '' }}{{ item.customerMoney ? `*¥${item.customerMoney}` : '' }}<text class="danger">{{ item.remark || '' }}</text>
 							</view>

@@ -196,7 +196,7 @@ const loadDetail = async () => {
 	try {
 		await resolveOrderId()
 		if (!orderId.value) throw { code: 1002 }
-		const detailApi = isDeliveryPending.value ? uni.$api.deliveryOrderDetail : uni.$api.orderInfo
+		const detailApi = uni.$api.orderInfo
 		const [info, process] = await Promise.all([
 			detailApi({ id: orderId.value }),
 			uni.$api.orderProcessInfo({ id: orderId.value })

@@ -202,7 +202,7 @@ const submit = async () => {
 		})
 		uni.showToast({ title: '创建成功', icon: 'none' })
 		setTimeout(() => {
-			uni.redirectTo({ url: '/pages/deliveryTransit/index' })
+			uni.redirectTo({ url: '/pages/index' })
 		}, 500)
 	} catch (e) {
 		uni.showToast({

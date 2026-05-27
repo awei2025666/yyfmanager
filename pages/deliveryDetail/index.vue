@@ -17,13 +17,13 @@
 				<view class="card-head">
 					<view class="order-title">
 						<u-icon name="order" color="#1f7cff" size="32"></u-icon>
-						<text>{{ order.orderId || '-' }}（订单号）</text>
+						<text>{{ order.orderNum || '-' }}（订单号）</text>
 					</view>
 					<text :class="['pill', isOrderDone(order) ? 'done' : 'active']">{{ isOrderDone(order) ? '已完成' : '配送中' }}</text>
 				</view>
 				<view class="product">{{ getOrderProducts(order) || '-' }}</view>
 				<view class="time">{{ order.orderTime || order.createTime || '-' }}</view>
-				<button v-if="canCompleteOrder(order)" class="card-complete-btn" @click.stop="toCompleteDelivery">已完成配送</button>
+				<button v-if="canCompleteOrder(order)" class="card-complete-btn" @click.stop="toCompleteDelivery(order.id)">已完成配送</button>
 			</view>
 			<view v-if="!orderList.length" class="empty-state">暂无数据</view>
 		</view>
@@ -62,7 +62,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 
 const deliveryId = ref('')
 const fromPage = ref('')
@@ -76,8 +76,8 @@ const deliveryStatusText = computed(() => isDeliveryDone.value ? '已完成' : '
 const driver = computed(() => {
 	const firstOrder = detail.value.orderList?.[0] || {}
 	return {
-		name: detail.value.driverName || detail.value.deliveryTenantUserName || detail.value.tenantUserName || firstOrder.driverName || firstOrder.deliveryTenantUserName || firstOrder.tenantUserName,
-		phone: detail.value.driverPhone || detail.value.deliveryTenantUserPhone || detail.value.tenantUserPhone || firstOrder.driverPhone || firstOrder.deliveryTenantUserPhone || firstOrder.tenantUserPhone
+		name: detail.value.deliveryUser.name || detail.value.driverName || detail.value.deliveryTenantUserName || detail.value.tenantUserName || firstOrder.driverName || firstOrder.deliveryTenantUserName || firstOrder.tenantUserName,
+		phone: detail.value.deliveryUser.phone || detail.value.driverPhone || detail.value.deliveryTenantUserPhone || detail.value.tenantUserPhone || firstOrder.driverPhone || firstOrder.deliveryTenantUserPhone || firstOrder.tenantUserPhone
 	}
 })
 const orderList = computed(() => {
@@ -132,9 +132,9 @@ const loadDetail = async () => {
 	}
 }
 
-const toCompleteDelivery = () => {
+const toCompleteDelivery = (id) => {
 	if (!deliveryId.value) return
-	uni.navigateTo({ url: `/pages/deliveryComplete/index?id=${deliveryId.value}` })
+	uni.navigateTo({ url: `/pages/deliveryComplete/index?id=${id}` })
 }
 
 const goBack = () => {
@@ -154,8 +154,9 @@ const goBack = () => {
 onLoad(options => {
 	deliveryId.value = options.id || ''
 	fromPage.value = options.from || ''
-	loadDetail()
 })
+
+onShow(loadDetail)
 </script>
 
 <style lang="scss" scoped>

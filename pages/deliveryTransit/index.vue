@@ -15,7 +15,7 @@
 				<view class="card-head">
 					<view class="order-title">
 						<u-icon name="order" color="#1f7cff" size="32"></u-icon>
-						<text>{{ item.orderId || item.deliveryOrderId || '-' }}（订单号）</text>
+						<text>{{ item.orderNum || '-' }}（订单号）</text>
 					</view>
 					<text :class="['pill', isDone(item) ? 'done' : 'active']">{{ isDone(item) ? '已完成' : '配送中' }}</text>
 				</view>
@@ -29,12 +29,13 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 
 const list = ref([])
 
-const normalizeStatus = item => Number(item.deliveryStatus || item.status || 2)
-const isDone = item => normalizeStatus(item) === 3 || item.statusName === '已完成'
+const normalizeStatus = item => item.deliveryStatus
+const isDone = item => normalizeStatus(item) === 2
 const formatProduct = product => {
 	const name = product.name || product.productName || product.productInfo || ''
 	const quantity = product.orderQuantity || product.quantity || product.num
@@ -89,7 +90,7 @@ const goBack = () => {
 	})
 }
 
-onMounted(loadList)
+onShow(loadList)
 </script>
 
 <style lang="scss" scoped>
