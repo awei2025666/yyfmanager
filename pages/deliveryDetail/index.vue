@@ -119,8 +119,11 @@ const hasImages = item => getImages(item).length > 0
 const loadDetail = async () => {
 	if (!deliveryId.value) return
 	try {
+		const detailApi = fromPage.value === 'transit'
+			? uni.$api.deliveryOrderDetail
+			: uni.$api.deliveryDetail
 		const [info, process] = await Promise.all([
-			uni.$api.deliveryDetail({ id: deliveryId.value }),
+			detailApi({ id: deliveryId.value }),
 			uni.$api.deliveryProcessInfo({ id: deliveryId.value })
 		])
 		detail.value = info || {}
