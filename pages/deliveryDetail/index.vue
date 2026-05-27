@@ -45,14 +45,15 @@
 			<view class="timeline">
 				<view class="record-item" v-for="(item,index) in processList" :key="item.id || index">
 					<view class="record-time">{{ formatTime(item.createTime) }}</view>
-					<view class="record-content">{{ item.content || '-' }}</view>
-					<view v-if="hasImages(item)" class="thumbs">
-						<image v-for="(image, imageIndex) in getImages(item)" :key="imageIndex" :src="image" mode="aspectFill"></image>
-					</view>
 					<view class="record-user">
 						<text>{{ item.tenantUserName || driver.name || '-' }}</text>
 						<text>{{ maskPhone(item.tenantUserPhone || item.phone || driver.phone) || '-' }}</text>
 					</view>
+					<view v-if="getRecordRemark(item)" class="record-remark">{{ getRecordRemark(item) }}</view>
+					<view v-if="hasImages(item)" class="thumbs">
+						<image v-for="(image, imageIndex) in getImages(item)" :key="imageIndex" :src="image" mode="aspectFill"></image>
+					</view>
+					<view class="record-content">{{ item.content || '-' }}</view>
 				</view>
 				<view v-if="!processList.length" class="empty-state">暂无数据</view>
 			</view>
@@ -113,8 +114,9 @@ const normalizeImages = value => {
 	if (!value) return []
 	return String(value).split(',').map(item => item.trim()).filter(Boolean)
 }
-const getImages = item => normalizeImages(item.images || item.imageList || item.imgList || item.pictureList || item.imgRemark)
+const getImages = item => normalizeImages(item.img || item.images || item.imageList || item.imgList || item.pictureList || item.imgRemark || item.completeImgRemark)
 const hasImages = item => getImages(item).length > 0
+const getRecordRemark = item => item.remark || item.completeRemark || ''
 
 const loadDetail = async () => {
 	if (!deliveryId.value) return
@@ -357,6 +359,13 @@ onShow(loadDetail)
 	color: #333;
 	font-size: 26rpx;
 	line-height: 38rpx;
+}
+.record-remark{
+	margin-top: 8rpx;
+	color: #666;
+	font-size: 25rpx;
+	line-height: 36rpx;
+	word-break: break-all;
 }
 .thumbs{
 	display: flex;

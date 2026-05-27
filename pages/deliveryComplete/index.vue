@@ -40,7 +40,7 @@ const deliveryId = ref('')
 const remark = ref('')
 const images = ref([])
 const submitting = ref(false)
-const maxImages = 4
+const maxImages = 1
 
 const imageSlots = computed(() => Math.max(0, maxImages - images.value.length - (images.value.length < maxImages ? 1 : 0)))
 

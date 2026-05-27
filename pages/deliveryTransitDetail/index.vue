@@ -33,6 +33,29 @@
 			</view>
 		</view>
 
+		<view class="gap"></view>
+
+		<view class="section record-section">
+			<view class="section-title"><view class="mark"></view><text>配送记录</text></view>
+			<view class="timeline">
+				<view class="record-item" v-for="(item,index) in processList" :key="item.id || index">
+					<view class="record-card">
+						<view class="record-time">{{ formatTime(item.createTime || item.time) }}</view>
+						<view class="record-user">
+							<text>{{ item.tenantUserName || item.userName || driverName || '-' }}</text>
+							<text>{{ maskPhone(item.tenantUserPhone || item.phone || driverPhone) || '-' }}</text>
+						</view>
+						<view v-if="getRecordRemark(item)" class="record-remark">{{ getRecordRemark(item) }}</view>
+						<view v-if="getImages(item).length" class="thumbs">
+							<image v-for="(image,index) in getImages(item)" :key="index" :src="image" mode="aspectFill"></image>
+						</view>
+						<view class="record-content">{{ item.content || '-' }}</view>
+					</view>
+				</view>
+				<view v-if="!processList.length" class="empty-state">暂无数据</view>
+			</view>
+		</view>
+
 
 		<view class="bottom-bar" v-if="detail.status === 1">
 			<button class="complete-btn" @click="toComplete">已完成配送</button>
@@ -98,8 +121,9 @@ const normalizeImages = value => {
 	return String(value).split(',').map(item => item.trim()).filter(Boolean)
 }
 
-const getImages = item => normalizeImages(item.images || item.imageList || item.imgList || item.pictureList || item.imgRemark)
+const getImages = item => normalizeImages(item.img || item.images || item.imageList || item.imgList || item.pictureList || item.imgRemark || item.completeImgRemark)
 const maskPhone = phone => String(phone || '').replace(/^(\d{3})\d{4}(\d+)/, '$1****$2')
+const getRecordRemark = item => item.remark || item.completeRemark || ''
 
 const getProcessFromDetail = info => {
 	const list = info.processList || info.processInfo || info.records || info.deliveryProcessList
@@ -286,6 +310,13 @@ onLoad(options => {
 	color: #555;
 	font-size: 24rpx;
 	line-height: 34rpx;
+}
+.record-remark{
+	margin-top: 8rpx;
+	color: #666;
+	font-size: 24rpx;
+	line-height: 34rpx;
+	word-break: break-all;
 }
 .thumbs{
 	display: flex;
