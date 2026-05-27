@@ -234,6 +234,10 @@ const toDetail = item => {
 watch(() => props.type, refresh)
 watch(keyword, refresh)
 
+defineExpose({
+	refresh
+})
+
 onBeforeUnmount(() => {
 	destroyed.value = true
 	queryToken.value++

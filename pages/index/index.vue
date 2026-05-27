@@ -37,7 +37,7 @@
 				{{ item.name }}
 			</view>
 		</view>
-		<listViews :key="currentTab" :type="currentTab"></listViews>
+		<listViews ref="listRef" :key="currentTab" :type="currentTab"></listViews>
 	 </view>
   </view>
 </template>
@@ -45,10 +45,11 @@
 <script setup>
 import pageHeader from './component/header.vue'
 import listViews from './component/list.vue'
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import {onShow} from "@dcloudio/uni-app";
 const list = ref(['今日','累计'])
 const currentTab = ref(0)
+const listRef = ref()
 const performanceType = ref(1)
 const userInfo = ref({})
 const deliveryCount = ref({
@@ -128,7 +129,12 @@ const initPage = async () => {
 	getPerformance()
 }
 
-onShow(initPage)
+onShow(() => {
+	initPage()
+	nextTick(() => {
+		listRef.value && listRef.value.refresh()
+	})
+})
 </script>
 
 <style lang="scss">
