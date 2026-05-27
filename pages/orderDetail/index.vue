@@ -499,7 +499,7 @@ onLoad(options => {
 		color: #ff3347;
 	}
 	.record-list{
-		padding-left: 74rpx;
+		//padding-left: 74rpx;
 	}
 	.record-item{
 		position: relative;

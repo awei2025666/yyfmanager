@@ -78,7 +78,7 @@ const submit = async () => {
 		await uni.$api.completeDelivery({
 			id: deliveryId.value,
 			remark: remark.value,
-			imgRemark,
+			img: imgRemark,
 			completeRemark: remark.value,
 			completeImgRemark: imgRemark
 		})

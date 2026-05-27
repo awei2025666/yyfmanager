@@ -201,10 +201,11 @@ const submit = async () => {
 			orderIdList: selectedOrders.value.map(item => item.id)
 		})
 		uni.showToast({ title: '创建成功', icon: 'none' })
-		setTimeout(() => {
-			uni.redirectTo({ url: '/pages/index' })
-		}, 500)
-	} catch (e) {
+    setTimeout(() => {
+      uni.switchTab({ url: '/pages/index/index' })
+    }, 500)
+
+  } catch (e) {
 		uni.showToast({
 			title: e?.code === 1002 ? '请先登录后再创建' : (e?.message || '创建配送单失败'),
 			icon: 'none'

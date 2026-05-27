@@ -341,7 +341,7 @@ onShow(loadDetail)
 	padding-right: 30rpx;
 }
 .timeline{
-	padding: 18rpx 16rpx 0 64rpx;
+	padding: 18rpx 16rpx 0 18rpx;
 }
 .record-item{
 	margin-bottom: 52rpx;
