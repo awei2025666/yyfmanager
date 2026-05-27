@@ -119,11 +119,8 @@ const hasImages = item => getImages(item).length > 0
 const loadDetail = async () => {
 	if (!deliveryId.value) return
 	try {
-		const detailApi = fromPage.value === 'transit'
-			? uni.$api.deliveryOrderDetail
-			: uni.$api.deliveryDetail
 		const [info, process] = await Promise.all([
-			detailApi({ id: deliveryId.value }),
+			uni.$api.deliveryDetail({ id: deliveryId.value }),
 			uni.$api.deliveryProcessInfo({ id: deliveryId.value })
 		])
 		detail.value = info || {}
@@ -145,13 +142,6 @@ const goBack = () => {
 		uni.switchTab({
 			url: '/pages/index/index',
 			fail: () => uni.reLaunch({ url: '/pages/index/index' })
-		})
-		return
-	}
-	if (fromPage.value === 'transit') {
-		uni.redirectTo({
-			url: '/pages/deliveryTransit/index',
-			fail: () => uni.reLaunch({ url: '/pages/deliveryTransit/index' })
 		})
 		return
 	}

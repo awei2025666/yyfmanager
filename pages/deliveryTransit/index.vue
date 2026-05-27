@@ -74,7 +74,7 @@ const toComplete = item => {
 
 const toDetail = item => {
 	if (!item.id) return
-	uni.navigateTo({ url: `/pages/deliveryDetail/index?id=${item.id}&from=transit` })
+	uni.navigateTo({ url: `/pages/deliveryTransitDetail/index?id=${item.id}` })
 }
 
 const goBack = () => {

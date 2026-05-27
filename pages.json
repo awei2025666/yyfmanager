@@ -99,6 +99,12 @@
 					}
 				},
 				{
+					"path": "pages/deliveryTransitDetail/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
 					"path": "pages/deliveryComplete/index",
 					"style": {
 						"navigationStyle": "custom"
