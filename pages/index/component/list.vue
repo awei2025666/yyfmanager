@@ -221,7 +221,7 @@ const toDetail = item => {
 	}
 	if (props.type === 2) {
 		uni.navigateTo({
-			url: `/pages/deliveryDetail/index?id=${item.id}`
+			url: `/pages/deliveryDetail/index?id=${item.id}&from=index`
 		})
 		return
 	}

@@ -65,6 +65,7 @@ import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 
 const deliveryId = ref('')
+const fromPage = ref('')
 const detail = ref({})
 const processList = ref([])
 const hasDetail = computed(() => Object.keys(detail.value || {}).length > 0)
@@ -137,16 +138,29 @@ const toCompleteDelivery = () => {
 }
 
 const goBack = () => {
-	const pages = getCurrentPages()
-	if (pages.length > 1) {
-		uni.navigateBack()
+	if (fromPage.value === 'index') {
+		uni.switchTab({
+			url: '/pages/index/index',
+			fail: () => uni.reLaunch({ url: '/pages/index/index' })
+		})
 		return
 	}
-	uni.redirectTo({ url: '/pages/deliveryTransit/index' })
+	if (fromPage.value === 'transit') {
+		uni.redirectTo({
+			url: '/pages/deliveryTransit/index',
+			fail: () => uni.reLaunch({ url: '/pages/deliveryTransit/index' })
+		})
+		return
+	}
+	uni.redirectTo({
+		url: '/pages/deliveryTransit/index',
+		fail: () => uni.switchTab({ url: '/pages/index/index' })
+	})
 }
 
 onLoad(options => {
 	deliveryId.value = options.id || ''
+	fromPage.value = options.from || ''
 	loadDetail()
 })
 </script>
