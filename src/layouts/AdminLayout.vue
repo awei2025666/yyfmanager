@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onMounted, reactive } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import {
   DataBoard,
   DocumentCopy,
@@ -17,20 +18,15 @@ import {
   User,
   Van,
   Wallet,
-  PieChart
+  PieChart,
+  Lock
 } from '@element-plus/icons-vue'
-import { getTenantUserInfo } from '../api/tenant'
+import { editTenantLoginPassword, getTenantUserInfo } from '../api/tenant'
 import { getAvatarUrl, getNameInitial } from '../utils/userProfile'
 
 const route = useRoute()
 const router = useRouter()
-const userState = reactive({
-  name: localStorage.getItem('platform_account') || '',
-  vipDay: localStorage.getItem('platform_vip_day') || '',
-  avatar: localStorage.getItem('platform_avatar') || ''
-})
-
-const menus = [
+const allMenus = [
   { name: 'dashboard', label: '工作台', icon: DataBoard },
   { name: 'customers', label: '合作客户', icon: OfficeBuilding },
   { name: 'orders', label: '订单管理', icon: DocumentCopy },
@@ -87,7 +83,135 @@ const menus = [
   }
 ]
 
-const flatMenus = computed(() => menus.flatMap((item) => item.children || [item]))
+const userState = reactive({
+  name: localStorage.getItem('platform_account') || '',
+  vipDay: localStorage.getItem('platform_vip_day') || '',
+  avatar: localStorage.getItem('platform_avatar') || '',
+  allowedRoutes: []
+})
+const passwordDialogVisible = ref(false)
+const passwordSaving = ref(false)
+const passwordForm = reactive({
+  password: ''
+})
+
+const menuRouteAliases = {
+  workbench: 'dashboard',
+  工作台: 'dashboard',
+  dashboard: 'dashboard',
+  cooperativeClient: 'customers',
+  cooperativeClientList: 'customers',
+  合作客户: 'customers',
+  customer: 'customers',
+  customers: 'customers',
+  order: 'orders',
+  orderList: 'orders',
+  订单管理: 'orders',
+  orders: 'orders',
+  productsCraft: 'productCrafts',
+  产品工艺: 'productCrafts',
+  productCrafts: 'productCrafts',
+  craft: 'crafts',
+  工艺管理: 'crafts',
+  craftManage: 'crafts',
+  outsourcing: 'outsourceIncoming',
+  outsourceOrder: 'outsourceIncoming',
+  外协订单: 'outsourceIncoming',
+  intoOrder: 'outsourceIncoming',
+  outOrder: 'outsourceIncoming',
+  outsourceCraft: 'productCraftsOutsource',
+  外协工艺: 'productCraftsOutsource',
+  productsCraftOutsource: 'productCraftsOutsource',
+  delivery: 'deliveryNotes',
+  配送单: 'deliveryNotes',
+  deliveryNotes: 'deliveryNotes',
+  receivable: 'receivableOrders',
+  应收账款: 'receivableOrders',
+  receivableOrders: 'receivableOrders',
+  receipt: 'receipts',
+  收款信息: 'receipts',
+  receipts: 'receipts',
+  reimburse: 'reimbursements',
+  报销列表: 'reimbursements',
+  reimbursements: 'reimbursements',
+  account: 'accounts',
+  账户管理: 'accounts',
+  accounts: 'accounts',
+  financial: 'fundDetails',
+  资金明细: 'fundDetails',
+  fundDetails: 'fundDetails',
+  consumableInventory: 'materialStock',
+  耗材库存: 'materialStock',
+  materialStock: 'materialStock',
+  consumableDetail: 'materialDetails',
+  耗材明细: 'materialDetails',
+  materialDetails: 'materialDetails',
+  consumable: 'materials',
+  耗材信息: 'materials',
+  materials: 'materials',
+  handKept: 'manualRecords',
+  手工记录: 'manualRecords',
+  manualRecords: 'manualRecords',
+  craftStatistics: 'craftPerformance',
+  工艺绩效: 'craftPerformance',
+  craftPerformance: 'craftPerformance',
+  performance: 'craftStats',
+  工艺统计: 'craftStats',
+  craftStats: 'craftStats',
+  driverPerformance: 'deliveryPerformance',
+  配送绩效: 'deliveryPerformance',
+  deliveryPerformance: 'deliveryPerformance',
+  orderPerformance: 'billingPerformance',
+  开单绩效: 'billingPerformance',
+  billingPerformance: 'billingPerformance',
+  user: 'staff',
+  人员管理: 'staff',
+  staff: 'staff',
+  role: 'roles',
+  角色管理: 'roles',
+  roles: 'roles',
+  dept: 'organization',
+  组织架构: 'organization',
+  organization: 'organization'
+}
+
+const allRouteNames = new Set(allMenus.flatMap((item) => item.children ? item.children.map((child) => child.name) : [item.name]))
+
+const normalizeMenuRouter = (value) => String(value || '').replace(/^\/+/, '').split(/[/?#]/)[0]
+
+const collectAllowedRoutes = (tree = []) => {
+  const result = new Set()
+  const visit = (items = []) => {
+    items.forEach((item) => {
+      const routerName = normalizeMenuRouter(item.router)
+      const routeName = menuRouteAliases[routerName] || menuRouteAliases[item.name] || routerName
+      if (allRouteNames.has(routeName)) result.add(routeName)
+      if (Array.isArray(item.children)) visit(item.children)
+    })
+  }
+  visit(Array.isArray(tree) ? tree : [])
+  return [...result]
+}
+
+const menuAllowed = (item, allowedSet) => {
+  if (!allowedSet.size) return true
+  if (item.name) return allowedSet.has(item.name)
+  return item.children?.some((child) => menuAllowed(child, allowedSet))
+}
+
+const filterMenus = (items, allowedSet) =>
+  items
+    .map((item) => {
+      if (!item.children) return item
+      return {
+        ...item,
+        children: item.children.filter((child) => menuAllowed(child, allowedSet))
+      }
+    })
+    .filter((item) => menuAllowed(item, allowedSet))
+
+const menus = computed(() => filterMenus(allMenus, new Set(userState.allowedRoutes)))
+const flatMenus = computed(() => menus.value.flatMap((item) => item.children || [item]))
 
 const activeTitle = computed(
   () => {
@@ -110,7 +234,7 @@ const activeMenuName = computed(() => {
   return route.meta.parent || route.name
 })
 const openGroupIndexes = computed(() =>
-  menus
+  menus.value
     .filter((item) => item.children?.some((child) => child.name === activeMenuName.value))
     .map((item) => item.label)
 )
@@ -127,6 +251,10 @@ const openDurationPurchase = () => {
   router.push({ name: 'durationPurchases' })
 }
 
+const openLargeScreen = () => {
+  router.push({ name: 'largeScreen' })
+}
+
 const logout = () => {
   localStorage.removeItem('platform_token')
   localStorage.removeItem('platform_account')
@@ -135,12 +263,36 @@ const logout = () => {
   router.push('/login')
 }
 
+const openPasswordDialog = () => {
+  passwordForm.password = ''
+  passwordDialogVisible.value = true
+}
+
+const submitPassword = async () => {
+  const password = passwordForm.password.trim()
+  if (!password) {
+    ElMessage.warning('请输入新密码')
+    return
+  }
+  passwordSaving.value = true
+  try {
+    await editTenantLoginPassword({ password })
+    passwordDialogVisible.value = false
+    ElMessage.success('密码修改成功')
+  } catch (error) {
+    ElMessage.error(error?.message || '密码修改失败')
+  } finally {
+    passwordSaving.value = false
+  }
+}
+
 const loadUserInfo = async () => {
   try {
     const info = await getTenantUserInfo()
     userState.name = info?.name || userState.name
     userState.vipDay = info?.vipDay ?? ''
     userState.avatar = getAvatarUrl(info)
+    userState.allowedRoutes = collectAllowedRoutes(info?.menuTree)
     localStorage.setItem('platform_account', userState.name)
     localStorage.setItem('platform_vip_day', String(userState.vipDay))
     if (userState.avatar) {
@@ -170,9 +322,9 @@ onMounted(loadUserInfo)
         class="sidebar-menu"
         :default-active="activeMenuName"
         :default-openeds="openGroupIndexes"
-        background-color="#2f3032"
-        text-color="#d7d9df"
-        active-text-color="#ffffff"
+        background-color="#ffffff"
+        text-color="#606266"
+        active-text-color="#409eff"
         @select="handleMenuSelect"
       >
         <template v-for="item in menus" :key="item.name || item.label">
@@ -196,13 +348,27 @@ onMounted(loadUserInfo)
 
     <div class="admin-main">
       <header class="admin-topbar">
-        <button type="button" class="screen-button">可视化大屏</button>
+        <button type="button" class="screen-button" @click="openLargeScreen">可视化大屏</button>
         <div class="topbar-actions">
           <button type="button" class="vip-pill" @click="openDurationPurchase">剩余<strong>{{ vipDayText }}</strong>天到期</button>
-          <button type="button" class="avatar-button" :title="currentAccount">
-            <img v-if="userState.avatar" :src="userState.avatar" alt="头像" />
-            <span v-else>{{ accountInitial }}</span>
-          </button>
+          <el-dropdown trigger="click" popper-class="avatar-dropdown" @command="(command) => command === 'password' ? openPasswordDialog() : logout()">
+            <button type="button" class="avatar-button" :title="currentAccount">
+              <img v-if="userState.avatar" :src="userState.avatar" alt="头像" />
+              <span v-else>{{ accountInitial }}</span>
+            </button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="password">
+                  <el-icon><Lock /></el-icon>
+                  修改密码
+                </el-dropdown-item>
+                <el-dropdown-item command="logout" divided>
+                  <el-icon><SwitchButton /></el-icon>
+                  退出登录
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </header>
 
@@ -217,6 +383,29 @@ onMounted(loadUserInfo)
 
       <router-view :key="route.name" />
     </div>
+
+    <el-dialog
+      v-model="passwordDialogVisible"
+      title="修改密码"
+      width="420px"
+      class="password-dialog"
+      append-to-body
+    >
+      <label class="password-field">
+        <span>新密码</span>
+        <el-input
+          v-model="passwordForm.password"
+          type="password"
+          show-password
+          placeholder="请输入新密码"
+          @keyup.enter="submitPassword"
+        />
+      </label>
+      <template #footer>
+        <el-button @click="passwordDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="passwordSaving" @click="submitPassword">确认</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -224,10 +413,10 @@ onMounted(loadUserInfo)
 .admin-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 220px 1fr;
   gap: 0;
   padding: 0;
-  background: #f5f5f5;
+  background: #f5f7fa;
 }
 
 .admin-sidebar {
@@ -235,29 +424,31 @@ onMounted(loadUserInfo)
   top: 0;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 8px;
   height: 100vh;
-  padding: 28px 24px 32px;
+  padding: 0 0 16px;
   border-radius: 0;
-  background: #2f3032;
-  color: #e8e8e8;
-  box-shadow: none;
+  background: #ffffff;
+  color: #303133;
+  box-shadow: 1px 0 4px rgb(0 21 41 / 8%);
   overflow: hidden;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 0 28px;
+  gap: 10px;
+  height: 56px;
+  padding: 0 16px;
   border-radius: 0;
   background: transparent;
+  border-bottom: 1px solid #f0f2f5;
 }
 
 .brand__mark {
   position: relative;
-  width: 42px;
-  height: 34px;
+  width: 30px;
+  height: 24px;
 }
 
 .brand__mark span,
@@ -278,8 +469,8 @@ onMounted(loadUserInfo)
 }
 
 .brand strong {
-  color: #ffffff;
-  font-size: 26px;
+  color: #303133;
+  font-size: 18px;
   line-height: 1;
 }
 
@@ -298,31 +489,31 @@ onMounted(loadUserInfo)
 .sidebar-menu :deep(.el-menu-item),
 .sidebar-menu :deep(.el-sub-menu__title) {
   position: relative;
-  height: 56px;
-  margin: 4px 0;
-  padding: 0 14px !important;
-  border-radius: 8px;
-  color: #d7d9df;
-  font-size: 21px;
-  font-weight: 700;
+  height: 46px;
+  margin: 0;
+  padding: 0 18px !important;
+  border-radius: 0;
+  color: #606266;
+  font-size: 14px;
+  font-weight: 500;
   transition: background 0.18s ease, color 0.18s ease;
 }
 
 .sidebar-menu :deep(.el-menu-item .el-icon),
 .sidebar-menu :deep(.el-sub-menu__title .el-icon) {
-  width: 34px;
-  margin-right: 22px;
-  font-size: 26px;
+  width: 18px;
+  margin-right: 10px;
+  font-size: 17px;
 }
 
 .sidebar-menu :deep(.el-sub-menu .el-menu-item) {
-  height: 48px;
-  margin: 2px 0 2px 14px;
-  padding-left: 44px !important;
-  border-radius: 8px;
-  color: #bdc4d0;
-  font-size: 17px;
-  font-weight: 600;
+  height: 42px;
+  margin: 0;
+  padding-left: 42px !important;
+  border-radius: 0;
+  color: #606266;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .sidebar-menu :deep(.el-sub-menu .el-menu-item .el-icon) {
@@ -333,35 +524,35 @@ onMounted(loadUserInfo)
 
 .sidebar-menu :deep(.el-menu-item:hover),
 .sidebar-menu :deep(.el-sub-menu__title:hover) {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  background: #e6f4ff;
+  color: #409eff;
 }
 
 .sidebar-menu :deep(.el-sub-menu.is-opened > .el-sub-menu__title) {
-  background: rgba(255, 255, 255, 0.07);
-  color: #ffffff;
+  background: #ffffff;
+  color: #409eff;
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active) {
-  background: #1764ff !important;
-  color: #ffffff !important;
+  background: #e6f4ff !important;
+  color: #409eff !important;
+  font-weight: 700;
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active::after) {
   content: '';
   position: absolute;
-  right: 10px;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ffffff;
-  transform: translateY(-50%);
+  right: 0;
+  top: 8px;
+  width: 3px;
+  height: 26px;
+  border-radius: 2px 0 0 2px;
+  background: #409eff;
 }
 
 .sidebar-menu :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
-  color: #ffffff !important;
-  background: rgba(255, 255, 255, 0.12);
+  color: #409eff !important;
+  background: #ffffff;
 }
 
 .sidebar-menu :deep(.el-sub-menu__icon-arrow) {
@@ -374,69 +565,70 @@ onMounted(loadUserInfo)
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   padding-bottom: 28px;
 }
 
 .admin-topbar {
-  height: 82px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 34px 0 38px;
+  padding: 0 20px;
   background: #ffffff;
+  box-shadow: 0 1px 4px rgb(0 21 41 / 8%);
 }
 
 .screen-button {
-  height: 44px;
-  padding: 0 24px;
+  height: 32px;
+  padding: 0 14px;
   border: 0;
-  border-radius: 5px;
-  background: #1764ff;
+  border-radius: 4px;
+  background: #409eff;
   color: #ffffff;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 14px;
 }
 
 .vip-pill {
-  height: 46px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 14px;
   border: 0;
-  border-radius: 23px;
-  background: #d8e8ff;
-  color: #111111;
-  font-size: 18px;
-  font-weight: 700;
+  border-radius: 16px;
+  background: #e6f4ff;
+  color: #303133;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .vip-pill strong {
   margin: 0 2px;
-  color: #1764ff;
-  font-size: 28px;
+  color: #409eff;
+  font-size: 18px;
   line-height: 1;
 }
 
 .avatar-button {
-  width: 50px;
-  height: 50px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1764ff 0%, #4b8cff 100%);
+  background: #409eff;
   color: #ffffff;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   overflow: hidden;
   cursor: pointer;
@@ -448,29 +640,55 @@ onMounted(loadUserInfo)
   object-fit: cover;
 }
 
+.avatar-button:focus-visible {
+  outline: 2px solid #409eff;
+  outline-offset: 3px;
+}
+
+.password-field {
+  display: grid;
+  gap: 10px;
+  padding: 8px 0 18px;
+}
+
+.password-field span {
+  color: #4b5870;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.password-field :deep(.el-input) {
+  --el-input-height: 44px;
+  font-size: 16px;
+}
+
+.password-field :deep(.el-input__wrapper) {
+  border-radius: 6px;
+}
+
 .admin-tabs {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 36px;
+  gap: 8px;
+  padding: 0 20px;
 }
 
 .collapse-icon {
-  font-size: 28px;
+  font-size: 18px;
   line-height: 1;
 }
 
 .tab {
-  height: 44px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 18px;
-  border-radius: 6px;
-  border: 1px solid #cfcfcf;
+  padding: 0 12px;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
   background: #ffffff;
-  color: #111111;
-  font-size: 18px;
+  color: #303133;
+  font-size: 14px;
   text-decoration: none;
 }
 
@@ -483,9 +701,9 @@ onMounted(loadUserInfo)
 }
 
 .tab-close {
-  margin-left: 10px;
-  color: #111111;
-  font-size: 24px;
+  margin-left: 8px;
+  color: #606266;
+  font-size: 16px;
   font-weight: 400;
   line-height: 1;
   text-decoration: none;
@@ -493,7 +711,7 @@ onMounted(loadUserInfo)
 
 .admin-main > :deep(.page-stack),
 .admin-main > :deep(.special-stack) {
-  padding: 0 36px;
+  padding: 0 20px;
 }
 
 @media (max-width: 640px) {

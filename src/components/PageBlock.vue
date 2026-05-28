@@ -30,14 +30,14 @@ defineProps({
 
 <style scoped>
 .page-block {
-  border: 0;
-  border-radius: 6px;
-  background: #ffffff;
+  border: 1px solid var(--el-border-color-light, #ebeef5);
+  border-radius: 4px;
+  background: var(--el-bg-color, #ffffff);
   box-shadow: none;
 }
 
 .page-block__head {
-  padding: 34px 42px 0;
+  padding: 16px 16px 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -46,18 +46,18 @@ defineProps({
 
 .page-block__subtitle {
   margin: 0;
-  color: #9a9a9a;
-  font-size: 16px;
+  color: #909399;
+  font-size: 13px;
 }
 
 .page-block__title {
   margin: 0;
-  font-size: 28px;
+  font-size: 16px;
   line-height: 1.2;
-  color: #111111;
+  color: #303133;
 }
 
 .page-block__body {
-  padding: 34px 42px 42px;
+  padding: 16px;
 }
 </style>

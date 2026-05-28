@@ -1,5 +1,6 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import * as echarts from 'echarts/core'
 import { BarChart, LineChart } from 'echarts/charts'
 import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
@@ -21,18 +22,17 @@ import {
 import { ElMessage } from 'element-plus'
 import PageBlock from '../components/PageBlock.vue'
 import {
-  getTenantUserInfo,
-  getTenantOrderList,
   getWorkbenchOverview,
   getWorkbenchRealtimeCrafts,
   getWorkbenchRealtimeOrders,
   getWorkbenchRecentUpdates,
   getWorkbenchTrend
 } from '../api/tenant'
-import { getAvatarUrl, getNameInitial } from '../utils/userProfile'
+import { getNameInitial } from '../utils/userProfile'
 
 echarts.use([BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
+const router = useRouter()
 const trendType = ref(1)
 const chartRef = ref(null)
 let chart = null
@@ -44,7 +44,7 @@ const state = reactive({
   orders: [],
   updates: [],
   crafts: [],
-  userName: '',
+  userName: localStorage.getItem('platform_account') || '',
   avatar: localStorage.getItem('platform_avatar') || '',
   pendingOrderTotal: 0
 })
@@ -56,18 +56,18 @@ const trendOptions = [
 ]
 
 const pendingActions = [
-  { label: '订单审批', icon: DocumentChecked, getBadge: () => state.pendingOrderTotal },
-  { label: '产品工艺', icon: Files },
-  { label: '外协订单', icon: DocumentCopy }
+  { label: '订单审批', icon: DocumentChecked, getBadge: () => state.pendingOrderTotal, route: { name: 'orders', query: { status: 1 } } },
+  { label: '产品工艺', icon: Files, route: { name: 'productCrafts' } },
+  { label: '外协订单', icon: DocumentCopy, route: { name: 'outsourceIncoming' } }
 ]
 
 const quickActions = [
-  { label: '新建订单', icon: DocumentChecked },
-  { label: '新建客户', icon: Plus },
-  { label: '新建收款', icon: Wallet },
-  { label: '新建报销', icon: Memo },
-  { label: '应收账款', icon: Connection },
-  { label: '绩效统计', icon: TrendCharts }
+  { label: '新建订单', icon: DocumentChecked, route: { name: 'orders', query: { mode: 'create' } } },
+  { label: '新建客户', icon: Plus, route: { name: 'customers', query: { mode: 'create' } } },
+  { label: '新建收款', icon: Wallet, route: { name: 'receipts', query: { mode: 'create' } } },
+  { label: '新建报销', icon: Memo, route: { name: 'reimbursements', query: { mode: 'create' } } },
+  { label: '应收账款', icon: Connection, route: { name: 'receivableOrders' } },
+  { label: '绩效统计', icon: TrendCharts, route: { name: 'craftPerformance' } }
 ]
 
 const currentAccount = computed(() => state.userName || localStorage.getItem('platform_account') || 'admin')
@@ -107,7 +107,7 @@ const stats = computed(() => [
 const formatNumber = (value) => new Intl.NumberFormat('zh-CN').format(Number(value || 0))
 
 const formatTrend = (value) => {
-  if (value === null || value === undefined || value === '') return '暂无上月数据'
+  if (value === null || value === undefined || value === '') return ''
   const number = Number(value)
   if (Number.isNaN(number)) return `${value} 较上月`
   const prefix = number > 0 ? '↑' : number < 0 ? '↓' : ''
@@ -132,6 +132,32 @@ const craftStatus = {
 }
 
 const normalizeRecentTime = (item) => item.time || item.createTime || item.updateTime || ''
+
+const orderDetailId = (row = {}) => row.id || row.orderRecordId || row.orderDbId || row.orderPrimaryId || row.orderId || row.orderNo
+const craftDetailId = (row = {}) => row.id || row.productsCraftId || row.productCraftId || row.craftId || row.orderCraftId
+
+const openOrderDetail = (row = {}) => {
+  const detailId = orderDetailId(row)
+  router.push({
+    name: 'orders',
+    query: detailId ? { detailId } : {}
+  })
+}
+
+const openCraftDetail = (row = {}) => {
+  const detailId = craftDetailId(row)
+  router.push({
+    name: 'productCrafts',
+    query: {
+      ...(detailId ? { detailId } : {}),
+      ...(row.orderId ? { orderId: row.orderId } : {})
+    }
+  })
+}
+
+const openDashboardAction = (item = {}) => {
+  if (item.route) router.push(item.route)
+}
 
 const renderChart = () => {
   if (!chartRef.value) return
@@ -186,23 +212,23 @@ const renderChart = () => {
 
 const loadData = async () => {
   try {
-    const [userInfo, overview, trend, orders, updates, crafts, pendingOrders] = await Promise.all([
-      getTenantUserInfo(),
+    const [overview, trend, orders, updates, crafts] = await Promise.all([
       getWorkbenchOverview(),
       getWorkbenchTrend(trendType.value),
       getWorkbenchRealtimeOrders(),
-      getWorkbenchRecentUpdates(),
-      getWorkbenchRealtimeCrafts(),
-      getTenantOrderList({ pageNum: 1, pageSize: 1, status: 1 })
+      getWorkbenchRecentUpdates({ pageNum: 1, pageSize: 3 }),
+      getWorkbenchRealtimeCrafts()
     ])
-    state.userName = userInfo?.name || ''
-    state.avatar = getAvatarUrl(userInfo)
     state.overview = { ...state.overview, ...(overview || {}) }
     state.trend = trend || []
     state.orders = orders || []
-    state.updates = updates || []
+    state.updates = Array.isArray(updates) ? updates : updates?.records || []
     state.crafts = crafts || []
-    state.pendingOrderTotal = pendingOrders.total || 0
+    state.pendingOrderTotal =
+      overview?.pendingOrderTotal ??
+      overview?.waitApproveOrderTotal ??
+      overview?.approvalOrderTotal ??
+      state.orders.filter((item) => Number(item.status) === 1).length
   } catch (error) {
     ElMessage.error(error?.message || '工作台数据加载失败')
   } finally {
@@ -268,8 +294,8 @@ onBeforeUnmount(() => {
                 </template>
               </el-table-column>
               <el-table-column label="操作" min-width="90">
-                <template #default>
-                  <el-button link type="primary">详情</el-button>
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="openOrderDetail(row)">详情</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -285,8 +311,8 @@ onBeforeUnmount(() => {
                 </template>
               </el-table-column>
               <el-table-column label="操作" min-width="90">
-                <template #default>
-                  <el-button link type="primary">详情</el-button>
+                <template #default="{ row }">
+                  <el-button link type="primary" @click="openCraftDetail(row)">详情</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -309,7 +335,7 @@ onBeforeUnmount(() => {
 
         <PageBlock title="待办事项" class="side-card side-card--todo">
           <div class="quick-grid compact">
-            <button v-for="item in pendingActions" :key="item.label" type="button">
+            <button v-for="item in pendingActions" :key="item.label" type="button" @click="openDashboardAction(item)">
               <span v-if="item.getBadge?.()">{{ item.getBadge() }}</span>
               <em><el-icon><component :is="item.icon" /></el-icon></em>
               <strong>{{ item.label }}</strong>
@@ -319,7 +345,7 @@ onBeforeUnmount(() => {
 
         <PageBlock title="快捷功能" class="side-card side-card--quick">
           <div class="quick-grid">
-            <button v-for="item in quickActions" :key="item.label" type="button">
+            <button v-for="item in quickActions" :key="item.label" type="button" @click="openDashboardAction(item)">
               <em><el-icon><component :is="item.icon" /></el-icon></em>
               <strong>{{ item.label }}</strong>
             </button>
@@ -334,34 +360,35 @@ onBeforeUnmount(() => {
 .dashboard-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .welcome-panel {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 102px;
-  padding: 24px 34px;
-  border-radius: 6px;
+  min-height: 72px;
+  padding: 16px 20px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
   background: #ffffff;
 }
 
 .welcome-user {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 14px;
 }
 
 .welcome-avatar {
-  width: 62px;
-  height: 62px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   background: linear-gradient(135deg, #caa17d, #1f2933);
   color: #ffffff;
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 800;
   overflow: hidden;
 }
@@ -373,19 +400,19 @@ onBeforeUnmount(() => {
 }
 
 .welcome-user strong {
-  font-size: 24px;
+  font-size: 18px;
 }
 
 .welcome-panel p {
   margin: 0;
-  color: #b8b8b8;
-  font-size: 22px;
-  font-weight: 700;
+  color: #909399;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .dashboard-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 370px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   align-items: start;
   gap: 18px;
 }
@@ -404,17 +431,17 @@ onBeforeUnmount(() => {
 .data-overview {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  padding: 36px 0;
-  border-top: 1px solid #eeeeee;
-  border-bottom: 1px solid #eeeeee;
+  padding: 20px 0;
+  border-top: 1px solid #ebeef5;
+  border-bottom: 1px solid #ebeef5;
 }
 
 .metric-item {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 0 24px;
-  border-right: 1px solid #eeeeee;
+  gap: 12px;
+  padding: 0 18px;
+  border-right: 1px solid #ebeef5;
 }
 
 .metric-item:last-child {
@@ -422,24 +449,24 @@ onBeforeUnmount(() => {
 }
 
 .metric-icon {
-  width: 64px;
-  height: 64px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: #f4f6fb;
-  color: #1764ff;
-  font-size: 30px;
+  color: #409eff;
+  font-size: 22px;
   flex: 0 0 auto;
 }
 
 .metric-item p {
   margin: 0 0 6px;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .metric-item strong {
   display: block;
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 500;
   line-height: 1.15;
 }
@@ -448,7 +475,7 @@ onBeforeUnmount(() => {
   display: block;
   margin-top: 8px;
   color: #20c35a;
-  font-size: 16px;
+  font-size: 13px;
 }
 
 .metric-item span.down {
@@ -459,16 +486,16 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 28px;
+  padding-top: 12px;
 }
 
 .chart-head h3 {
   margin: 0;
-  font-size: 26px;
+  font-size: 18px;
 }
 
 .chart-box {
-  height: 410px;
+  height: 320px;
 }
 
 .bottom-tables {
@@ -487,9 +514,9 @@ onBeforeUnmount(() => {
 
 .activity-list {
   display: grid;
-  gap: 24px;
+  gap: 12px;
   color: #7a8594;
-  font-size: 18px;
+  font-size: 14px;
 }
 
 .activity-list div {
@@ -508,43 +535,43 @@ onBeforeUnmount(() => {
 }
 
 .side-card :deep(.page-block__head) {
-  padding: 34px 42px 0;
+  padding: 16px 16px 0;
 }
 
 .side-card :deep(.page-block__title) {
-  font-size: 28px;
+  font-size: 16px;
 }
 
 .side-card :deep(.page-block__body) {
-  padding: 34px 42px 42px;
+  padding: 16px;
 }
 
 .side-more {
   border: 0;
   background: transparent;
-  color: #1f66ff;
-  font-size: 20px;
-  font-weight: 700;
+  color: #409eff;
+  font-size: 14px;
+  font-weight: 500;
   text-decoration: none;
   cursor: pointer;
 }
 
 .side-card--updates {
-  min-height: 230px;
+  min-height: 180px;
 }
 
 .side-card--todo {
-  min-height: 238px;
+  min-height: 190px;
 }
 
 .side-card--quick {
-  min-height: 418px;
+  min-height: 300px;
 }
 
 .quick-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 30px 22px;
+  gap: 18px 12px;
 }
 
 .quick-grid button {
@@ -552,36 +579,36 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
   border: 0;
-  min-height: 96px;
+  min-height: 72px;
   padding: 0;
   background: transparent;
-  color: #111111;
-  font-size: 18px;
-  font-weight: 700;
+  color: #303133;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .quick-grid em {
   position: relative;
-  width: 58px;
-  height: 58px;
+  width: 42px;
+  height: 42px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
-  background: #f6f7f9;
-  color: #202124;
+  border-radius: 4px;
+  background: #f5f7fa;
+  color: #303133;
   font-style: normal;
-  font-size: 30px;
+  font-size: 22px;
 }
 
 .quick-grid strong {
   max-width: 100%;
-  color: #111111;
-  font-size: 18px;
+  color: #303133;
+  font-size: 14px;
   line-height: 1.25;
-  font-weight: 800;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -595,8 +622,8 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   background: #ff4261;
   color: #ffffff;
-  font-size: 18px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 700;
   line-height: 30px;
 }
 

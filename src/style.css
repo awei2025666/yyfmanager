@@ -1,7 +1,7 @@
 :root {
-  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-  color: #111111;
-  background: #f5f5f5;
+  font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+  color: #303133;
+  background: #f5f7fa;
   line-height: 1.5;
   font-weight: 400;
   font-synthesis: none;
@@ -17,7 +17,7 @@
 body {
   margin: 0;
   min-width: 320px;
-  background: #f5f5f5;
+  background: #f5f7fa;
 }
 
 button,
@@ -35,23 +35,23 @@ a {
 }
 
 .el-table {
-  --el-table-header-bg-color: #f1f2f4;
-  --el-table-row-hover-bg-color: #fafafa;
-  --el-table-border-color: #d8d8d8;
-  --el-table-text-color: #111111;
-  --el-table-header-text-color: #111111;
-  font-size: 18px;
+  --el-table-header-bg-color: #f8fafc;
+  --el-table-row-hover-bg-color: #f5f7fa;
+  --el-table-border-color: #ebeef5;
+  --el-table-text-color: #606266;
+  --el-table-header-text-color: #303133;
+  font-size: 14px;
 }
 
 .el-table th.el-table__cell {
-  height: 68px;
-  font-size: 20px;
+  height: 46px;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .el-table td.el-table__cell {
-  height: 74px;
-  border-bottom: 1px solid #d8d8d8;
+  height: 48px;
+  border-bottom: 1px solid #ebeef5;
 }
 
 .el-table .cell {
@@ -61,19 +61,18 @@ a {
 .el-input,
 .el-select,
 .el-date-editor.el-input {
-  --el-input-height: 56px;
-  --el-input-bg-color: #f5f6f8;
-  --el-input-border-color: #f5f6f8;
-  --el-input-hover-border-color: #e4e7ed;
-  --el-input-focus-border-color: #2668ff;
-  font-size: 18px;
+  --el-input-height: 32px;
+  --el-input-bg-color: #ffffff;
+  --el-input-border-color: #dcdfe6;
+  --el-input-hover-border-color: #c0c4cc;
+  --el-input-focus-border-color: var(--el-color-primary);
+  font-size: 14px;
 }
 
 .el-input__wrapper,
 .el-select__wrapper {
-  background: #f5f6f8 !important;
-  box-shadow: none !important;
-  border-radius: 6px;
+  background: #ffffff !important;
+  border-radius: 4px;
 }
 
 .el-input-number.is-controls-right .el-input__wrapper {
@@ -112,44 +111,53 @@ a {
 }
 
 .el-button {
-  min-height: 48px;
-  border-radius: 6px;
-  padding: 0 24px;
-  font-size: 18px;
+  min-height: 32px;
+  border-radius: 4px;
+  padding: 0 14px;
+  font-size: 14px;
 }
 
 .el-button--primary {
-  --el-button-bg-color: #1764ff;
-  --el-button-border-color: #1764ff;
-  --el-button-hover-bg-color: #0f58ee;
-  --el-button-hover-border-color: #0f58ee;
+  --el-button-bg-color: var(--el-color-primary);
+  --el-button-border-color: var(--el-color-primary);
+  --el-button-hover-bg-color: var(--el-color-primary-light-3);
+  --el-button-hover-border-color: var(--el-color-primary-light-3);
 }
 
 .el-pagination {
-  --el-pagination-button-bg-color: #f4f4f4;
-  --el-pagination-hover-color: #1764ff;
-  justify-content: center;
-  gap: 14px;
+  --el-pagination-button-bg-color: #ffffff;
+  --el-pagination-hover-color: var(--el-color-primary);
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .el-pagination .btn-prev,
 .el-pagination .btn-next,
 .el-pagination .el-pager li {
-  min-width: 48px;
-  height: 48px;
-  border-radius: 6px;
-  font-size: 20px;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  font-size: 14px;
 }
 
 .el-dialog,
 .el-drawer {
-  --el-border-radius-base: 8px;
+  --el-border-radius-base: 4px;
+}
+
+.el-form-item__label {
+  color: #606266;
+  font-weight: 500;
+}
+
+.el-card {
+  border-radius: 4px;
 }
 
 .filter-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(180px, 1fr));
-  gap: 28px 48px;
+  gap: 12px 20px;
   align-items: end;
 }
 
@@ -176,7 +184,7 @@ a {
 .special-stack {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 @media (max-width: 1200px) {

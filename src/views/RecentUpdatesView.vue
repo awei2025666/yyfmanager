@@ -8,6 +8,7 @@ import { getWorkbenchRecentUpdates } from '../api/tenant'
 const router = useRouter()
 const loading = ref(false)
 const rawUpdates = ref([])
+const total = ref(0)
 const filters = reactive({
   keyword: '',
   type: ''
@@ -57,26 +58,20 @@ const typeOptions = computed(() => {
   return types.map((item) => ({ label: item, value: item }))
 })
 
-const filteredUpdates = computed(() => {
-  const keyword = filters.keyword.trim().toLowerCase()
-  return updates.value.filter((item) => {
-    const matchKeyword = !keyword || item.title.toLowerCase().includes(keyword)
-    const matchType = !filters.type || item.type === filters.type
-    return matchKeyword && matchType
-  })
-})
-
-const pagedUpdates = computed(() => {
-  const start = (pager.page - 1) * pager.pageSize
-  return filteredUpdates.value.slice(start, start + pager.pageSize)
-})
+const pagedUpdates = computed(() => updates.value)
 
 const loadUpdates = async () => {
   loading.value = true
   try {
-    const data = await getWorkbenchRecentUpdates()
-    rawUpdates.value = Array.isArray(data) ? data : data?.records || []
-    pager.page = 1
+    const data = await getWorkbenchRecentUpdates({
+      pageNum: pager.page,
+      pageSize: pager.pageSize,
+      title: filters.keyword || undefined,
+      keyword: filters.keyword || undefined,
+      type: filters.type || undefined
+    })
+    rawUpdates.value = Array.isArray(data) ? data : data?.records || data?.list || data?.rows || []
+    total.value = Array.isArray(data) ? data.length : data?.total || rawUpdates.value.length
   } catch (error) {
     ElMessage.error(error?.message || '最近动态加载失败')
   } finally {
@@ -88,10 +83,12 @@ const resetFilters = () => {
   filters.keyword = ''
   filters.type = ''
   pager.page = 1
+  loadUpdates()
 }
 
 const searchUpdates = () => {
   pager.page = 1
+  loadUpdates()
 }
 
 const openDetail = (item) => {
@@ -162,7 +159,9 @@ onMounted(loadUpdates)
           v-model:page-size="pager.pageSize"
           background
           layout="prev, pager, next"
-          :total="filteredUpdates.length"
+          :total="total"
+          @current-change="loadUpdates"
+          @size-change="loadUpdates"
         />
       </div>
     </section>
@@ -184,48 +183,50 @@ onMounted(loadUpdates)
 
 .recent-filter {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr) auto;
-  align-items: end;
-  gap: 46px;
-  min-height: 214px;
-  padding: 42px 48px 40px;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  align-items: start;
+  gap: 18px 28px;
+  min-height: 0;
+  padding: 24px 28px 22px;
 }
 
 .recent-filter label {
   display: grid;
-  gap: 18px;
+  gap: 8px;
   color: #8f8f8f;
-  font-size: 22px;
+  font-size: 15px;
   font-weight: 700;
 }
 
 .recent-filter :deep(.el-input__wrapper),
 .recent-filter :deep(.el-select__wrapper) {
-  min-height: 56px;
-  border-radius: 8px;
+  min-height: 42px;
+  border-radius: 6px;
   background: #f5f6f8;
   box-shadow: none;
-  font-size: 20px;
+  font-size: 15px;
 }
 
 .recent-filter :deep(.el-input__inner),
 .recent-filter :deep(.el-select__placeholder) {
   color: #9b9b9b;
-  font-size: 20px;
+  font-size: 15px;
 }
 
 .filter-actions {
   display: flex;
-  gap: 30px;
+  justify-content: flex-end;
+  gap: 12px;
+  grid-column: 1 / -1;
   padding-bottom: 0;
 }
 
 .filter-actions :deep(.el-button) {
-  width: 166px;
-  height: 56px;
+  min-width: 76px;
+  height: 32px;
   border: 0;
-  border-radius: 8px;
-  font-size: 22px;
+  border-radius: 4px;
+  font-size: 14px;
 }
 
 .filter-actions :deep(.el-button--default) {
@@ -234,24 +235,24 @@ onMounted(loadUpdates)
 }
 
 .recent-table-card {
-  min-height: 610px;
-  padding: 68px 48px 34px;
+  min-height: 0;
+  padding: 16px;
 }
 
 .recent-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  color: #111111;
+  color: #606266;
 }
 
 .recent-table th {
-  height: 70px;
-  padding: 0 34px;
-  background: #f0f1f3;
-  color: #111111;
-  font-size: 22px;
-  font-weight: 800;
+  height: 46px;
+  padding: 0 16px;
+  background: #f8fafc;
+  color: #303133;
+  font-size: 14px;
+  font-weight: 700;
   text-align: left;
   white-space: nowrap;
 }
@@ -277,10 +278,10 @@ onMounted(loadUpdates)
 }
 
 .recent-table td {
-  height: 74px;
-  padding: 0 34px;
-  border-bottom: 1px solid #dedede;
-  font-size: 20px;
+  height: 48px;
+  padding: 0 16px;
+  border-bottom: 1px solid #ebeef5;
+  font-size: 14px;
   vertical-align: middle;
 }
 
@@ -289,7 +290,7 @@ onMounted(loadUpdates)
   border: 0;
   padding: 0;
   background: transparent;
-  color: #1764ff;
+  color: #409eff;
   font: inherit;
   text-align: left;
   cursor: pointer;
@@ -315,23 +316,23 @@ onMounted(loadUpdates)
 .recent-pagination {
   display: flex;
   justify-content: flex-end;
-  padding-top: 300px;
+  padding-top: 14px;
 }
 
 .recent-pagination :deep(.el-pagination.is-background .btn-prev),
 .recent-pagination :deep(.el-pagination.is-background .btn-next),
 .recent-pagination :deep(.el-pagination.is-background .el-pager li) {
-  min-width: 54px;
-  height: 54px;
-  border-radius: 8px;
-  background: #f4f4f4;
-  color: #111111;
-  font-size: 22px;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #606266;
+  font-size: 14px;
 }
 
 .recent-pagination :deep(.el-pagination.is-background .el-pager li.is-active) {
-  background: #ffffff;
-  color: #111111;
+  background: #409eff;
+  color: #ffffff;
 }
 
 @media (max-width: 1180px) {

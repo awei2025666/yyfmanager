@@ -5,11 +5,19 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Printer, Refresh, Search } from '@element-plus/icons-vue'
 import PageBlock from '../components/PageBlock.vue'
 import {
+  addTenantOrder,
+  approveTenantOrder,
+  changeTenantOrderAutoApprove,
+  deleteTenantOrder,
+  editTenantOrder,
+  getTenantOrderAutoApprove,
   getTenantCraftList,
   getTenantOrderDetail,
   getTenantOrderList,
   getTenantOrderPrintUrl,
   getTenantOrderProcess,
+  outsourceTenantOrder,
+  returnTenantOrder,
   searchTenantClients
 } from '../api/tenant'
 
@@ -27,6 +35,7 @@ const filters = reactive({
 })
 
 const autoApprove = ref(true)
+const autoApproveLoading = ref(false)
 const loading = ref(false)
 const saving = ref(false)
 const detailLoading = ref(false)
@@ -106,6 +115,20 @@ const deliveryTypeOptions = [
 const deliveryTypeText = (value) =>
   deliveryTypeOptions.find((item) => String(item.value) === String(value))?.label || value || '-'
 const statusToneClass = (status) => `order-status--${statusMap[status]?.tone || 'outsourced'}`
+
+const boolFromApi = (value) => value === true || value === 1 || value === '1' || value === '启用'
+
+const productInfoText = (item = {}) => {
+  if (item.productInfo) return item.productInfo
+  const products = item.products || item.productList || []
+  if (Array.isArray(products) && products.length) {
+    return products
+      .map((product) => product.productName || product.name || product.productInfo)
+      .filter(Boolean)
+      .join('、') || '--'
+  }
+  return item.productName || item.vipName || '--'
+}
 
 const fillClientInfo = (client = {}) => {
   formState.cooperativeClientId = client.id || ''
@@ -277,13 +300,14 @@ const enrichOrderRow = (item = {}) => {
       ]
 
   return {
+    ...item,
     deliveryType: item.deliveryType || '',
     companyAddress: item.companyAddress || '--',
     linkman: item.linkman || '',
     phone: item.phone || '',
     deliveryDate: item.deliveryDate || item.orderTime || item.createTime || '',
     printingRequirements: item.printingRequirements || '',
-    productInfo: item.productInfo || item.vipName || '--',
+    productInfo: productInfoText(item),
     companyName: item.companyName || '--',
     fillUserName: item.fillUserName || item.userName || '--',
     orderTime: item.orderTime || item.createTime || '--',
@@ -291,7 +315,6 @@ const enrichOrderRow = (item = {}) => {
     payMoney: item.totalMoney ?? item.payMoney ?? 0,
     printCode: item.printCode || '--',
     remark: item.remark || '',
-    ...item,
     products,
     crafts,
     timeline
@@ -460,16 +483,18 @@ const selectCraftProduct = (row) => {
   const product = savedProductOptions.value.find((item) => item.productName === row.productName)
   if (!product) return
   row.productId = product.id || ''
-  row.spec = row.spec || product.finishedSpec || ''
-  row.openNum = row.openNum || product.quantity || ''
-  row.startPrice = row.startPrice || product.unit || ''
-  row.unit = row.unit || product.unit || ''
 }
 const selectCraftName = (row, id) => {
   const craft = craftOptions.value.find((item) => String(item.id) === String(id))
   if (!craft) return
   row.craftId = craft.id
   row.craftName = craft.craftName
+  row.spec = craft.spec || craft.specification || craft.formatSize || row.spec || ''
+  row.openNum = craft.openNum ?? craft.openCount ?? craft.formatSize ?? row.openNum ?? ''
+  row.startPrice = craft.startPrice ?? craft.priceBase ?? craft.basePrice ?? row.startPrice ?? ''
+  row.unit = craft.unit || row.unit || ''
+  row.price = row.price || craft.price || craft.unitPrice || ''
+  row.remark = row.remark || craft.remark || ''
 }
 const saveCraftRow = (row) => {
   if (!row.productName || !row.craftName) {
@@ -496,6 +521,75 @@ const removeCraftRow = (index) => {
 const cleanCraftRow = (row = {}) => {
   const { _isEditing, _isNew, ...payload } = row
   return payload
+}
+const normalizeOrderProductPayload = (product = {}) => ({
+  id: product.id || undefined,
+  name: product.name || product.productName,
+  productName: product.productName || product.name,
+  orderQuantity: product.orderQuantity ?? product.quantity ?? product.num,
+  quantity: product.quantity ?? product.orderQuantity ?? product.num,
+  trimmedSize: product.trimmedSize || product.finishedSpec,
+  finishedSpec: product.finishedSpec || product.trimmedSize,
+  unit: product.unit,
+  money: product.money ?? product.amount,
+  amount: product.amount ?? product.money,
+  remark: product.remark
+})
+const normalizeOrderCraftPayload = (craft = {}) => ({
+  id: craft.id || undefined,
+  craftId: craft.craftId || undefined,
+  productId: craft.productId || undefined,
+  productName: craft.productName,
+  name: craft.name || craft.craftName,
+  craftName: craft.craftName || craft.name,
+  specification: craft.specification || craft.spec,
+  spec: craft.spec || craft.specification,
+  formatSize: craft.formatSize ?? craft.openNum,
+  openNum: craft.openNum ?? craft.formatSize,
+  priceBase: craft.priceBase ?? craft.startPrice,
+  startPrice: craft.startPrice ?? craft.priceBase,
+  orderQuantity: craft.orderQuantity ?? craft.finishNum,
+  finishNum: craft.finishNum ?? craft.orderQuantity,
+  unit: craft.unit,
+  unitPrice: craft.unitPrice ?? craft.price,
+  price: craft.price ?? craft.unitPrice,
+  customerMoney: craft.customerMoney ?? craft.customerAmount,
+  customerAmount: craft.customerAmount ?? craft.customerMoney,
+  remark: craft.remark
+})
+const buildOrderRequestPayload = () => {
+  const total = formOrderTotal.value
+  const products = JSON.parse(JSON.stringify(productRows.value.map(cleanProductRow)))
+  const crafts = JSON.parse(JSON.stringify(craftRows.value.map(cleanCraftRow)))
+  const normalizedCrafts = crafts.map(normalizeOrderCraftPayload)
+  const normalizedProducts = products.map((product, index) => {
+    const productKey = product.id || product.productName || `${index}`
+    return {
+      ...normalizeOrderProductPayload(product),
+      craftList: normalizedCrafts.filter((craft) =>
+        [craft.productId, craft.productName].some((value) => String(value || '') === String(productKey))
+      )
+    }
+  })
+  return {
+    id: formState.id || undefined,
+    orderId: formState.orderId || undefined,
+    cooperativeClientId: formState.cooperativeClientId || undefined,
+    companyName: formState.companyName,
+    linkman: formState.linkman,
+    fillUserName: formState.fillUserName,
+    phone: formState.phone,
+    deliveryDate: formState.deliveryDate,
+    deliveryType: formState.deliveryType,
+    companyAddress: formState.companyAddress,
+    printingRequirements: formState.printingRequirements,
+    status: formState.status,
+    remark: formState.remark,
+    payMoney: total,
+    totalMoney: total,
+    productList: normalizedProducts,
+    craftList: normalizedCrafts
+  }
 }
 const detailInfo = computed(() => {
   const row = currentRecord.value || formState
@@ -565,6 +659,37 @@ const loadData = async () => {
   }
 }
 
+const loadAutoApprove = async () => {
+  autoApproveLoading.value = true
+  try {
+    const result = await getTenantOrderAutoApprove()
+    autoApprove.value = boolFromApi(result?.autoApprove ?? result?.autoApproval ?? result?.status ?? result)
+  } catch (error) {
+    ElMessage.error(error?.message || '自动审批状态加载失败')
+  } finally {
+    autoApproveLoading.value = false
+  }
+}
+
+const changeAutoApprove = async (value) => {
+  if (autoApproveLoading.value) return
+  const previous = !value
+  autoApproveLoading.value = true
+  try {
+    await changeTenantOrderAutoApprove({
+      autoApproval: value ? 1 : 0,
+      status: value ? 1 : 0
+    })
+    autoApprove.value = value
+    ElMessage.success('自动审批已更新')
+  } catch (error) {
+    autoApprove.value = previous
+    ElMessage.error(error?.message || '自动审批设置失败')
+  } finally {
+    autoApproveLoading.value = false
+  }
+}
+
 const routeQueryValue = (key) => {
   const value = route.query[key]
   return Array.isArray(value) ? value[0] : value
@@ -619,10 +744,21 @@ const openAdd = () => {
   orderFormVisible.value = true
 }
 
-const openEdit = (row) => {
+const openEdit = async (row) => {
   formMode.value = 'edit'
   sourceOrderId.value = null
-  const record = JSON.parse(JSON.stringify(row))
+  let record = JSON.parse(JSON.stringify(row))
+  if (row?.id) {
+    detailLoading.value = true
+    try {
+      const detail = await getTenantOrderDetail(row.id)
+      record = normalizeDetailRow(detail || {}, row, row.timeline || [])
+    } catch (error) {
+      ElMessage.error(error?.message || '订单详情加载失败')
+    } finally {
+      detailLoading.value = false
+    }
+  }
   Object.assign(formState, {
     ...record,
     productList: record.products || record.productList || [],
@@ -664,7 +800,7 @@ const openOutsource = async (row) => {
   loadOutsourceUnits()
 }
 
-const saveOrder = () => {
+const saveOrder = async () => {
   if (saving.value) return
   if (formMode.value === 'outsource' && !formState.outsourceSupplierId) {
     ElMessage.warning('请选择外协单位')
@@ -679,41 +815,29 @@ const saveOrder = () => {
     return
   }
   saving.value = true
-  const total = formOrderTotal.value
-  const products = JSON.parse(JSON.stringify(productRows.value.map(cleanProductRow)))
-  const crafts = JSON.parse(JSON.stringify(craftRows.value.map(cleanCraftRow)))
-  const payload = {
-    ...JSON.parse(JSON.stringify(formState)),
-    payMoney: total,
-    totalMoney: total,
-    products,
-    crafts
-  }
-  if (formState.id) {
-    const index = rows.value.findIndex((item) => item.id === formState.id)
-    if (index > -1) {
-      rows.value[index] = {
-        ...rows.value[index],
-        ...payload,
-        status: formMode.value === 'outsource' ? 8 : payload.status,
-        outsourceSupplierId: formState.outsourceSupplierId,
-        outsourceSupplierName: formState.outsourceSupplierName,
-        outsourceSupplierContact: formState.outsourceSupplierContact
+  try {
+    if (formMode.value === 'outsource') {
+      await outsourceTenantOrder({
+        ...buildOrderRequestPayload(),
+        id: sourceOrderId.value || formState.id,
+        tenantId: formState.outsourceSupplierId
+      })
+    } else {
+      const payload = buildOrderRequestPayload()
+      if (formState.id) {
+        await editTenantOrder(payload)
+      } else {
+        await addTenantOrder(payload)
       }
     }
-  } else {
-    rows.value.unshift({
-      ...payload,
-      id: Date.now(),
-      orderId: formState.orderId || `20260421${rows.value.length + 1}`,
-      orderTime: formState.deliveryDate || '2026-04-21 10:30',
-      timeline: [{ date: '2026-04-21', title: '创建订单', desc: '当前账号 提交订单' }],
-      crafts
-    })
+    orderFormVisible.value = false
+    ElMessage.success(formMode.value === 'outsource' ? '订单已转外协' : '订单已保存')
+    await loadData()
+  } catch (error) {
+    ElMessage.error(error?.message || '订单保存失败')
+  } finally {
+    saving.value = false
   }
-  orderFormVisible.value = false
-  ElMessage.success(formMode.value === 'outsource' ? '订单已转外协' : '订单已保存')
-  saving.value = false
 }
 
 const openDetail = async (row) => {
@@ -754,10 +878,23 @@ const printOrder = async (row) => {
 }
 
 const removeOrder = async (row) => {
-  await ElMessageBox.confirm(`确认删除订单 ${row.orderId} 吗？`, '删除确认', { type: 'warning' })
-  rows.value = rows.value.filter((item) => item.id !== row.id)
-  summary.orderTotal = Math.max(0, Number(summary.orderTotal || 0) - 1)
-  ElMessage.success('删除成功')
+  try {
+    await ElMessageBox.confirm(`确认删除订单 ${row.orderId} 吗？`, '删除确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  const orderId = row?.id || row?.orderPrimaryId || row?.orderDbId
+  if (!orderId) {
+    ElMessage.error('缺少订单ID，无法删除')
+    return
+  }
+  try {
+    await deleteTenantOrder(orderId)
+    ElMessage.success('删除成功')
+    await loadData()
+  } catch (error) {
+    ElMessage.error(error?.message || '删除失败')
+  }
 }
 
 const openApprove = (row) => {
@@ -766,16 +903,18 @@ const openApprove = (row) => {
   approveVisible.value = true
 }
 
-const confirmApprove = () => {
-  currentRecord.value.status = 2
-  currentRecord.value.timeline.unshift({
-    date: '2026-04-21',
-    title: '审批通过',
-    desc: approvalRemark.value || '审批通过'
-  })
-  approveVisible.value = false
-  detailVisible.value = false
-  ElMessage.success('订单已通过')
+const confirmApprove = async () => {
+  const orderId = currentRecord.value?.id || currentRecord.value?.orderPrimaryId || currentRecord.value?.orderDbId
+  if (!orderId) return ElMessage.error('缺少订单ID，无法审批')
+  try {
+    await approveTenantOrder({ id: orderId, status: 1, remark: approvalRemark.value || undefined })
+    approveVisible.value = false
+    detailVisible.value = false
+    ElMessage.success('订单已通过')
+    await loadData()
+  } catch (error) {
+    ElMessage.error(error?.message || '审批失败')
+  }
 }
 
 const openReject = (row) => {
@@ -784,16 +923,18 @@ const openReject = (row) => {
   rejectVisible.value = true
 }
 
-const confirmReject = () => {
-  currentRecord.value.status = 7
-  currentRecord.value.timeline.unshift({
-    date: '2026-04-21',
-    title: '驳回订单',
-    desc: rejectRemark.value || '资料不完整'
-  })
-  rejectVisible.value = false
-  detailVisible.value = false
-  ElMessage.success('订单已驳回')
+const confirmReject = async () => {
+  const orderId = currentRecord.value?.id || currentRecord.value?.orderPrimaryId || currentRecord.value?.orderDbId
+  if (!orderId) return ElMessage.error('缺少订单ID，无法审批')
+  try {
+    await approveTenantOrder({ id: orderId, status: 2, remark: rejectRemark.value || undefined })
+    rejectVisible.value = false
+    detailVisible.value = false
+    ElMessage.success('订单已驳回')
+    await loadData()
+  } catch (error) {
+    ElMessage.error(error?.message || '驳回失败')
+  }
 }
 
 const reapplyOrder = async (row) => {
@@ -831,27 +972,16 @@ const reapplyOrder = async (row) => {
   orderFormVisible.value = true
 }
 
-const repeatOrder = (row) => {
-  const nextStatus = autoApprove.value ? 2 : 1
-  const copy = JSON.parse(JSON.stringify(row))
-  const now = new Date()
-  const pad = (value) => String(value).padStart(2, '0')
-  const orderTime = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
-  const orderId = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
-  rows.value.unshift({
-    ...copy,
-    id: Date.now(),
-    orderId,
-    status: nextStatus,
-    orderTime,
-    timeline: [
-      { date: orderTime, title: '返单创建', desc: '根据原订单复制创建' },
-      ...(copy.timeline || [])
-    ]
-  })
-  summary.orderTotal = Number(summary.orderTotal || 0) + 1
-  summary.orderMoneyTotal = rows.value.reduce((sum, item) => sum + Number(item.totalMoney || 0), 0)
-  ElMessage.success(`已返单，状态为${statusMap[nextStatus].label}`)
+const repeatOrder = async (row) => {
+  const orderId = row?.id || row?.orderPrimaryId || row?.orderDbId
+  if (!orderId) return ElMessage.error('缺少订单ID，无法返单')
+  try {
+    await returnTenantOrder(orderId)
+    ElMessage.success('返单成功')
+    await loadData()
+  } catch (error) {
+    ElMessage.error(error?.message || '返单失败')
+  }
 }
 
 const outsourceOrder = (row) => {
@@ -876,7 +1006,10 @@ const handleAction = (row, action) => {
   return openDetail(row)
 }
 
-onMounted(loadData)
+onMounted(() => {
+  loadData()
+  loadAutoApprove()
+})
 
 watch(
   () => route.fullPath,
@@ -943,7 +1076,11 @@ watch(
         <el-button type="primary" :icon="Plus" @click="openAdd">添加</el-button>
         <div class="auto-approve">
           <span>自动审批</span>
-          <el-switch v-model="autoApprove" />
+          <el-switch
+            :model-value="autoApprove"
+            :loading="autoApproveLoading"
+            @change="changeAutoApprove"
+          />
         </div>
         <el-button :icon="Refresh" @click="loadData">刷新</el-button>
       </div>
@@ -1466,7 +1603,7 @@ watch(
 
 .filter-grid {
   grid-template-columns: repeat(4, minmax(180px, 1fr));
-  gap: 26px 42px;
+  gap: 12px 20px;
   align-items: end;
 }
 
@@ -1479,47 +1616,51 @@ watch(
 
 .filter-grid label span,
 .design-form-grid label span {
-  color: #9a9a9a;
-  font-size: 20px;
-  font-weight: 700;
+  color: #606266;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .filter-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 18px;
+  grid-column: 1 / -1;
 }
 
 .filter-grid :deep(.el-input),
 .filter-grid :deep(.el-select),
 .filter-grid :deep(.el-date-editor.el-input) {
   width: 100%;
-  --el-input-height: 56px;
-  font-size: 18px;
+  --el-input-height: 32px;
+  font-size: 14px;
 }
 
 .filter-grid :deep(.el-select__wrapper) {
-  min-height: 56px;
+  min-height: 32px;
 }
 
 .filter-grid :deep(.el-button),
 .filter-actions :deep(.el-button) {
-  width: 100%;
-  height: 56px;
+  min-width: 76px;
+  width: auto;
+  height: 32px;
+  font-size: 14px;
 }
 
 .filter-card :deep(.page-block__body) {
-  padding: 40px 54px;
+  padding: 16px;
 }
 
 .table-card :deep(.page-block__body) {
-  padding: 38px 54px 46px;
+  padding: 16px;
 }
 
 .list-actions {
   display: flex;
   align-items: center;
-  gap: 20px;
-  margin-bottom: 34px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .table-meta {
@@ -1613,36 +1754,36 @@ watch(
 .order-detail-page {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 12px;
 }
 
 :deep(.order-form-dialog.el-dialog),
 :deep(.order-detail-dialog.el-dialog) {
   width: min(1280px, calc(100vw - 88px)) !important;
-  border-radius: 8px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
 :deep(.order-form-dialog .el-dialog__header),
 :deep(.order-detail-dialog .el-dialog__header) {
-  padding: 24px 36px 18px;
+  padding: 16px 20px 12px;
   margin: 0;
-  border-bottom: 1px solid #eeeeee;
+  border-bottom: 1px solid #ebeef5;
 }
 
 :deep(.order-form-dialog .el-dialog__title),
 :deep(.order-detail-dialog .el-dialog__title) {
-  color: #111111;
-  font-size: 24px;
+  color: #303133;
+  font-size: 18px;
   font-weight: 700;
 }
 
 :deep(.order-form-dialog .el-dialog__body),
 :deep(.order-detail-dialog .el-dialog__body) {
   max-height: calc(92vh - 92px);
-  padding: 26px 42px 0;
+  padding: 16px 20px 0;
   overflow: auto;
-  background: #f5f5f5;
+  background: #f5f7fa;
 }
 
 :deep(.order-form-dialog) .order-flow,
@@ -1651,11 +1792,11 @@ watch(
 }
 
 .step-card :deep(.page-block__body) {
-  padding: 104px 220px 100px;
+  padding: 40px 120px;
 }
 
 :deep(.order-form-dialog) .step-card :deep(.page-block__body) {
-  padding: 34px 86px 38px;
+  padding: 24px 64px;
 }
 
 .steps-line {
@@ -1693,18 +1834,18 @@ watch(
   z-index: 1;
   display: grid;
   justify-items: center;
-  gap: 16px;
+  gap: 8px;
   color: #b7b7b7;
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .step-node span {
   display: grid;
   place-items: center;
-  width: 54px;
-  height: 54px;
-  border: 4px solid #b7b7b7;
+  width: 36px;
+  height: 36px;
+  border: 2px solid #b7b7b7;
   border-radius: 50%;
   background: #fff;
   color: currentColor;
@@ -1732,19 +1873,19 @@ watch(
 }
 
 .form-panel {
-  min-height: 560px;
+  min-height: 420px;
 }
 
 .form-panel h3 {
-  margin: 0 0 40px;
-  font-size: 30px;
+  margin: 0 0 20px;
+  font-size: 18px;
   line-height: 1.2;
 }
 
 .outsource-search {
   display: grid;
   grid-template-columns: 280px 280px 1fr;
-  gap: 28px;
+  gap: 16px;
   align-items: end;
   margin-bottom: 22px;
 }
@@ -1783,7 +1924,7 @@ watch(
 
 .design-form-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 30px 80px;
+  gap: 12px 20px;
 }
 
 .design-form-grid label span em {
@@ -1796,19 +1937,19 @@ watch(
 .design-form-grid :deep(.el-select),
 .design-form-grid :deep(.el-date-editor.el-input) {
   width: 100%;
-  --el-input-height: 56px;
-  font-size: 18px;
+  --el-input-height: 32px;
+  font-size: 14px;
 }
 
 .design-form-grid :deep(.el-select__wrapper) {
-  min-height: 56px;
+  min-height: 32px;
 }
 
 .flow-add-button {
-  min-width: 224px;
-  height: 90px;
-  margin-bottom: 36px;
-  font-size: 32px;
+  min-width: 120px;
+  height: 40px;
+  margin-bottom: 16px;
+  font-size: 16px;
 }
 
 .design-table {
@@ -1853,23 +1994,23 @@ watch(
   justify-content: space-between;
   align-items: center;
   gap: 24px;
-  min-height: 126px;
-  margin: 0 -36px -28px;
-  padding: 24px 48px;
+  min-height: 72px;
+  margin: 0 -20px -16px;
+  padding: 16px 20px;
   background: #ffffff;
-  border-top: 1px solid #efefef;
+  border-top: 1px solid #ebeef5;
 }
 
 :deep(.order-form-dialog) .sticky-total {
   position: sticky;
   bottom: 0;
-  margin: 0 -42px;
-  min-height: 96px;
-  padding: 18px 42px;
+  margin: 0 -20px;
+  min-height: 72px;
+  padding: 16px 20px;
 }
 
 .sticky-total strong {
-  font-size: 32px;
+  font-size: 18px;
 }
 
 .sticky-total strong span {
@@ -1878,13 +2019,13 @@ watch(
 
 .sticky-total > div {
   display: flex;
-  gap: 26px;
+  gap: 12px;
 }
 
 .sticky-total :deep(.el-button) {
-  min-width: 170px;
-  height: 72px;
-  font-size: 26px;
+  min-width: 96px;
+  height: 36px;
+  font-size: 14px;
 }
 
 .detail-grid {
@@ -1899,18 +2040,18 @@ watch(
 
 .detail-grid span {
   color: #9a9a9a;
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .detail-grid strong {
-  color: #111;
-  font-size: 24px;
+  color: #303133;
+  font-size: 14px;
 }
 
 .design-detail-grid {
-  gap: 34px 120px;
-  padding: 22px 0 12px;
+  gap: 12px 20px;
+  padding: 12px 0;
 }
 
 .full-span {
@@ -1919,10 +2060,10 @@ watch(
 
 .status-banner {
   margin-bottom: 0;
-  padding: 34px;
-  border-radius: 6px;
+  padding: 16px;
+  border-radius: 4px;
   text-align: center;
-  font-size: 32px;
+  font-size: 18px;
   font-weight: 700;
   border: 1px solid transparent;
   cursor: pointer;
@@ -1955,15 +2096,15 @@ watch(
 }
 
 .detail-total {
-  font-size: 22px;
+  font-size: 16px;
   font-weight: 700;
   color: #d48806;
 }
 
 .pagination-wrap {
   display: flex;
-  justify-content: center;
-  margin-top: 36px;
+  justify-content: flex-end;
+  margin-top: 14px;
 }
 
 @media (max-width: 1200px) {

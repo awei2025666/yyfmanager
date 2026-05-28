@@ -80,6 +80,11 @@ const loadData = async () => {
   }
 }
 
+const searchData = () => {
+  filters.pageNum = 1
+  loadData()
+}
+
 const resetFilters = () => {
   Object.assign(filters, {
     pageNum: 1,
@@ -158,8 +163,8 @@ const toggleStatus = async (row) => {
   const nextStatus = Number(row.status) === 1 ? 0 : 1
   try {
     await changeTenantCraftStatus({ id: row.id, status: nextStatus })
-    row.status = nextStatus
     ElMessage.success('状态已更新')
+    loadData()
   } catch (error) {
     ElMessage.error(error?.message || '状态更新失败')
   }
@@ -210,7 +215,7 @@ onMounted(() => {
             </el-select>
           </label>
           <div class="craft-search-actions">
-            <el-button type="primary" :icon="Search" @click="loadData">查询</el-button>
+            <el-button type="primary" :icon="Search" @click="searchData">查询</el-button>
             <el-button :icon="Refresh" @click="resetFilters">重置</el-button>
           </div>
         </div>
@@ -254,7 +259,7 @@ onMounted(() => {
             v-model:current-page="filters.pageNum"
             background
             layout="prev, pager, next"
-            :total="state.total || 1000"
+            :total="state.total"
             @current-change="loadData"
           />
         </div>
@@ -318,8 +323,8 @@ onMounted(() => {
 
 .craft-search-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
-  align-items: end;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  align-items: start;
   gap: 18px 28px;
 }
 
@@ -365,81 +370,82 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+  grid-column: 1 / -1;
   min-width: 216px;
 }
 
 .craft-search-actions :deep(.el-button) {
-  min-width: 104px;
-  height: 42px;
+  min-width: 76px;
+  height: 32px;
   padding: 0 20px;
-  border-radius: 6px;
-  font-size: 16px;
+  border-radius: 4px;
+  font-size: 14px;
 }
 
 .craft-table-card :deep(.page-block__body) {
-  min-height: 880px;
-  padding: 34px 24px 28px;
+  min-height: 0;
+  padding: 16px;
 }
 
 .craft-toolbar {
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 
 .craft-toolbar :deep(.el-button) {
-  min-width: 116px;
-  height: 48px;
-  border-radius: 6px;
-  font-size: 18px;
+  min-width: 76px;
+  height: 32px;
+  border-radius: 4px;
+  font-size: 14px;
 }
 
 .craft-table {
-  --el-table-header-bg-color: #f0f1f3;
-  --el-table-border-color: #dedede;
-  font-size: 19px;
+  --el-table-header-bg-color: #f8fafc;
+  --el-table-border-color: #ebeef5;
+  font-size: 14px;
 }
 
 .craft-table :deep(.el-table__header th) {
-  height: 70px;
-  background: #f0f1f3 !important;
-  color: #111111;
-  font-size: 20px;
-  font-weight: 800;
+  height: 46px;
+  background: #f8fafc !important;
+  color: #303133;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .craft-table :deep(.el-table__body td) {
-  height: 70px;
-  color: #111111;
-  font-size: 19px;
+  height: 48px;
+  color: #606266;
+  font-size: 14px;
 }
 
 .craft-table :deep(.el-button.is-link) {
-  color: #1165ff;
-  font-size: 17px;
-  font-weight: 700;
+  color: #409eff;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 500px;
+  margin-top: 14px;
 }
 
 .craft-form-card :deep(.page-block__body) {
-  min-height: 1050px;
-  padding: 32px 24px;
+  min-height: 0;
+  padding: 16px;
 }
 
 .craft-form-card h2 {
-  margin: 0 0 30px;
-  color: #111111;
-  font-size: 24px;
-  font-weight: 800;
+  margin: 0 0 16px;
+  color: #303133;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .craft-form-grid {
   display: grid;
   grid-template-columns: 420px;
-  gap: 24px;
+  gap: 12px;
 }
 
 .craft-form-grid em {
@@ -448,14 +454,14 @@ onMounted(() => {
 }
 
 .craft-form-card :deep(.el-input) {
-  --el-input-height: 48px;
-  font-size: 18px;
+  --el-input-height: 32px;
+  font-size: 14px;
 }
 
 .craft-form-card :deep(.el-textarea__inner) {
   width: 1080px;
-  min-height: 98px !important;
-  font-size: 18px;
+  min-height: 72px !important;
+  font-size: 14px;
 }
 
 .craft-form-remark {
@@ -467,17 +473,17 @@ onMounted(() => {
   bottom: 0;
   display: flex;
   justify-content: flex-end;
-  gap: 28px;
-  margin: 0 -34px;
-  padding: 22px 42px;
-  border-top: 1px solid #eeeeee;
+  gap: 16px;
+  margin: 0 -16px;
+  padding: 16px;
+  border-top: 1px solid #ebeef5;
   background: #ffffff;
 }
 
 .craft-form-footer :deep(.el-button) {
-  min-width: 126px;
-  height: 48px;
-  border-radius: 6px;
-  font-size: 18px;
+  min-width: 88px;
+  height: 32px;
+  border-radius: 4px;
+  font-size: 14px;
 }
 </style>
