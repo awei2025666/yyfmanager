@@ -30,7 +30,7 @@
 			</view>
 		</view>
 
-		<view class="bottom-bar">
+		<view class="bottom-bar" v-if="list.length>0">
 			<button class="create-btn" @click="selectMode ? nextStep() : startCreate()">{{ selectMode ? '下一步' : '新建配送单' }}</button>
 		</view>
 	</view>
