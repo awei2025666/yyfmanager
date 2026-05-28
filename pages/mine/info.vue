@@ -17,22 +17,15 @@
 		</view>
 
 		<view class="info-list">
-			<view class="info-row">
-				<text>昵称</text>
-				<text>{{ userName }}</text>
-			</view>
-			<view class="info-row">
-				<text>账号</text>
-				<text>{{ userInfo.account || userInfo.userName || '-' }}</text>
-			</view>
+      <view class="info-row">
+        <text>姓名</text>
+        <text>{{ userInfo.realName || userInfo.name || '-' }}</text>
+      </view>
 			<view class="info-row">
 				<text>手机号</text>
 				<text>{{ maskedPhone }}</text>
 			</view>
-			<view class="info-row">
-				<text>姓名</text>
-				<text>{{ userInfo.realName || userInfo.name || '-' }}</text>
-			</view>
+
 		</view>
 	</view>
 </template>
