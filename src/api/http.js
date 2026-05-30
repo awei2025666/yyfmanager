@@ -3,7 +3,7 @@ import { ElMessage } from 'element-plus'
 import { redirectToLogin } from './authGuard'
 
 const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api-proxy' : 'http://hunike.nat100.top/7888'),
+  baseURL: import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api-proxy' : ''),
   timeout: 12000
 })
 

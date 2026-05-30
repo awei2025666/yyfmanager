@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { redirectToLogin } from './authGuard'
 
-export const tenantBaseURL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api-proxy' : 'http://hunike.nat100.top/7888')
+export const tenantBaseURL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? '/api-proxy' : '')
 
 const tenantHttp = axios.create({
   baseURL: tenantBaseURL,
@@ -178,7 +178,8 @@ export const changeTenantStaffStatus = (payload = {}) => tenantHttp.post('/api/t
 export const getTenantDepartmentList = (payload = {}) =>
   tenantHttp.post('/api/tenant/dept/list', payload)
 export const getTenantVipList = (payload = {}) => tenantHttp.get('/api/tenant/vip/plan', { params: payload })
-export const createTenantVipOrder = (payload = {}) => tenantHttp.post('/api/tenant/vip/order', payload)
+export const createTenantVipPay = (payload = {}) => tenantHttp.post('/api/tenant/vip/pay', payload)
+export const getTenantVipPayStatus = (id) => tenantHttp.get('/api/tenant/vip/payStatus', { params: { id } })
 export const addTenantDepartment = (payload = {}) =>
   tenantHttp.post('/api/tenant/dept/add', payload)
 export const editTenantDepartment = (payload = {}) =>

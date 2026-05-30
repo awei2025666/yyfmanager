@@ -1,18 +1,23 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import QRCode from 'qrcode'
 import PageBlock from '../../components/PageBlock.vue'
-import { createTenantVipOrder, getTenantVipList } from '../../api/tenant'
+import { createTenantVipPay, getTenantVipList, getTenantVipPayStatus } from '../../api/tenant'
 
 const state = reactive({
   loading: false,
-  creating: false
+  creating: false,
+  checking: false
 })
 
 const plans = ref([])
 const selectedPlanKey = ref('')
 const payInfo = ref(null)
+const payType = ref(1)
+const wechatQr = ref('')
 const agreement = ref(true)
+let statusTimer = null
 
 const moneyText = (value) =>
   `¥${Number(value || 0).toLocaleString('zh-CN', {
@@ -44,8 +49,53 @@ const normalizePlan = (item = {}) => {
 }
 
 const selectedPlan = computed(() => plans.value.find((item) => item.key === selectedPlanKey.value))
-const payQr = computed(() => payInfo.value?.qrCode || payInfo.value?.payUrl || payInfo.value?.codeUrl || payInfo.value?.url || '')
+const payOrderId = computed(() => getPayOrderId(payInfo.value))
+const payContent = computed(() => getPayContent(payInfo.value))
 const payAmount = computed(() => payInfo.value?.amount || payInfo.value?.payMoney || selectedPlan.value?.currentPrice || 0)
+const payButtonText = computed(() => (payType.value === 1 ? '生成支付二维码' : '生成支付宝支付'))
+
+const clearStatusTimer = () => {
+  if (!statusTimer) return
+  clearTimeout(statusTimer)
+  statusTimer = null
+}
+
+const resetPayResult = () => {
+  clearStatusTimer()
+  payInfo.value = null
+  wechatQr.value = ''
+}
+
+const getPayOrderId = (payload) => {
+  if (!payload || typeof payload !== 'object') return ''
+  return payload.id || payload.orderId || payload.payId || payload.vipOrderId || ''
+}
+
+const getPayContent = (payload) => {
+  if (!payload) return ''
+  if (typeof payload === 'string') return payload
+  return (
+    payload.payInfo ||
+    payload.payString ||
+    payload.pay ||
+    payload.payContent ||
+    payload.content ||
+    payload.html ||
+    payload.qr ||
+    payload.qrCode ||
+    payload.codeUrl ||
+    payload.payUrl ||
+    payload.url ||
+    payload.data ||
+    ''
+  )
+}
+
+const getPayStatusValue = (payload) => {
+  if (payload === 2 || payload === 3) return payload
+  if (typeof payload === 'string') return Number(payload)
+  return Number(payload?.status ?? payload?.payStatus ?? payload?.state ?? payload?.code)
+}
 
 const loadPlans = async () => {
   state.loading = true
@@ -53,6 +103,9 @@ const loadPlans = async () => {
     const data = await getTenantVipList()
     plans.value = listRows(data).map(normalizePlan)
     selectedPlanKey.value = plans.value[0]?.key || ''
+    if (selectedPlanKey.value) {
+      await createOrder()
+    }
   } catch (error) {
     plans.value = []
     selectedPlanKey.value = ''
@@ -62,21 +115,70 @@ const loadPlans = async () => {
   }
 }
 
-const selectPlan = (plan) => {
+const selectPlan = async (plan) => {
+  if (selectedPlanKey.value === plan.key) return
   selectedPlanKey.value = plan.key
-  payInfo.value = null
+  await createOrder()
+}
+
+const selectPayType = async (type) => {
+  if (payType.value === type) return
+  payType.value = type
+  await createOrder()
+}
+
+const schedulePayStatusCheck = () => {
+  clearStatusTimer()
+  if (!payOrderId.value) return
+  statusTimer = setTimeout(checkPayStatus, 10000)
+}
+
+const checkPayStatus = async () => {
+  if (!payOrderId.value) return
+  state.checking = true
+  try {
+    const data = await getTenantVipPayStatus(payOrderId.value)
+    const status = getPayStatusValue(data)
+    if (status === 2) {
+      clearStatusTimer()
+      ElMessage.success('支付成功，请刷新用户信息')
+      return
+    }
+    if (status === 3) {
+      clearStatusTimer()
+      ElMessage.error('支付失败，请重新生成二维码支付')
+      return
+    }
+    schedulePayStatusCheck()
+  } catch (error) {
+    ElMessage.error(error?.message || '支付状态查询失败')
+    schedulePayStatusCheck()
+  } finally {
+    state.checking = false
+  }
 }
 
 const createOrder = async () => {
   if (!selectedPlan.value) return ElMessage.warning('请选择套餐')
   if (!agreement.value) return ElMessage.warning('请先勾选服务协议')
+  if (state.creating) return
+  resetPayResult()
   state.creating = true
   try {
-    payInfo.value = await createTenantVipOrder({
-      vipId: selectedPlan.value.id,
-      packageId: selectedPlan.value.id
+    const data = await createTenantVipPay({
+      type: payType.value,
+      vipPackageId: selectedPlan.value.id
     })
-    ElMessage.success('二维码已生成')
+    payInfo.value = data && typeof data === 'object' ? data : { payInfo: data }
+    if (payType.value === 1) {
+      wechatQr.value = await QRCode.toDataURL(payContent.value, {
+        width: 150,
+        margin: 1,
+        errorCorrectionLevel: 'M'
+      })
+    }
+    ElMessage.success(payType.value === 1 ? '二维码已生成' : '支付宝支付页面已生成')
+    schedulePayStatusCheck()
   } catch (error) {
     ElMessage.error(error?.message || '生成二维码失败')
   } finally {
@@ -85,6 +187,7 @@ const createOrder = async () => {
 }
 
 onMounted(loadPlans)
+onBeforeUnmount(clearStatusTimer)
 </script>
 
 <template>
@@ -111,19 +214,20 @@ onMounted(loadPlans)
 
         <aside class="pay-panel">
           <div class="pay-tabs">
-            <button type="button" class="active">微</button>
-            <button type="button">支</button>
+            <button type="button" :class="{ active: payType === 1 }" @click="selectPayType(1)">微</button>
+            <button type="button" :class="{ active: payType === 2 }" @click="selectPayType(2)">支</button>
           </div>
           <span>扫码支付</span>
-          <div class="qr-box" :class="{ empty: !payQr }">
-            <img v-if="payQr" :src="payQr" alt="支付二维码" />
+          <div class="qr-box" :class="{ empty: payType === 1 ? !wechatQr : !payContent }">
+            <img v-if="payType === 1 && wechatQr" :src="wechatQr" alt="微信支付二维码" />
+            <iframe v-else-if="payType === 2 && payContent" title="支付宝支付" :srcdoc="payContent"></iframe>
             <span v-else>{{ state.creating ? '生成中' : '请先生成二维码' }}</span>
           </div>
           <strong>{{ moneyText(payAmount) }}</strong>
           <del v-if="selectedPlan?.original">{{ selectedPlan.original }}</del>
           <el-checkbox v-model="agreement">服务协议</el-checkbox>
           <el-button type="primary" :loading="state.creating" :disabled="!selectedPlan" @click="createOrder">
-            生成支付二维码
+            {{ payButtonText }}
           </el-button>
         </aside>
       </div>
@@ -244,6 +348,13 @@ onMounted(loadPlans)
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.qr-box iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #ffffff;
 }
 
 .pay-panel strong {
