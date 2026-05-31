@@ -22,12 +22,14 @@ const submit = async () => {
     const userInfo = await getTenantUserInfo()
     localStorage.setItem('platform_account', userInfo?.name || form.account)
     localStorage.setItem('platform_vip_day', String(userInfo?.vipDay ?? ''))
+    localStorage.setItem('platform_menu_tree', JSON.stringify(Array.isArray(userInfo?.menuTree) ? userInfo.menuTree : []))
     const avatar = getAvatarUrl(userInfo)
     if (avatar) localStorage.setItem('platform_avatar', avatar)
     ElMessage.success('登录成功')
     router.push((route.query.redirect || '/dashboard').toString())
   } catch (error) {
     localStorage.removeItem('platform_token')
+    localStorage.removeItem('platform_menu_tree')
     ElMessage.error(error?.message || '登录失败，请检查账号密码或接口服务')
   } finally {
     loading.value = false

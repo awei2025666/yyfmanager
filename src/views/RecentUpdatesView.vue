@@ -31,6 +31,14 @@ const typeLabels = {
   customer: '客户'
 }
 
+const typeOptions = [
+  { label: '订单', value: 1 },
+  { label: '工艺', value: 2 },
+  { label: '收款', value: 3 },
+  { label: '报销', value: 4 },
+  { label: '客户', value: 5 }
+]
+
 const inferType = (item) => {
   const source = `${item.typeName || item.dynamicTypeName || item.category || item.type || ''}`
   const content = `${item.content || item.title || item.dynamicTitle || ''}`
@@ -52,12 +60,6 @@ const normalizeUpdate = (item, index) => ({
 })
 
 const updates = computed(() => rawUpdates.value.map(normalizeUpdate))
-
-const typeOptions = computed(() => {
-  const types = [...new Set(updates.value.map((item) => item.type).filter((item) => item && item !== '-'))]
-  return types.map((item) => ({ label: item, value: item }))
-})
-
 const pagedUpdates = computed(() => updates.value)
 
 const loadUpdates = async () => {
@@ -66,8 +68,7 @@ const loadUpdates = async () => {
     const data = await getWorkbenchRecentUpdates({
       pageNum: pager.page,
       pageSize: pager.pageSize,
-      title: filters.keyword || undefined,
-      keyword: filters.keyword || undefined,
+      content: filters.keyword || undefined,
       type: filters.type || undefined
     })
     rawUpdates.value = Array.isArray(data) ? data : data?.records || data?.list || data?.rows || []

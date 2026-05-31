@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Download, Edit, Plus, Search, View } from '@element-plus/icons-vue'
+import { Download, Edit, Plus, Search, Upload, View } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
 import {
   addTenantHandKept,
@@ -9,7 +9,9 @@ import {
   editTenantHandKept,
   exportTenantHandKept,
   getTenantHandKeptDetail,
-  getTenantHandKeptList
+  getTenantHandKeptList,
+  getTenantReceivableOrderList,
+  uploadTenantFile
 } from '../../api/tenant'
 
 const filters = reactive({
@@ -24,14 +26,33 @@ const form = reactive({
   id: '',
   name: '',
   orderId: '',
+  orderNo: '',
+  orderCustomer: '',
+  orderTime: '',
+  orderFiller: '',
+  orderProductInfo: '',
+  orderAmount: '',
+  orderStatus: '',
   quantity: '',
   imageRemark: '',
+  imageUrl: '',
   remark: ''
+})
+
+const orderPicker = reactive({
+  loading: false,
+  pageNum: 1,
+  pageSize: 10,
+  total: 0,
+  companyName: '',
+  orderId: '',
+  records: []
 })
 
 const state = reactive({
   loading: false,
   saving: false,
+  uploading: false,
   exporting: false,
   detailLoading: false,
   total: 0
@@ -41,8 +62,23 @@ const rows = ref([])
 const currentRow = ref(null)
 const formVisible = ref(false)
 const detailVisible = ref(false)
+const orderPickerVisible = ref(false)
 
 const isEdit = computed(() => Boolean(form.id))
+const selectedOrderRows = computed(() =>
+  form.orderId
+    ? [{
+        id: form.orderId,
+        orderNo: form.orderNo || '-',
+        customer: form.orderCustomer || '-',
+        orderTime: form.orderTime || '-',
+        filler: form.orderFiller || '-',
+        productInfo: form.orderProductInfo || '-',
+        amount: form.orderAmount || 0,
+        status: form.orderStatus || '-'
+      }]
+    : []
+)
 
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -59,12 +95,33 @@ const normalizeRow = (row = {}) => ({
   id: row.id || row.handKeptId,
   name: row.name || '-',
   quantity: row.num ?? row.quantity ?? 0,
-  imageRemark: row.imageRemark || row.img || row.picture || row.proofImg || row.imgRemark || '',
+  imageRemark: row.imgRemark || row.imageRemark || row.fileId || '',
+  imageUrl: row.imgRemarkUrl || row.fileUrl || row.img || row.image || row.picture || row.proofImg || '',
   remark: row.remark || row.detailNote || '',
   orderNo: row.order?.orderId || row.orderId || '-',
   orderId: row.order?.id || row.orderId || '',
   operator: row.createUserName || row.operator || '-',
   updatedAt: row.createTime || row.updatedAt || '-'
+})
+
+const productInfoText = (row = {}) => {
+  if (row.productInfo) return row.productInfo
+  if (row.productName) return row.productName
+  const products = row.products || row.productList || row.productsList || row.orderProductList || []
+  if (!Array.isArray(products)) return '-'
+  return products.map((item) => item.productInfo || item.productName || item.name).filter(Boolean).join('、') || '-'
+}
+
+const normalizeOrderOption = (row = {}) => ({
+  ...row,
+  id: row.id || row.orderId || row.orderRecordId || row.orderPrimaryId,
+  orderNo: row.orderNo || row.orderId || '-',
+  customer: row.companyName || row.customerName || '-',
+  orderTime: row.orderTime || row.createTime || '-',
+  filler: row.fillUserName || row.userName || '-',
+  productInfo: productInfoText(row),
+  amount: row.billMoney ?? row.totalMoney ?? row.payMoney ?? row.amount ?? 0,
+  status: row.orderStatus || row.status || '-'
 })
 
 const queryPayload = () => ({
@@ -121,10 +178,81 @@ const resetForm = () => {
     id: '',
     name: '',
     orderId: '',
+    orderNo: '',
+    orderCustomer: '',
+    orderTime: '',
+    orderFiller: '',
+    orderProductInfo: '',
+    orderAmount: '',
+    orderStatus: '',
     quantity: '',
     imageRemark: '',
+    imageUrl: '',
     remark: ''
   })
+}
+
+const loadOrderOptions = async () => {
+  orderPicker.loading = true
+  try {
+    const data = await getTenantReceivableOrderList({
+      pageNum: orderPicker.pageNum,
+      pageSize: orderPicker.pageSize,
+      companyName: orderPicker.companyName || undefined,
+      orderNo: orderPicker.orderId || undefined
+    })
+    const normalizedRows = listRows(data).map(normalizeOrderOption)
+    orderPicker.records = normalizedRows
+    orderPicker.total = listTotal(data, normalizedRows)
+  } catch (error) {
+    orderPicker.records = []
+    orderPicker.total = 0
+    ElMessage.error(error?.message || '订单列表加载失败')
+  } finally {
+    orderPicker.loading = false
+  }
+}
+
+const openOrderPicker = () => {
+  orderPickerVisible.value = true
+  orderPicker.pageNum = 1
+  loadOrderOptions()
+}
+
+const searchOrderOptions = () => {
+  orderPicker.pageNum = 1
+  loadOrderOptions()
+}
+
+const selectOrder = (row) => {
+  form.orderId = row.id || ''
+  form.orderNo = row.orderNo || ''
+  form.orderCustomer = row.customer || ''
+  form.orderTime = row.orderTime || ''
+  form.orderFiller = row.filler || ''
+  form.orderProductInfo = row.productInfo || ''
+  form.orderAmount = row.amount || 0
+  form.orderStatus = row.status || ''
+  orderPickerVisible.value = false
+}
+
+const uploadImage = async ({ file }) => {
+  state.uploading = true
+  try {
+    const fileId = await uploadTenantFile(file)
+    form.imageRemark = fileId
+    form.imageUrl = URL.createObjectURL(file)
+    ElMessage.success('图片上传成功')
+  } catch (error) {
+    ElMessage.error(error?.message || '图片上传失败')
+  } finally {
+    state.uploading = false
+  }
+}
+
+const removeImage = () => {
+  form.imageRemark = ''
+  form.imageUrl = ''
 }
 
 const openCreate = () => {
@@ -137,8 +265,16 @@ const openEdit = (row) => {
     id: row.id,
     name: row.name === '-' ? '' : row.name,
     orderId: row.orderId === '-' ? '' : row.orderId,
+    orderNo: row.orderNo === '-' ? '' : row.orderNo,
+    orderCustomer: row.order?.companyName || '',
+    orderTime: row.order?.orderTime || '',
+    orderFiller: row.order?.fillUserName || '',
+    orderProductInfo: productInfoText(row.order || {}),
+    orderAmount: row.order?.totalMoney || row.order?.billMoney || 0,
+    orderStatus: row.order?.status || row.order?.orderStatus || '',
     quantity: row.quantity,
     imageRemark: row.imageRemark || '',
+    imageUrl: row.imageUrl || '',
     remark: row.remark || ''
   })
   formVisible.value = true
@@ -146,6 +282,7 @@ const openEdit = (row) => {
 
 const submitForm = async () => {
   if (!form.name) return ElMessage.warning('请输入手工名称')
+  if (!form.orderId) return ElMessage.warning('请选择关联订单')
   state.saving = true
   try {
     if (form.id) {
@@ -274,28 +411,86 @@ onMounted(loadData)
       </div>
     </PageBlock>
 
-    <el-dialog v-model="formVisible" :title="isEdit ? '编辑手工记录' : '添加手工记录'" width="680px">
-      <el-form class="edit-form" :model="form" label-width="96px">
+    <el-dialog v-model="formVisible" :title="isEdit ? '编辑手工记录' : '添加手工记录'" width="1080px">
+      <el-form class="manual-form" :model="form" label-position="top">
         <el-form-item label="手工名称" required>
           <el-input v-model="form.name" placeholder="请输入手工名称" />
-        </el-form-item>
-        <el-form-item label="关联订单ID">
-          <el-input v-model="form.orderId" placeholder="请输入关联订单ID" />
         </el-form-item>
         <el-form-item label="数量">
           <el-input v-model="form.quantity" placeholder="请输入数量" />
         </el-form-item>
-        <el-form-item label="图片备注">
-          <el-input v-model="form.imageRemark" placeholder="请输入图片备注" />
+        <el-form-item label="图片备注" class="full">
+          <div class="image-upload">
+            <el-upload accept="image/*" :show-file-list="false" :http-request="uploadImage">
+              <el-button size="small" :loading="state.uploading">选择文件</el-button>
+            </el-upload>
+            <span class="upload-tip">{{ form.imageRemark ? `文件ID：${form.imageRemark}` : '未选择任何文件' }}</span>
+            <el-image v-if="form.imageUrl" :src="form.imageUrl" :preview-src-list="[form.imageUrl]" fit="cover" preview-teleported />
+            <el-button v-if="form.imageUrl" link type="danger" @click="removeImage">删除图片</el-button>
+          </div>
         </el-form-item>
         <el-form-item label="备注" class="full">
-          <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注" />
+          <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="输入" />
         </el-form-item>
       </el-form>
+      <section class="selected-order-section">
+        <div class="selected-order-head">
+          <h3>订单信息</h3>
+          <el-button type="primary" :icon="Search" @click="openOrderPicker">
+            {{ form.orderId ? '更换订单' : '选择订单' }}
+          </el-button>
+        </div>
+        <el-table :data="selectedOrderRows" border>
+          <el-table-column prop="orderNo" label="订单号" min-width="150" />
+          <el-table-column prop="customer" label="单位名称" min-width="160" />
+          <el-table-column prop="orderTime" label="订单时间" min-width="160" />
+          <el-table-column prop="filler" label="填单员" min-width="110" />
+          <el-table-column prop="productInfo" label="产品信息" min-width="220" show-overflow-tooltip />
+          <el-table-column prop="amount" label="订单金额" min-width="110" />
+          <el-table-column prop="status" label="订单状态" min-width="110" />
+          <el-table-column label="操作" width="90" fixed="right">
+            <template #default>
+              <el-button type="primary" link @click="openOrderPicker">{{ form.orderId ? '更换' : '选择' }}</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </section>
       <template #footer>
         <el-button @click="formVisible = false">取消</el-button>
         <el-button type="primary" :loading="state.saving" @click="submitForm">保存</el-button>
       </template>
+    </el-dialog>
+
+    <el-dialog v-model="orderPickerVisible" title="选择订单" width="980px">
+      <div class="picker-head">
+        <el-input v-model="orderPicker.companyName" clearable placeholder="单位名称" @keyup.enter="searchOrderOptions" />
+        <el-input v-model="orderPicker.orderId" clearable placeholder="订单号" @keyup.enter="searchOrderOptions" />
+        <el-button type="primary" :icon="Search" @click="searchOrderOptions">查询</el-button>
+      </div>
+      <el-table v-loading="orderPicker.loading" :data="orderPicker.records" border>
+        <el-table-column prop="orderNo" label="订单号" min-width="150" />
+        <el-table-column prop="customer" label="单位名称" min-width="150" />
+        <el-table-column prop="orderTime" label="订单时间" min-width="160" />
+        <el-table-column prop="filler" label="填单员" min-width="100" />
+        <el-table-column prop="productInfo" label="产品信息" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="amount" label="订单金额" min-width="110" />
+        <el-table-column label="操作" width="90" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link @click="selectOrder(row)">选择</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="pagination-wrap">
+        <el-pagination
+          v-model:current-page="orderPicker.pageNum"
+          v-model:page-size="orderPicker.pageSize"
+          background
+          small
+          layout="total, prev, pager, next"
+          :total="orderPicker.total"
+          @current-change="loadOrderOptions"
+        />
+      </div>
     </el-dialog>
 
     <el-dialog v-model="detailVisible" title="手工记录详情" width="760px">
@@ -307,6 +502,7 @@ onMounted(loadData)
           <div><dt>操作员</dt><dd>{{ currentRow.operator }}</dd></div>
           <div><dt>操作时间</dt><dd>{{ currentRow.updatedAt }}</dd></div>
           <div><dt>图片备注</dt><dd>{{ currentRow.imageRemark || '-' }}</dd></div>
+          <div v-if="currentRow.imageUrl" class="full"><dt>图片</dt><dd><el-image class="detail-image" :src="currentRow.imageUrl" :preview-src-list="[currentRow.imageUrl]" fit="cover" preview-teleported /></dd></div>
           <div class="full"><dt>备注</dt><dd>{{ currentRow.remark || '-' }}</dd></div>
         </dl>
       </div>
@@ -354,18 +550,68 @@ onMounted(loadData)
   margin-top: 14px;
 }
 
-.edit-form {
+.manual-form {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px 16px;
+  grid-template-columns: 260px 260px minmax(260px, 1fr);
+  gap: 14px 22px;
 }
 
-.edit-form :deep(.el-form-item) {
-  margin-bottom: 16px;
+.manual-form :deep(.el-form-item) {
+  margin-bottom: 0;
 }
 
-.edit-form .full {
+.manual-form .full {
   grid-column: 1 / -1;
+}
+
+.manual-form :deep(.el-input),
+.manual-form :deep(.el-textarea) {
+  max-width: 620px;
+}
+
+.selected-order-section {
+  margin-top: 22px;
+}
+
+.selected-order-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.selected-order-head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.image-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.upload-tip {
+  color: #8a93a3;
+}
+
+.image-upload :deep(.el-image),
+.detail-image {
+  width: 80px;
+  height: 80px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+}
+
+.picker-head {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.picker-head :deep(.el-input) {
+  width: 220px;
 }
 
 .detail-grid {

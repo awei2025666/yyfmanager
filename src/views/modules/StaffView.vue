@@ -62,12 +62,13 @@ const isEdit = computed(() => Boolean(form.id))
 
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
-  return payload?.records || payload?.list || payload?.rows || []
+  if (Array.isArray(payload?.data)) return payload.data
+  return payload?.records || payload?.list || payload?.rows || payload?.data?.records || payload?.data?.list || payload?.data?.rows || []
 }
 
 const listTotal = (payload, normalizedRows) => {
   if (Array.isArray(payload)) return normalizedRows.length
-  return Number(payload?.total ?? normalizedRows.length) || 0
+  return Number(payload?.total ?? payload?.data?.total ?? normalizedRows.length) || 0
 }
 
 const statusText = (value) => {
@@ -82,7 +83,13 @@ const departmentNameMap = computed(() => new Map(departments.value.map((item) =>
 const roleNameMap = computed(() => new Map(roles.value.map((item) => [String(item.value), item.label])))
 
 const normalizeStaff = (row = {}) => {
-  const roleIds = row.roleIdList || row.menuIdList || []
+  const roleIds = Array.isArray(row.roleIdList)
+    ? row.roleIdList
+    : Array.isArray(row.menuIdList)
+      ? row.menuIdList
+      : row.roleId || row.roleIds
+        ? String(row.roleId || row.roleIds).split(',')
+        : []
   return {
     ...row,
     id: row.id || row.userId,
@@ -146,7 +153,7 @@ const savePayload = () => {
     remark: form.remark,
     status: form.status
   }
-  if (form.loginPassword) payload.password = form.loginPassword
+  if (!form.id && form.loginPassword) payload.password = form.loginPassword
   return payload
 }
 
@@ -427,7 +434,7 @@ onMounted(async () => {
         <el-form-item label="联系方式（账号）" required>
           <el-input v-model="form.phone" placeholder="请输入联系方式" />
         </el-form-item>
-        <el-form-item label="登录密码" :required="!isEdit">
+        <el-form-item v-if="!isEdit" label="登录密码" required>
           <el-input v-model="form.loginPassword" show-password placeholder="请输入登录密码" />
         </el-form-item>
         <el-form-item label="职位">
@@ -453,9 +460,18 @@ onMounted(async () => {
           </el-select>
         </el-form-item>
         <el-form-item label="角色" class="full">
-          <el-checkbox-group v-model="form.roleIdList">
-            <el-checkbox v-for="item in roles" :key="item.value" :label="item.value">{{ item.label }}</el-checkbox>
-          </el-checkbox-group>
+          <el-select
+            v-model="form.roleIdList"
+            multiple
+            clearable
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            :loading="state.optionLoading"
+            placeholder="请选择角色"
+          >
+            <el-option v-for="item in roles" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
         </el-form-item>
         <el-form-item label="备注" class="full">
           <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注" />

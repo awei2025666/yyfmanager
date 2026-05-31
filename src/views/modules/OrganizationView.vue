@@ -8,8 +8,7 @@ import {
   changeTenantDepartmentStatus,
   deleteTenantDepartment,
   editTenantDepartment,
-  getTenantDepartmentList,
-  getTenantDepartmentOptions
+  getTenantDepartmentList
 } from '../../api/tenant'
 
 const statusOptions = [
@@ -33,15 +32,12 @@ const form = reactive({
 
 const state = reactive({
   loading: false,
-  treeLoading: false,
   saving: false,
   total: 0
 })
 
 const rows = ref([])
-const treeRows = ref([])
 const formVisible = ref(false)
-const treeRef = ref(null)
 
 const isEdit = computed(() => Boolean(form.id))
 
@@ -92,29 +88,6 @@ const savePayload = () => ({
   remark: form.remark
 })
 
-const treeData = computed(() => [
-  {
-    id: '全部',
-    name: '全部',
-    children: treeRows.value.map((item) => ({
-      id: item.id,
-      name: item.name
-    }))
-  }
-])
-
-const loadTree = async () => {
-  state.treeLoading = true
-  try {
-    const data = await getTenantDepartmentOptions({ name: '' })
-    treeRows.value = listRows(data).map(normalizeRow)
-  } catch {
-    treeRows.value = rows.value
-  } finally {
-    state.treeLoading = false
-  }
-}
-
 const loadData = async () => {
   state.loading = true
   try {
@@ -122,7 +95,6 @@ const loadData = async () => {
     const normalizedRows = listRows(data).map(normalizeRow)
     rows.value = normalizedRows
     state.total = listTotal(data, normalizedRows)
-    if (!treeRows.value.length) treeRows.value = normalizedRows
   } catch (error) {
     rows.value = []
     state.total = 0
@@ -144,13 +116,6 @@ const resetFilters = () => {
     name: '',
     status: ''
   })
-  treeRef.value?.setCurrentKey?.('全部')
-  loadData()
-}
-
-const selectTreeNode = (node) => {
-  filters.pageNum = 1
-  filters.name = node.id === '全部' ? '' : node.name
   loadData()
 }
 
@@ -190,7 +155,6 @@ const submitForm = async () => {
     formVisible.value = false
     ElMessage.success(form.id ? '编辑成功' : '新增成功')
     await loadData()
-    loadTree()
   } catch (error) {
     ElMessage.error(error?.message || '保存失败')
   } finally {
@@ -208,7 +172,6 @@ const removeRow = async (row) => {
     await deleteTenantDepartment(row.id)
     ElMessage.success('删除成功')
     await loadData()
-    loadTree()
   } catch (error) {
     ElMessage.error(error?.message || '删除失败')
   }
@@ -224,82 +187,61 @@ const toggleStatus = async (row, value) => {
   }
 }
 
-onMounted(() => {
-  loadData()
-  loadTree()
-})
+onMounted(loadData)
 </script>
 
 <template>
   <div class="organization-page">
     <PageBlock>
-      <div class="content-layout">
-        <aside class="tree-panel" v-loading="state.treeLoading">
-          <div class="tree-title">部门名称</div>
-          <el-tree
-            ref="treeRef"
-            node-key="id"
-            :data="treeData"
-            :props="{ label: 'name', children: 'children' }"
-            default-expand-all
-            highlight-current
-            :expand-on-click-node="false"
-            @node-click="selectTreeNode"
-          />
-        </aside>
+      <el-form class="search-form" :model="filters" label-width="76px">
+        <el-form-item label="部门名称">
+          <el-input v-model="filters.name" clearable placeholder="请输入部门名称" @keyup.enter="searchData" />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="filters.status" clearable placeholder="请选择状态">
+            <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item class="search-actions">
+          <el-button type="primary" :icon="Search" @click="searchData">查询</el-button>
+          <el-button @click="resetFilters">重置</el-button>
+        </el-form-item>
+      </el-form>
 
-        <main class="list-panel">
-          <el-form class="search-form" :model="filters" label-width="76px">
-            <el-form-item label="部门名称">
-              <el-input v-model="filters.name" clearable placeholder="请输入部门名称" @keyup.enter="searchData" />
-            </el-form-item>
-            <el-form-item label="状态">
-              <el-select v-model="filters.status" clearable placeholder="请选择状态">
-                <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
-            </el-form-item>
-            <el-form-item class="search-actions">
-              <el-button type="primary" :icon="Search" @click="searchData">查询</el-button>
-              <el-button @click="resetFilters">重置</el-button>
-            </el-form-item>
-          </el-form>
-
-          <div class="table-toolbar">
-            <el-button type="primary" :icon="Plus" @click="openCreate">添加</el-button>
-          </div>
-          <el-table v-loading="state.loading" :data="rows" border>
-            <el-table-column prop="name" label="部门名称" min-width="180" />
-            <el-table-column prop="remark" label="备注" min-width="180" show-overflow-tooltip />
-            <el-table-column label="状态" width="100">
-              <template #default="{ row }">
-                <el-switch
-                  :model-value="row.statusValue"
-                  active-value="1"
-                  inactive-value="0"
-                  @change="(value) => toggleStatus(row, value)"
-                />
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="150" fixed="right">
-              <template #default="{ row }">
-                <el-button type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>
-                <el-button type="danger" link @click="removeRow(row)">删除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <div class="pagination-wrap">
-            <el-pagination
-              v-model:current-page="filters.pageNum"
-              v-model:page-size="filters.pageSize"
-              background
-              layout="total, sizes, prev, pager, next"
-              :page-sizes="[10, 20, 30, 50]"
-              :total="state.total"
-              @current-change="loadData"
-              @size-change="searchData"
+      <div class="table-toolbar">
+        <el-button type="primary" :icon="Plus" @click="openCreate">添加</el-button>
+      </div>
+      <el-table v-loading="state.loading" :data="rows" border>
+        <el-table-column prop="name" label="部门名称" min-width="180" />
+        <el-table-column prop="remark" label="备注" min-width="180" show-overflow-tooltip />
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-switch
+              :model-value="row.statusValue"
+              active-value="1"
+              inactive-value="0"
+              @change="(value) => toggleStatus(row, value)"
             />
-          </div>
-        </main>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="150" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>
+            <el-button type="danger" link @click="removeRow(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="pagination-wrap">
+        <el-pagination
+          v-model:current-page="filters.pageNum"
+          v-model:page-size="filters.pageSize"
+          background
+          layout="total, sizes, prev, pager, next"
+          :page-sizes="[10, 20, 30, 50]"
+          :total="state.total"
+          @current-change="loadData"
+          @size-change="searchData"
+        />
       </div>
     </PageBlock>
 
@@ -328,36 +270,6 @@ onMounted(() => {
 <style scoped>
 .organization-page {
   padding: 0 20px;
-}
-
-.content-layout {
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 18px;
-}
-
-.tree-panel {
-  min-height: 560px;
-  padding-right: 18px;
-  border-right: 1px solid #e4e7ed;
-}
-
-.tree-title {
-  margin-bottom: 16px;
-  color: #111111;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.tree-panel :deep(.el-tree-node__content) {
-  height: 42px;
-  border-radius: 4px;
-}
-
-.tree-panel :deep(.el-tree-node.is-current > .el-tree-node__content) {
-  background: #e8f1ff;
-  color: #1f6bff;
-  font-weight: 700;
 }
 
 .search-form {

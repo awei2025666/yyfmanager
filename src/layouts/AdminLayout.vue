@@ -83,11 +83,22 @@ const allMenus = [
   }
 ]
 
+const readCachedMenuTree = () => {
+  try {
+    const value = JSON.parse(localStorage.getItem('platform_menu_tree') || 'null')
+    return Array.isArray(value) ? value : null
+  } catch {
+    return null
+  }
+}
+
+const cachedMenuTree = readCachedMenuTree()
 const userState = reactive({
   name: localStorage.getItem('platform_account') || '',
   vipDay: localStorage.getItem('platform_vip_day') || '',
   avatar: localStorage.getItem('platform_avatar') || '',
-  allowedRoutes: []
+  menuTree: cachedMenuTree,
+  menuLoaded: Boolean(cachedMenuTree)
 })
 const passwordDialogVisible = ref(false)
 const passwordSaving = ref(false)
@@ -175,43 +186,66 @@ const menuRouteAliases = {
   organization: 'organization'
 }
 
-const allRouteNames = new Set(allMenus.flatMap((item) => item.children ? item.children.map((child) => child.name) : [item.name]))
+const flattenMenus = (items = []) =>
+  items.flatMap((item) => (item.children ? [item, ...flattenMenus(item.children)] : [item]))
 
-const normalizeMenuRouter = (value) => String(value || '').replace(/^\/+/, '').split(/[/?#]/)[0]
+const menuMetaItems = flattenMenus(allMenus)
+const menuMetaByName = new Map(menuMetaItems.filter((item) => item.name).map((item) => [item.name, item]))
+const menuMetaByLabel = new Map(menuMetaItems.map((item) => [item.label, item]))
 
-const collectAllowedRoutes = (tree = []) => {
-  const result = new Set()
-  const visit = (items = []) => {
-    items.forEach((item) => {
-      const routerName = normalizeMenuRouter(item.router)
-      const routeName = menuRouteAliases[routerName] || menuRouteAliases[item.name] || routerName
-      if (allRouteNames.has(routeName)) result.add(routeName)
-      if (Array.isArray(item.children)) visit(item.children)
-    })
+const normalizeMenuRouter = (value) => String(value || '').replace(/^#\/?/, '').replace(/^\/+/, '').split(/[/?#]/)[0]
+
+const resolveRouteName = (item = {}) => {
+  const routerName = normalizeMenuRouter(item.router)
+  const aliasName = menuRouteAliases[routerName] || menuRouteAliases[item.name] || routerName
+  if (aliasName && router.hasRoute(aliasName)) return aliasName
+  if (routerName) {
+    const resolved = router.resolve(`/${routerName}`)
+    if (resolved?.name && resolved.matched.length) return resolved.name
   }
-  visit(Array.isArray(tree) ? tree : [])
-  return [...result]
+  return ''
 }
 
-const menuAllowed = (item, allowedSet) => {
-  if (!allowedSet.size) return true
-  if (item.name) return allowedSet.has(item.name)
-  return item.children?.some((child) => menuAllowed(child, allowedSet))
+const getMenuMeta = (routeName, label) => menuMetaByName.get(routeName) || menuMetaByLabel.get(label) || {}
+
+const buildMenusFromTree = (tree = []) => {
+  const convert = (item = {}) => {
+    if (Number(item.type) === 3) return null
+    const children = Array.isArray(item.children)
+      ? item.children
+          .slice()
+          .sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0))
+          .map(convert)
+          .filter(Boolean)
+      : []
+    const routeName = resolveRouteName(item)
+    const meta = getMenuMeta(routeName, item.name)
+    const label = item.name || meta.label || routeName
+    const icon = meta.icon || Setting
+
+    if (children.length) {
+      return { label, icon, children }
+    }
+
+    if (routeName && router.hasRoute(routeName)) {
+      return { name: routeName, label, icon }
+    }
+
+    return null
+  }
+
+  return (Array.isArray(tree) ? tree : [])
+    .slice()
+    .sort((a, b) => Number(a.sort ?? 0) - Number(b.sort ?? 0))
+    .map(convert)
+    .filter(Boolean)
 }
 
-const filterMenus = (items, allowedSet) =>
-  items
-    .map((item) => {
-      if (!item.children) return item
-      return {
-        ...item,
-        children: item.children.filter((child) => menuAllowed(child, allowedSet))
-      }
-    })
-    .filter((item) => menuAllowed(item, allowedSet))
-
-const menus = computed(() => filterMenus(allMenus, new Set(userState.allowedRoutes)))
-const flatMenus = computed(() => menus.value.flatMap((item) => item.children || [item]))
+const menus = computed(() => {
+  if (!userState.menuLoaded) return []
+  return buildMenusFromTree(userState.menuTree)
+})
+const flatMenus = computed(() => flattenMenus(menus.value).filter((item) => item.name))
 
 const activeTitle = computed(
   () => {
@@ -260,6 +294,7 @@ const logout = () => {
   localStorage.removeItem('platform_account')
   localStorage.removeItem('platform_vip_day')
   localStorage.removeItem('platform_avatar')
+  localStorage.removeItem('platform_menu_tree')
   router.push('/login')
 }
 
@@ -292,15 +327,18 @@ const loadUserInfo = async () => {
     userState.name = info?.name || userState.name
     userState.vipDay = info?.vipDay ?? ''
     userState.avatar = getAvatarUrl(info)
-    userState.allowedRoutes = collectAllowedRoutes(info?.menuTree)
+    userState.menuTree = Array.isArray(info?.menuTree) ? info.menuTree : []
+    userState.menuLoaded = true
     localStorage.setItem('platform_account', userState.name)
     localStorage.setItem('platform_vip_day', String(userState.vipDay))
+    localStorage.setItem('platform_menu_tree', JSON.stringify(userState.menuTree))
     if (userState.avatar) {
       localStorage.setItem('platform_avatar', userState.avatar)
     } else {
       localStorage.removeItem('platform_avatar')
     }
   } catch {
+    userState.menuLoaded = true
     if (route.name !== 'login') router.push({ name: 'login', query: { redirect: route.fullPath } })
   }
 }

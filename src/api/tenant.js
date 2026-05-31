@@ -22,6 +22,9 @@ tenantHttp.interceptors.response.use(
     if (payload instanceof Blob || payload instanceof ArrayBuffer) {
       return payload
     }
+    if (Array.isArray(payload)) {
+      return payload
+    }
     if (payload?.code === 1000) {
       return payload.data
     }
@@ -36,8 +39,14 @@ tenantHttp.interceptors.response.use(
 )
 
 const exportPost = (url, payload = {}) => tenantHttp.post(url, payload, { responseType: 'blob' })
+const uploadPost = (url, file) => {
+  const data = new FormData()
+  data.append('file', file)
+  return tenantHttp.post(url, data)
+}
 
 export const tenantLoginApi = (payload) => tenantHttp.post('/api/tenant/login', payload)
+export const uploadTenantFile = (file) => uploadPost('/api/tenant/file/upload', file)
 export const getTenantUserInfo = () => tenantHttp.get('/api/tenant/tenantUser/info')
 export const editTenantLoginPassword = (payload = {}) => tenantHttp.post('/api/tenant/tenantUser/editPassword', payload)
 
@@ -47,7 +56,7 @@ export const getWorkbenchTrend = (type) =>
 export const getWorkbenchRealtimeOrders = () => tenantHttp.get('/api/tenant/workbench/realTimeOrder')
 export const getWorkbenchRealtimeCrafts = () => tenantHttp.get('/api/tenant/workbench/realTimeCraft')
 export const getWorkbenchRecentUpdates = (payload = {}) =>
-  tenantHttp.get('/api/tenant/workbench/recentUpdates', { params: payload })
+  tenantHttp.post('/api/tenant/workbench/recentUpdatesPage', payload)
 export const getWorkbenchLargeScreenOrderList = (payload = {}) =>
   tenantHttp.get('/api/tenant/workbench/largeScreenOrderList', { params: payload })
 export const getWorkbenchLargeScreenOrderStatistics = () =>
@@ -55,6 +64,7 @@ export const getWorkbenchLargeScreenOrderStatistics = () =>
 
 export const getTenantOrderList = (payload) => tenantHttp.post('/api/tenant/order/list', payload)
 export const getTenantOrderDetail = (id) => tenantHttp.get('/api/tenant/order/info', { params: { id } })
+export const getTenantOrderEditInfo = (id) => tenantHttp.get('/api/tenant/order/editInfo', { params: { id } })
 export const addTenantOrder = (payload = {}) => tenantHttp.post('/api/tenant/order/add', payload)
 export const editTenantOrder = (payload = {}) => tenantHttp.post('/api/tenant/order/edit', payload)
 export const getTenantOrderProcess = (id) => tenantHttp.get('/api/tenant/order/processInfo', { params: { id } })
@@ -94,6 +104,8 @@ export const exportTenantHandKept = (payload = {}) => exportPost('/api/tenant/ha
 export const getTenantDeliveryList = (payload = {}) => tenantHttp.post('/api/tenant/delivery/list', payload)
 export const getTenantDeliveryDetail = (id) => tenantHttp.get('/api/tenant/delivery/detail', { params: { id } })
 export const getTenantDeliveryProcess = (id) => tenantHttp.get('/api/tenant/delivery/processInfo', { params: { id } })
+export const getTenantDeliveryOrderOptions = (payload = {}) => tenantHttp.post('/api/tenant/order/deliveryOrderList', payload)
+export const getTenantDeliveryUserOptions = (payload = {}) => tenantHttp.post('/api/tenant/user/driver', payload)
 export const addTenantDelivery = (payload = {}) => tenantHttp.post('/api/tenant/delivery/add', payload)
 export const editTenantDelivery = (payload = {}) => tenantHttp.post('/api/tenant/delivery/edit', payload)
 export const getTenantDeliveryTotal = () => tenantHttp.get('/api/tenant/delivery/total')

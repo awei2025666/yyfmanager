@@ -20,12 +20,13 @@ const rows = ref([])
 
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
-  return payload?.records || payload?.list || payload?.rows || []
+  if (Array.isArray(payload?.data)) return payload.data
+  return payload?.records || payload?.list || payload?.rows || payload?.data?.records || payload?.data?.list || payload?.data?.rows || []
 }
 
 const listTotal = (payload, normalizedRows) => {
   if (Array.isArray(payload)) return normalizedRows.length
-  return Number(payload?.total ?? normalizedRows.length) || 0
+  return Number(payload?.total ?? payload?.data?.total ?? normalizedRows.length) || 0
 }
 
 const normalizeRow = (row = {}) => ({

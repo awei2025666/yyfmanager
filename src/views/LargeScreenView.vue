@@ -46,7 +46,27 @@ const listRows = (payload) => {
   return payload?.records || payload?.list || payload?.rows || []
 }
 
+const listTotal = (payload, normalizedRows = []) => {
+  if (Array.isArray(payload)) return normalizedRows.length
+  return Number(payload?.total ?? payload?.pageTotal ?? payload?.count ?? normalizedRows.length) || 0
+}
+
 const normalizeStatus = (value) => statusLabels[Number(value)] || value || '-'
+
+const productInfoText = (row = {}) => {
+  if (row.productInfo) return row.productInfo
+  if (row.productName) return row.productName
+  if (row.productsName) return row.productsName
+  if (row.productNames) return row.productNames
+  const products = row.products || row.productList || row.productsList || row.orderProductList || []
+  if (!Array.isArray(products)) return '-'
+  return (
+    products
+      .map((item) => item.productInfo || item.productName || item.name || item.productsName || item.products?.name)
+      .filter(Boolean)
+      .join('、') || '-'
+  )
+}
 
 const normalizeOrder = (row = {}) => ({
   id: row.id || row.orderId || row.orderNo,
@@ -54,7 +74,7 @@ const normalizeOrder = (row = {}) => ({
   customer: row.companyName || row.customerName || row.cooperativeClientName || '-',
   orderTime: row.orderTime || row.createTime || '-',
   filler: row.fillUserName || row.userName || row.createTenantUserName || '-',
-  productInfo: row.productInfo || row.productName || '-',
+  productInfo: productInfoText(row),
   amount: Number(row.totalMoney ?? row.payMoney ?? row.money ?? row.amount ?? 0),
   status: normalizeStatus(row.status || row.orderStatus)
 })
@@ -86,13 +106,12 @@ const updateClock = () => {
 }
 
 const applyStatistics = (data = {}) => {
-  stats.total = pickNumber(data, ['total', 'orderTotal', 'orderTotalCount', 'orderCount', 'orderNum'])
-  stats.pendingApproval = pickNumber(data, ['pendingApproval', 'waitApprove', 'waitApproval', 'auditCount', 'approvalCount'])
-  stats.pendingProduction = pickNumber(data, ['pendingProduction', 'waitProduction', 'waitProduce', 'productionCount'])
-  stats.pendingDelivery = pickNumber(data, ['pendingDelivery', 'waitDelivery', 'deliveryWaitCount'])
-  stats.delivering = pickNumber(data, ['delivering', 'deliverying', 'deliveryCount', 'inDeliveryCount'])
-  stats.completed = pickNumber(data, ['completed', 'finish', 'finished', 'completedCount', 'finishCount'])
-  stats.overdue = pickNumber(data, ['overdue', 'expired', 'timeout', 'overdueCount', 'expiredCount'])
+  stats.pendingApproval = pickNumber(data, ['waitApprovalTotal', 'pendingApproval', 'waitApprove', 'waitApproval', 'auditCount', 'approvalCount'])
+  stats.pendingProduction = pickNumber(data, ['waitProductionTotal', 'pendingProduction', 'waitProduction', 'waitProduce', 'productionCount'])
+  stats.pendingDelivery = pickNumber(data, ['waitDeliveryTotal', 'pendingDelivery', 'waitDelivery', 'deliveryWaitCount'])
+  stats.delivering = pickNumber(data, ['inDeliveryTotal', 'delivering', 'deliverying', 'deliveryCount', 'inDeliveryCount'])
+  stats.completed = pickNumber(data, ['completeTotal', 'completed', 'finish', 'finished', 'completedCount', 'finishCount'])
+  stats.overdue = pickNumber(data, ['overdueTotal', 'overdue', 'expired', 'timeout', 'overdueCount', 'expiredCount'])
 }
 
 const loadScreen = async () => {
@@ -103,7 +122,9 @@ const loadScreen = async () => {
       getWorkbenchLargeScreenOrderList({ pageNum: 1, pageSize: 10 })
     ])
     applyStatistics(statisticsData || {})
-    rows.value = listRows(listData).map(normalizeOrder)
+    const normalizedRows = listRows(listData).map(normalizeOrder)
+    rows.value = normalizedRows
+    stats.total = listTotal(listData, normalizedRows)
   } catch (error) {
     rows.value = []
     ElMessage.error(error?.message || '可视化大屏加载失败')

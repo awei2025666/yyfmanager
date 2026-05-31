@@ -18,6 +18,9 @@ http.interceptors.request.use((config) => {
 http.interceptors.response.use(
   (response) => {
     const payload = response.data
+    if (Array.isArray(payload)) {
+      return payload
+    }
     if (payload?.code === 1000) {
       return payload.data
     }

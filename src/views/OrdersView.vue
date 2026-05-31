@@ -12,7 +12,10 @@ import {
   editTenantOrder,
   getTenantOrderAutoApprove,
   getTenantCraftList,
+  getTenantOrderConsumables,
   getTenantOrderDetail,
+  getTenantOrderEditInfo,
+  getTenantOrderHandKept,
   getTenantOrderList,
   getTenantOrderPrintUrl,
   getTenantOrderProcess,
@@ -31,7 +34,7 @@ const filters = reactive({
   fillUserName: '',
   orderId: '',
   status: '',
-  orderTime: ''
+  orderTimeRange: []
 })
 
 const autoApprove = ref(true)
@@ -321,18 +324,19 @@ const enrichOrderRow = (item = {}) => {
   }
 }
 
-const normalizeDetailRow = (detail = {}, base = {}, processList = []) => {
-  const products = (detail.productList || detail.products || []).map((item) => ({
+const normalizeProductRow = (item = {}) => ({
     ...item,
     productName: item.productName || item.name || item.productInfo || '-',
-    finishedSpec: item.finishedSpec || item.trimmedSize || item.specification || '--',
+    finishedSpec: item.finishedSpec || item.trimmedSize || item.specification || item.trimmedSize || '--',
     quantity: item.quantity ?? item.orderQuantity ?? 0,
     unit: item.unit || '-',
     amount: item.amount ?? item.money ?? 0
-  }))
-  const crafts = (detail.craftList || detail.crafts || []).map((item) => ({
+})
+
+const normalizeCraftRow = (item = {}, product = {}) => ({
     ...item,
-    productName: item.productName || item.productInfo || '-',
+    productId: item.productId || product.id || undefined,
+    productName: item.productName || product.productName || product.name || item.productInfo || '-',
     craftName: item.craftName || item.name || '-',
     spec: item.spec || item.specification || '--',
     openNum: item.openNum ?? item.formatSize ?? '--',
@@ -342,7 +346,46 @@ const normalizeDetailRow = (detail = {}, base = {}, processList = []) => {
     price: item.price ?? item.unitPrice ?? 0,
     customerAmount: item.customerAmount ?? item.customerMoney ?? 0,
     remark: item.remark || ''
-  }))
+})
+
+const nestedCraftRows = (products = []) =>
+  products.flatMap((product) => {
+    const crafts = product.craftList || product.crafts || []
+    return Array.isArray(crafts) ? crafts.map((craft) => normalizeCraftRow(craft, product)) : []
+  })
+
+const consumableTypeLabels = {
+  1: '系统入库',
+  2: '手工出库',
+  3: '订单消耗'
+}
+
+const consumableTypeText = (value) => consumableTypeLabels[Number(value)] || value || '-'
+
+const normalizeConsumableRecord = (item = {}) => ({
+  id: item.id || `${item.consumableName || item.name}-${item.createTime || item.num}`,
+  name: item.consumableName || item.name || '-',
+  type: consumableTypeText(item.type),
+  num: item.num ?? item.quantity ?? 0,
+  remark: item.remark || '-',
+  operator: item.createUserName || item.operator || item.tenantUserName || '-',
+  time: item.createTime || item.updateTime || '-'
+})
+
+const normalizeHandKeptRecord = (item = {}) => ({
+  id: item.id || `${item.consumableName || item.name}-${item.createTime || item.num}`,
+  name: item.consumableName || item.name || '-',
+  num: item.num ?? item.quantity ?? 0,
+  remark: item.remark || '-',
+  operator: item.createUserName || item.operator || item.tenantUserName || '-',
+  time: item.createTime || item.updateTime || '-'
+})
+
+const normalizeDetailRow = (detail = {}, base = {}, processList = []) => {
+  const rawProducts = detail.productList || detail.products || []
+  const products = rawProducts.map(normalizeProductRow)
+  const rawCrafts = detail.craftList || detail.crafts || []
+  const crafts = rawCrafts.length ? rawCrafts.map((item) => normalizeCraftRow(item)) : nestedCraftRows(rawProducts)
   const timeline = (processList || []).map((item) => ({
     date: item.createTime || '--',
     title: item.content || '订单记录',
@@ -372,7 +415,7 @@ const activeFilters = computed(() =>
     { key: 'fillUserName', label: '业务员', value: filters.fillUserName },
     { key: 'orderId', label: '订单号', value: filters.orderId },
     { key: 'status', label: '订单状态', value: filters.status === '' ? '' : statusMap[filters.status]?.label },
-    { key: 'orderTime', label: '订单时间', value: filters.orderTime }
+    { key: 'orderTimeRange', label: '订单时间', value: filters.orderTimeRange?.join(' 至 ') }
   ].filter((item) => item.value !== '' && item.value !== null && item.value !== undefined)
 )
 const localCards = computed(() => [
@@ -628,7 +671,7 @@ const resetFilters = () => {
     fillUserName: '',
     orderId: '',
     status: '',
-    orderTime: ''
+    orderTimeRange: []
   })
   loadData()
 }
@@ -640,8 +683,8 @@ const buildQuery = () => ({
   fillUserName: filters.fillUserName || undefined,
   orderId: filters.orderId || routeQueryValue('detailId') || undefined,
   status: filters.status || undefined,
-  createTimeStart: filters.orderTime || undefined,
-  createTimeEnd: filters.orderTime || undefined
+  createTimeStart: filters.orderTimeRange?.[0] || undefined,
+  createTimeEnd: filters.orderTimeRange?.[1] || undefined
 })
 
 const loadData = async () => {
@@ -751,10 +794,10 @@ const openEdit = async (row) => {
   if (row?.id) {
     detailLoading.value = true
     try {
-      const detail = await getTenantOrderDetail(row.id)
+      const detail = await getTenantOrderEditInfo(row.id)
       record = normalizeDetailRow(detail || {}, row, row.timeline || [])
     } catch (error) {
-      ElMessage.error(error?.message || '订单详情加载失败')
+      ElMessage.error(error?.message || '订单编辑回显加载失败')
     } finally {
       detailLoading.value = false
     }
@@ -846,11 +889,17 @@ const openDetail = async (row) => {
   if (!row?.id) return
   detailLoading.value = true
   try {
-    const [detail, processList] = await Promise.all([
+    const [detail, processList, consumables, handKept] = await Promise.all([
       getTenantOrderDetail(row.id),
-      getTenantOrderProcess(row.id)
+      getTenantOrderProcess(row.id),
+      getTenantOrderConsumables(row.id).catch(() => []),
+      getTenantOrderHandKept(row.id).catch(() => [])
     ])
-    currentRecord.value = normalizeDetailRow(detail || {}, row, processList || [])
+    currentRecord.value = {
+      ...normalizeDetailRow(detail || {}, row, processList || []),
+      consumables: listRows(consumables).map(normalizeConsumableRecord),
+      handKept: listRows(handKept).map(normalizeHandKeptRecord)
+    }
   } catch (error) {
     ElMessage.error(error?.message || '订单详情加载失败')
   } finally {
@@ -1062,7 +1111,14 @@ watch(
         </label>
         <label>
           <span>订单时间</span>
-          <el-date-picker v-model="filters.orderTime" value-format="YYYY-MM-DD" placeholder="请选择" />
+          <el-date-picker
+            v-model="filters.orderTimeRange"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+            range-separator="至"
+          />
         </label>
         <div class="filter-actions">
           <el-button type="primary" :icon="Search" @click="loadData">查询</el-button>
@@ -1092,7 +1148,7 @@ watch(
           :key="item.key"
           closable
           effect="plain"
-          @close="filters[item.key] = ''; loadData()"
+          @close="filters[item.key] = Array.isArray(filters[item.key]) ? [] : ''; loadData()"
         >
           {{ item.label }}：{{ item.value }}
         </el-tag>
@@ -1312,7 +1368,7 @@ watch(
                 <span v-else>{{ formatMoney(row.amount) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" min-width="150">
+            <el-table-column label="操作" min-width="150" fixed="right">
               <template #default="{ row, $index }">
                 <div class="table-actions">
                   <template v-if="row._isEditing">
@@ -1417,7 +1473,7 @@ watch(
                 <span v-else>{{ row.remark || '-' }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" min-width="120">
+            <el-table-column label="操作" min-width="120" fixed="right">
               <template #default="{ row, $index }">
                 <div class="table-actions">
                   <template v-if="row._isEditing">
@@ -1495,6 +1551,27 @@ watch(
               <template #default="{ row }">{{ formatMoney(row.customerAmount) }}</template>
             </el-table-column>
             <el-table-column prop="remark" label="备注" min-width="120" />
+          </el-table>
+        </PageBlock>
+
+        <PageBlock title="耗材记录">
+          <el-table :data="currentRecord.consumables || []" class="design-table">
+            <el-table-column prop="name" label="耗材名称" min-width="180" />
+            <el-table-column prop="type" label="明细类型" min-width="150" />
+            <el-table-column prop="num" label="数量" min-width="120" />
+            <el-table-column prop="remark" label="备注" min-width="200" />
+            <el-table-column prop="operator" label="操作员" min-width="140" />
+            <el-table-column prop="time" label="操作时间" min-width="180" />
+          </el-table>
+        </PageBlock>
+
+        <PageBlock title="手工记录">
+          <el-table :data="currentRecord.handKept || []" class="design-table">
+            <el-table-column prop="name" label="手工名称" min-width="180" />
+            <el-table-column prop="num" label="数量" min-width="120" />
+            <el-table-column prop="remark" label="备注" min-width="220" />
+            <el-table-column prop="operator" label="操作员" min-width="140" />
+            <el-table-column prop="time" label="操作时间" min-width="180" />
           </el-table>
         </PageBlock>
 
@@ -1816,17 +1893,17 @@ watch(
 
 .steps-line::before {
   position: absolute;
-  top: 25px;
-  left: 12.5%;
-  right: 12.5%;
+  top: 18px;
+  left: calc(100% / 6);
+  right: calc(100% / 6);
   height: 2px;
   background: #bdbdbd;
   content: "";
 }
 
 .steps-line--four::before {
-  left: 10%;
-  right: 10%;
+  left: 12.5%;
+  right: 12.5%;
 }
 
 .step-node {

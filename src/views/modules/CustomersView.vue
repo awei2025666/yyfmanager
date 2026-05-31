@@ -22,8 +22,26 @@ const customerTypes = [
   { label: '货运站代收', value: '4' }
 ]
 
+const orderStatusLabels = {
+  1: '待审批',
+  2: '待生产',
+  3: '生产中',
+  4: '待配送',
+  5: '配送中',
+  6: '已完成',
+  7: '已驳回'
+}
+
+const craftStatusLabels = {
+  1: '待生产',
+  2: '已生产'
+}
+
 const typeText = (value) =>
   customerTypes.find((item) => String(item.value) === String(value))?.label || value || '-'
+
+const orderStatusText = (value) => orderStatusLabels[Number(value)] || value || '-'
+const craftStatusText = (value) => craftStatusLabels[Number(value)] || value || '-'
 
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -43,7 +61,7 @@ const filters = reactive({
   customerType: '',
   contact: '',
   phone: '',
-  createdAt: ''
+  createTimeRange: []
 })
 
 const form = reactive({
@@ -110,8 +128,8 @@ const queryPayload = () => ({
   type: filters.customerType || undefined,
   linkman: filters.contact || undefined,
   phone: filters.phone || undefined,
-  createTimeStart: filters.createdAt || undefined,
-  createTimeEnd: filters.createdAt || undefined
+  createTimeStart: filters.createTimeRange?.[0] || undefined,
+  createTimeEnd: filters.createTimeRange?.[1] || undefined
 })
 
 const loadSalesOptions = async () => {
@@ -152,7 +170,7 @@ const resetFilters = () => {
     customerType: '',
     contact: '',
     phone: '',
-    createdAt: ''
+    createTimeRange: []
   })
   loadData()
 }
@@ -235,20 +253,28 @@ const removeRow = async (row) => {
   }
 }
 
+const orderProductInfoText = (row = {}) => {
+  if (row.productInfo) return row.productInfo
+  if (row.productName) return row.productName
+  const products = row.products || row.productList || row.productsList || row.orderProductList || []
+  if (!Array.isArray(products)) return '-'
+  return products.map((item) => item.productInfo || item.productName || item.name).filter(Boolean).join('、') || '-'
+}
+
 const normalizeOrderRecord = (row = {}) => ({
-  orderNo: row.orderNo || row.orderId || '-',
+  orderNo: row.orderId || row.orderNo || '-',
   orderTime: row.orderTime || row.createTime || '-',
   filler: row.fillUserName || row.userName || '-',
-  productInfo: row.productInfo || row.productName || '-',
+  productInfo: orderProductInfoText(row),
   amount: row.totalMoney ?? row.payMoney ?? row.amount ?? 0,
-  status: row.status || row.orderStatus || '-'
+  status: orderStatusText(row.status ?? row.orderStatus)
 })
 
 const normalizeCraftRecord = (row = {}) => ({
   craftName: row.craftName || '-',
   productName: row.productInfo || row.productName || '-',
   quantity: row.orderQuantity ?? row.quantity ?? 0,
-  status: row.craftStatus || row.status || '-'
+  status: craftStatusText(row.craftStatus ?? row.status)
 })
 
 const normalizeReceiptRecord = (row = {}) => ({
@@ -338,7 +364,14 @@ onMounted(async () => {
           <el-input v-model="filters.phone" clearable placeholder="请输入联系方式" @keyup.enter="searchData" />
         </el-form-item>
         <el-form-item label="创建时间">
-          <el-date-picker v-model="filters.createdAt" value-format="YYYY-MM-DD" placeholder="请选择创建时间" />
+          <el-date-picker
+            v-model="filters.createTimeRange"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            start-placeholder="开始时间"
+            end-placeholder="结束时间"
+            range-separator="至"
+          />
         </el-form-item>
         <el-form-item class="search-actions">
           <el-button type="primary" :icon="Search" @click="searchData">查询</el-button>
