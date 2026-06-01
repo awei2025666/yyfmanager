@@ -1,4 +1,4 @@
-const defaultUrl = 'http://hunike.nat100.top/7999'
+const defaultUrl = 'https://hunike.nat100.top'
 let isRedirectingLogin = false
 
 const getToken = () => (
