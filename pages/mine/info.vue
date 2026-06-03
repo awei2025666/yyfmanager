@@ -12,7 +12,6 @@
 			<view class="avatar">头像</view>
 			<view class="profile-main">
 				<view class="name">{{ userName }}</view>
-				<view class="phone">{{ maskedPhone }}</view>
 			</view>
 		</view>
 
@@ -24,10 +23,6 @@
 			<view class="info-row">
 				<text>账号</text>
 				<text>{{ userInfo.account || userInfo.userName || '-' }}</text>
-			</view>
-			<view class="info-row">
-				<text>手机号</text>
-				<text>{{ maskedPhone }}</text>
 			</view>
 			<view class="info-row">
 				<text>姓名</text>
@@ -50,13 +45,6 @@ const userName = computed(() => (
 	userInfo.value.account ||
 	'-'
 ))
-const userPhone = computed(() => userInfo.value.phone || userInfo.value.mobile || userInfo.value.tel || '')
-const maskedPhone = computed(() => {
-	const phone = String(userPhone.value || '')
-	if (!phone) return '-'
-	return phone.replace(/^(\d{3})\d{4}(\d+)/, '$1****$2')
-})
-
 const loadInfo = async () => {
 	try {
 		userInfo.value = await uni.$api.selfInfo()
@@ -108,7 +96,6 @@ onMounted(loadInfo)
 }
 .profile-main{ margin-left: 24rpx; }
 .name{ font-size: 34rpx; line-height: 48rpx; }
-.phone{ margin-top: 12rpx; font-size: 28rpx; opacity: .9; }
 .info-list{ margin-top: 16rpx; padding: 0 30rpx; background: #fff; }
 .info-row{
 	display: flex;
