@@ -10,10 +10,6 @@
 
 		<view class="form">
 			<view class="form-row">
-				<text class="label">原密码</text>
-				<input v-model="form.oldPassword" password placeholder="请输入原密码" placeholder-class="placeholder" />
-			</view>
-			<view class="form-row">
 				<text class="label">新密码</text>
 				<input v-model="form.newPassword" password placeholder="请输入新密码" placeholder-class="placeholder" />
 			</view>
@@ -40,10 +36,6 @@ const form = reactive({
 })
 
 const submit = async () => {
-	if (!form.oldPassword) {
-		uni.showToast({ title: '请输入原密码', icon: 'none' })
-		return
-	}
 	if (!form.newPassword) {
 		uni.showToast({ title: '请输入新密码', icon: 'none' })
 		return
@@ -56,10 +48,7 @@ const submit = async () => {
 	loading.value = true
 	try {
 		await uni.$api.editPassword({
-			oldPassword: form.oldPassword,
-			password: form.oldPassword,
-			newPassword: form.newPassword,
-			confirmPassword: form.confirmPassword
+      password: form.newPassword
 		})
 		uni.showToast({ title: '修改成功', icon: 'none' })
 		setTimeout(() => {
