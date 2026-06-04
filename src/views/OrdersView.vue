@@ -118,6 +118,10 @@ const deliveryTypeOptions = [
 const deliveryTypeText = (value) =>
   deliveryTypeOptions.find((item) => String(item.value) === String(value))?.label || value || '-'
 const statusToneClass = (status) => `order-status--${statusMap[status]?.tone || 'outsourced'}`
+const listRows = (payload) => {
+  if (Array.isArray(payload)) return payload
+  return payload?.records || payload?.list || payload?.rows || []
+}
 
 const boolFromApi = (value) => value === true || value === 1 || value === '1' || value === '启用'
 
@@ -340,7 +344,7 @@ const normalizeCraftRow = (item = {}, product = {}) => ({
     craftName: item.craftName || item.name || '-',
     spec: item.spec || item.specification || '--',
     openNum: item.openNum ?? item.formatSize ?? '--',
-    startPrice: item.startPrice ?? item.priceBase ?? '--',
+    startPrice: item.startPrice ?? item.priceBase ?? 0,
     finishNum: item.finishNum ?? item.orderQuantity ?? 0,
     unit: item.unit || '-',
     price: item.price ?? item.unitPrice ?? 0,
@@ -448,12 +452,41 @@ const savedProductOptions = computed(() =>
       optionId: item.id || `${item.productName}-${index}`
     }))
 )
-const rowProductAmount = (row = {}) => {
-  const quantity = Number(row.orderQuantity ?? row.quantity ?? row.num ?? 1)
-  const amount = Number(row.amount ?? row.money ?? row.price ?? row.unitPrice ?? row.totalMoney ?? row.customerMoney ?? 0)
-  return quantity * amount
+const zeroIfEmpty = (value) => (value === '' || value === null || value === undefined ? 0 : value)
+const toFixed4Number = (value) => Number(Number(value || 0).toFixed(4))
+const computedCraftCustomerAmount = (craft = {}) => {
+  const finishNum = Number(zeroIfEmpty(craft.finishNum ?? craft.orderQuantity))
+  const price = Number(zeroIfEmpty(craft.price ?? craft.unitPrice))
+  const startPrice = Number(zeroIfEmpty(craft.startPrice ?? craft.priceBase))
+  return toFixed4Number(Math.max(finishNum * price, startPrice))
 }
-const productTotalAmount = computed(() => productRows.value.reduce((sum, row) => sum + rowProductAmount(row), 0))
+const productCraftSourceRows = () => {
+  if (orderFormVisible.value) return formState.craftList || []
+  if (currentRecord.value?.crafts?.length) return currentRecord.value.crafts
+  return []
+}
+const productMatchValues = (product = {}) =>
+  [product.id, product.productId, product.productName, product.name].map((value) => String(value || '')).filter(Boolean)
+const craftMatchValues = (craft = {}) =>
+  [craft.productId, craft.productName, craft.name].map((value) => String(value || '')).filter(Boolean)
+const isCraftOfProduct = (craft = {}, product = {}) => {
+  const productValues = productMatchValues(product)
+  if (!productValues.length) return false
+  return craftMatchValues(craft).some((value) => productValues.includes(value))
+}
+const craftCustomerAmount = (craft = {}) => computedCraftCustomerAmount(craft)
+const productCraftAmount = (product = {}) =>
+  productCraftSourceRows()
+    .filter((craft) => isCraftOfProduct(craft, product))
+    .reduce((sum, craft) => sum + craftCustomerAmount(craft), 0)
+const syncProductAmount = (product = {}) => {
+  product.amount = productCraftAmount(product)
+  product.money = product.amount
+}
+const syncAllProductAmounts = () => {
+  productRows.value.forEach(syncProductAmount)
+}
+const productTotalAmount = computed(() => productRows.value.reduce((sum, row) => sum + productCraftAmount(row), 0))
 const formOrderTotal = computed(() => productTotalAmount.value)
 const addProductRow = () => {
   if (!Array.isArray(formState.productList)) formState.productList = []
@@ -462,18 +495,18 @@ const addProductRow = () => {
     finishedSpec: '',
     quantity: '',
     unit: '',
-    amount: '',
+    amount: 0,
     _isEditing: true,
     _isNew: true
   })
 }
 const saveProductRow = (row) => {
-  if (!row.productName || !row.quantity || !row.amount) {
-    ElMessage.warning('请填写产品名称、订货数量和金额')
+  if (!row.productName || !row.quantity) {
+    ElMessage.warning('请填写产品名称和订货数量')
     return
   }
   row.quantity = Number(row.quantity)
-  row.amount = Number(row.amount)
+  syncProductAmount(row)
   row._isEditing = false
   row._isNew = false
 }
@@ -493,6 +526,8 @@ const removeProductRow = (index) => {
 }
 const cleanProductRow = (row = {}) => {
   const { _isEditing, _isNew, ...payload } = row
+  payload.amount = productCraftAmount(row)
+  payload.money = payload.amount
   return payload
 }
 const craftRows = computed(() => {
@@ -512,11 +547,11 @@ const addCraftRow = () => {
     craftName: '',
     spec: '',
     openNum: '',
-    startPrice: '',
-    finishNum: '',
+    startPrice: 0,
+    finishNum: 0,
     unit: '',
-    price: '',
-    customerAmount: '',
+    price: 0,
+    customerAmount: 0,
     remark: '',
     _isEditing: true,
     _isNew: true
@@ -534,9 +569,9 @@ const selectCraftName = (row, id) => {
   row.craftName = craft.craftName
   row.spec = craft.spec || craft.specification || craft.formatSize || row.spec || ''
   row.openNum = craft.openNum ?? craft.openCount ?? craft.formatSize ?? row.openNum ?? ''
-  row.startPrice = craft.startPrice ?? craft.priceBase ?? craft.basePrice ?? row.startPrice ?? ''
+  row.startPrice = zeroIfEmpty(craft.startPrice ?? craft.priceBase ?? craft.basePrice ?? row.startPrice)
   row.unit = craft.unit || row.unit || ''
-  row.price = row.price || craft.price || craft.unitPrice || ''
+  row.price = zeroIfEmpty(craft.price ?? craft.unitPrice ?? row.price)
   row.remark = row.remark || craft.remark || ''
 }
 const saveCraftRow = (row) => {
@@ -544,15 +579,22 @@ const saveCraftRow = (row) => {
     ElMessage.warning('请选择产品名称和工艺名称')
     return
   }
+  row.startPrice = zeroIfEmpty(row.startPrice)
+  row.finishNum = zeroIfEmpty(row.finishNum)
+  row.price = zeroIfEmpty(row.price)
+  row.customerAmount = computedCraftCustomerAmount(row)
+  syncAllProductAmounts()
   row._isEditing = false
   row._isNew = false
 }
 const cancelCraftRow = (row, index) => {
   if (row._isNew) {
     formState.craftList.splice(index, 1)
+    syncAllProductAmounts()
     return
   }
   row._isEditing = false
+  syncAllProductAmounts()
 }
 const editCraftRow = (row) => {
   row._isEditing = true
@@ -560,9 +602,18 @@ const editCraftRow = (row) => {
 }
 const removeCraftRow = (index) => {
   formState.craftList.splice(index, 1)
+  syncAllProductAmounts()
 }
 const cleanCraftRow = (row = {}) => {
   const { _isEditing, _isNew, ...payload } = row
+  payload.startPrice = zeroIfEmpty(payload.startPrice)
+  payload.priceBase = zeroIfEmpty(payload.priceBase ?? payload.startPrice)
+  payload.finishNum = zeroIfEmpty(payload.finishNum)
+  payload.orderQuantity = zeroIfEmpty(payload.orderQuantity ?? payload.finishNum)
+  payload.price = zeroIfEmpty(payload.price)
+  payload.unitPrice = zeroIfEmpty(payload.unitPrice ?? payload.price)
+  payload.customerAmount = computedCraftCustomerAmount(payload)
+  payload.customerMoney = payload.customerAmount
   return payload
 }
 const normalizeOrderProductPayload = (product = {}) => ({
@@ -605,13 +656,14 @@ const buildOrderRequestPayload = () => {
   const products = JSON.parse(JSON.stringify(productRows.value.map(cleanProductRow)))
   const crafts = JSON.parse(JSON.stringify(craftRows.value.map(cleanCraftRow)))
   const normalizedCrafts = crafts.map(normalizeOrderCraftPayload)
-  const normalizedProducts = products.map((product, index) => {
-    const productKey = product.id || product.productName || `${index}`
+  const normalizedProducts = products.map((product) => {
+    const matchingCrafts = normalizedCrafts.filter((craft) => isCraftOfProduct(craft, product))
+    const craftAmount = matchingCrafts.reduce((sum, craft) => sum + craftCustomerAmount(craft), 0)
     return {
       ...normalizeOrderProductPayload(product),
-      craftList: normalizedCrafts.filter((craft) =>
-        [craft.productId, craft.productName].some((value) => String(value || '') === String(productKey))
-      )
+      amount: craftAmount,
+      money: craftAmount,
+      craftList: matchingCrafts
     }
   })
   return {
@@ -650,6 +702,10 @@ const detailInfo = computed(() => {
 })
 
 const formatMoney = (value) => `¥${new Intl.NumberFormat('zh-CN').format(Number(value || 0).toFixed ? Number(value || 0) : value)}`
+const formatMoney4 = (value) => `¥${Number(value || 0).toLocaleString('zh-CN', {
+  minimumFractionDigits: 4,
+  maximumFractionDigits: 4
+})}`
 
 const setOrderMode = (mode) => {
   viewMode.value = mode
@@ -1364,8 +1420,7 @@ watch(
             </el-table-column>
             <el-table-column prop="amount" label="金额" min-width="160">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.amount" placeholder="请输入" />
-                <span v-else>{{ formatMoney(row.amount) }}</span>
+                <span>{{ formatMoney4(productCraftAmount(row)) }}</span>
               </template>
             </el-table-column>
             <el-table-column label="操作" min-width="150" fixed="right">
@@ -1433,25 +1488,25 @@ watch(
             </el-table-column>
             <el-table-column prop="openNum" label="开数" min-width="120">
               <template #default="{ row }">
-                <span v-if="row._isEditing">{{ row.openNum || '默认带出' }}</span>
+                <el-input v-if="row._isEditing" v-model="row.openNum" placeholder="请输入" />
                 <span v-else>{{ row.openNum || '-' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="startPrice" label="起价" min-width="120">
               <template #default="{ row }">
-                <span v-if="row._isEditing">{{ row.startPrice || '默认带出' }}</span>
-                <span v-else>{{ row.startPrice || '-' }}</span>
+                <el-input v-if="row._isEditing" v-model="row.startPrice" placeholder="请输入" />
+                <span v-else>{{ row.startPrice === '' || row.startPrice === undefined || row.startPrice === null ? '-' : row.startPrice }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="finishNum" label="成品数量" min-width="150">
               <template #default="{ row }">
                 <el-input v-if="row._isEditing" v-model="row.finishNum" placeholder="请输入" />
-                <span v-else>{{ row.finishNum || '-' }}</span>
+                <span v-else>{{ row.finishNum === '' || row.finishNum === undefined || row.finishNum === null ? '-' : row.finishNum }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="unit" label="单位" min-width="120">
               <template #default="{ row }">
-                <span v-if="row._isEditing">{{ row.unit || '默认带出' }}</span>
+                <el-input v-if="row._isEditing" v-model="row.unit" placeholder="请输入" />
                 <span v-else>{{ row.unit || '-' }}</span>
               </template>
             </el-table-column>
@@ -1463,8 +1518,7 @@ watch(
             </el-table-column>
             <el-table-column prop="customerAmount" label="客户金额" min-width="150">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.customerAmount" placeholder="请输入" />
-                <span v-else>{{ formatMoney(row.customerAmount) }}</span>
+                <span>{{ formatMoney4(computedCraftCustomerAmount(row)) }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="remark" label="备注" min-width="150">
@@ -1492,7 +1546,7 @@ watch(
       </PageBlock>
 
       <div class="sticky-total">
-        <strong>订单合计：<span>{{ formatMoney(formOrderTotal) }}</span></strong>
+        <strong>订单合计：<span>{{ formatMoney4(formOrderTotal) }}</span></strong>
         <div>
           <el-button :disabled="saving" @click="orderFormVisible = false">取消</el-button>
           <el-button v-if="currentStep > 1" type="primary" @click="currentStep -= 1">上一步</el-button>
@@ -1530,7 +1584,7 @@ watch(
             <el-table-column prop="quantity" label="订货数量" min-width="150" />
             <el-table-column prop="unit" label="单位" min-width="120" />
             <el-table-column prop="amount" label="金额" min-width="150">
-              <template #default="{ row }">{{ formatMoney(row.amount) }}</template>
+              <template #default="{ row }">{{ formatMoney4(productCraftAmount(row)) }}</template>
             </el-table-column>
           </el-table>
         </PageBlock>
@@ -1548,7 +1602,7 @@ watch(
               <template #default="{ row }">{{ formatMoney(row.price) }}</template>
             </el-table-column>
             <el-table-column prop="customerAmount" label="客户金额" min-width="150">
-              <template #default="{ row }">{{ formatMoney(row.customerAmount) }}</template>
+              <template #default="{ row }">{{ formatMoney4(computedCraftCustomerAmount(row)) }}</template>
             </el-table-column>
             <el-table-column prop="remark" label="备注" min-width="120" />
           </el-table>
@@ -1584,7 +1638,7 @@ watch(
         </PageBlock>
 
         <div class="sticky-total">
-          <strong>订单合计：<span>{{ formatMoney(productTotalAmount) }}</span></strong>
+          <strong>订单合计：<span>{{ formatMoney4(productTotalAmount) }}</span></strong>
           <div>
             <el-button @click="detailVisible = false">返回</el-button>
             <el-button v-if="currentRecord.status === 1" type="danger" @click="openReject(currentRecord)">驳回</el-button>

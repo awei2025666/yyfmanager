@@ -1,8 +1,7 @@
 <script setup>
-import PerformanceListPage from './PerformanceListPage.vue'
-import { receivableUnitsConfig } from './receivableConfigs'
+import ReceivablesView from './ReceivablesView.vue'
 </script>
 
 <template>
-  <PerformanceListPage :config="receivableUnitsConfig" />
+  <ReceivablesView initial-tab="units" />
 </template>

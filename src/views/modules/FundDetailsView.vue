@@ -3,26 +3,20 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, Search, View } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
-import { exportTenantFinancial, getTenantFinancialList } from '../../api/tenant'
+import { exportTenantFinancial, getTenantFinancialList, searchTenantAccounts } from '../../api/tenant'
 
 const typeOptions = [
   { label: '收入', value: '1' },
   { label: '支出', value: '2' }
 ]
 
-const accountTypeOptions = [
-  { label: '微信', value: '1' },
-  { label: '支付宝', value: '2' },
-  { label: '公账', value: '3' }
-]
-
 const filters = reactive({
   pageNum: 1,
   pageSize: 10,
-  account: '',
-  accountType: '',
-  accountNo: '',
-  bank: '',
+  accountId: '',
+  accountName: '',
+  card: '',
+  openingBank: '',
   type: '',
   time: []
 })
@@ -36,6 +30,7 @@ const state = reactive({
 const rows = ref([])
 const currentRow = ref(null)
 const detailVisible = ref(false)
+const accountOptions = ref([])
 
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -54,9 +49,6 @@ const typeText = (value) => {
   return value || '-'
 }
 
-const accountTypeText = (value) =>
-  accountTypeOptions.find((item) => String(item.value) === String(value))?.label || value || '-'
-
 const normalizeRow = (row = {}) => ({
   ...row,
   id: row.id || row.orderId || row.bizNo,
@@ -65,7 +57,6 @@ const normalizeRow = (row = {}) => ({
   type: typeText(row.type),
   remark: row.digest || row.remark || '',
   account: row.accountName || row.account || '-',
-  accountType: accountTypeText(row.accountType),
   accountNo: row.card || row.accountNo || row.cardNo || '',
   bank: row.openingBank || row.bank || '',
   income: Number(row.type) === 1 ? row.money : row.income,
@@ -78,14 +69,27 @@ const queryPayload = () => {
   return {
     pageNum: filters.pageNum,
     pageSize: filters.pageSize,
-    accountName: filters.account || undefined,
-    accountType: filters.accountType || undefined,
-    card: filters.accountNo || undefined,
-    openingBank: filters.bank || undefined,
+    accountId: filters.accountId || undefined,
+    accountName: filters.accountName || undefined,
+    card: filters.card || undefined,
+    openingBank: filters.openingBank || undefined,
     type: filters.type || undefined,
     createTimeStart: start || undefined,
     createTimeEnd: end || start || undefined
   }
+}
+
+const loadAccounts = async (name = '') => {
+  try {
+    accountOptions.value = await searchTenantAccounts({ name })
+  } catch (error) {
+    ElMessage.error(error?.message || '账户加载失败')
+  }
+}
+
+const handleAccountChange = (id) => {
+  const account = accountOptions.value.find((item) => item.id === id)
+  filters.accountName = account?.name || ''
 }
 
 const loadData = async () => {
@@ -113,10 +117,10 @@ const resetFilters = () => {
   Object.assign(filters, {
     pageNum: 1,
     pageSize: 10,
-    account: '',
-    accountType: '',
-    accountNo: '',
-    bank: '',
+    accountId: '',
+    accountName: '',
+    card: '',
+    openingBank: '',
     type: '',
     time: []
   })
@@ -150,7 +154,10 @@ const exportData = async () => {
   }
 }
 
-onMounted(loadData)
+onMounted(() => {
+  loadAccounts()
+  loadData()
+})
 </script>
 
 <template>
@@ -158,18 +165,24 @@ onMounted(loadData)
     <PageBlock>
       <el-form class="search-form" :model="filters" label-width="86px">
         <el-form-item label="账户名称">
-          <el-input v-model="filters.account" clearable placeholder="请输入账户名称" @keyup.enter="searchData" />
-        </el-form-item>
-        <el-form-item label="账户类型">
-          <el-select v-model="filters.accountType" clearable placeholder="请选择账户类型">
-            <el-option v-for="item in accountTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
+          <el-select
+            v-model="filters.accountId"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            placeholder="请选择账户"
+            :remote-method="loadAccounts"
+            @change="handleAccountChange"
+          >
+            <el-option v-for="item in accountOptions" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="卡号">
-          <el-input v-model="filters.accountNo" clearable placeholder="请输入卡号" @keyup.enter="searchData" />
+          <el-input v-model="filters.card" clearable placeholder="请输入卡号" @keyup.enter="searchData" />
         </el-form-item>
         <el-form-item label="开户行">
-          <el-input v-model="filters.bank" clearable placeholder="请输入开户行" @keyup.enter="searchData" />
+          <el-input v-model="filters.openingBank" clearable placeholder="请输入开户行" @keyup.enter="searchData" />
         </el-form-item>
         <el-form-item label="类型">
           <el-select v-model="filters.type" clearable placeholder="请选择类型">
@@ -231,7 +244,6 @@ onMounted(loadData)
         <div><dt>单号</dt><dd>{{ currentRow.bizNo }}</dd></div>
         <div><dt>类型</dt><dd>{{ currentRow.type }}</dd></div>
         <div><dt>账户名称</dt><dd>{{ currentRow.account }}</dd></div>
-        <div><dt>账户类型</dt><dd>{{ currentRow.accountType }}</dd></div>
         <div><dt>卡号</dt><dd>{{ currentRow.accountNo || '-' }}</dd></div>
         <div><dt>开户行</dt><dd>{{ currentRow.bank || '-' }}</dd></div>
         <div><dt>收入金额</dt><dd>{{ currentRow.income ?? '-' }}</dd></div>

@@ -1,8 +1,7 @@
 <script setup>
-import PerformanceListPage from './PerformanceListPage.vue'
-import { receivableOrdersConfig } from './receivableConfigs'
+import ReceivablesView from './ReceivablesView.vue'
 </script>
 
 <template>
-  <PerformanceListPage :config="receivableOrdersConfig" />
+  <ReceivablesView initial-tab="orders" />
 </template>

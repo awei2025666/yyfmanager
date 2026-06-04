@@ -89,8 +89,13 @@ export const getTenantOutsourceCraftStatistics = () => tenantHttp.get('/api/tena
 export const getTenantConsumableDetailList = (payload = {}) => tenantHttp.post('/api/tenant/consumableDetail/list', payload)
 export const getTenantConsumableDetail = (id) =>
   tenantHttp.get('/api/tenant/consumableDetail/detail', { params: { id } })
+export const addTenantConsumableDetail = (payload = {}) => tenantHttp.post('/api/tenant/consumableDetail/add', payload)
+export const editTenantConsumableDetail = (payload = {}) => tenantHttp.post('/api/tenant/consumableDetail/edit', payload)
+export const deleteTenantConsumableDetail = (id) =>
+  tenantHttp.get('/api/tenant/consumableDetail/del', { params: { id } })
 export const getTenantConsumableInventoryList = (payload = {}) => tenantHttp.post('/api/tenant/consumableInventory/list', payload)
 export const getTenantConsumableList = (payload = {}) => tenantHttp.post('/api/tenant/consumable/list', payload)
+export const searchTenantConsumables = (payload = {}) => tenantHttp.post('/api/tenant/consumable/all', payload)
 export const addTenantConsumable = (payload = {}) => tenantHttp.post('/api/tenant/consumable/add', payload)
 export const editTenantConsumable = (payload = {}) => tenantHttp.post('/api/tenant/consumable/edit', payload)
 export const deleteTenantConsumable = (id) => tenantHttp.post('/api/tenant/consumable/delete', { id })

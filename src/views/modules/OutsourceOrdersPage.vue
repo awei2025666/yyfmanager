@@ -1,10 +1,10 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Printer, Refresh, Search, View } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
 import {
-  getTenantOrderDetail,
   getTenantOrderPrintUrl,
   getTenantOutsourceIncomingOrders,
   getTenantOutsourceOutgoingOrders
@@ -13,17 +13,21 @@ import {
 const props = defineProps({
   mode: {
     type: String,
-    required: true,
+    default: 'incoming',
     validator: (value) => ['incoming', 'outgoing'].includes(value)
   }
 })
 
+const router = useRouter()
+
 const statusOptions = [
+  { label: '待审批', value: 1 },
   { label: '待生产', value: 2 },
   { label: '生产中', value: 3 },
   { label: '待配送', value: 4 },
   { label: '配送中', value: 5 },
-  { label: '已完成', value: 6 }
+  { label: '已完成', value: 6 },
+  { label: '已驳回', value: 7 }
 ]
 
 const statusText = (value) =>
@@ -42,17 +46,15 @@ const filters = reactive({
 
 const state = reactive({
   loading: false,
-  detailLoading: false,
   total: 0
 })
 
 const rows = ref([])
-const detailVisible = ref(false)
-const currentRow = ref(null)
+const activeMode = ref(props.mode)
 
-const pageTitle = computed(() => (props.mode === 'incoming' ? '外协订单-转入的' : '外协订单-转出的'))
-const supplierLabel = computed(() => (props.mode === 'incoming' ? '转单单位' : '接单单位'))
-const listApi = computed(() => props.mode === 'incoming' ? getTenantOutsourceIncomingOrders : getTenantOutsourceOutgoingOrders)
+const pageTitle = computed(() => (activeMode.value === 'incoming' ? '外协订单-转入的' : '外协订单-转出的'))
+const supplierLabel = computed(() => (activeMode.value === 'incoming' ? '转单单位' : '接单单位'))
+const listApi = computed(() => activeMode.value === 'incoming' ? getTenantOutsourceIncomingOrders : getTenantOutsourceOutgoingOrders)
 
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -80,10 +82,11 @@ const productInfoText = (row = {}) => {
 const normalizeRow = (row = {}) => ({
   ...row,
   id: row.id || row.orderPrimaryId || row.orderDbId,
+  detailId: row.orderPrimaryId || row.orderDbId || row.orderRecordId || row.id || row.orderId || row.orderNo,
   orderNo: row.orderId || row.orderNo || '-',
   customer: row.companyName || row.customer || '-',
   orderTime: row.orderTime || row.createTime || '-',
-  supplier: props.mode === 'incoming'
+  supplier: activeMode.value === 'incoming'
     ? row.outTenantName || row.supplier || '-'
     : row.intoTenantName || row.supplier || '-',
   sales: row.fillUserName || row.userName || '-',
@@ -105,7 +108,7 @@ const queryPayload = () => {
     createTimeStart: start || undefined,
     createTimeEnd: end || start || undefined
   }
-  if (props.mode === 'incoming') {
+  if (activeMode.value === 'incoming') {
     payload.outTenantName = filters.supplier || undefined
   } else {
     payload.intoTenantName = filters.supplier || undefined
@@ -148,43 +151,16 @@ const resetFilters = () => {
   loadData()
 }
 
-const normalizeDetail = (detail = {}, fallback = {}) => ({
-  ...fallback,
-  ...detail,
-  orderNo: detail.orderId || fallback.orderNo,
-  customer: detail.companyName || fallback.customer,
-  contact: detail.linkman || '-',
-  phone: detail.phone || '-',
-  address: detail.companyAddress || '-',
-  deliveryDate: detail.deliveryDate || '-',
-  deliveryType: detail.deliveryType || '-',
-  printRequirement: detail.printingRequirements || '-',
-  remark: detail.remark || '-',
-  productInfo: productInfoText(detail) || fallback.productInfo,
-  amount: detail.totalMoney ?? fallback.amount,
-  status: statusText(detail.status || fallback.rawStatus),
-  products: listRows(detail.productList || detail.products).map((item) => ({
-    productName: item.productName || item.name || item.productInfo || '-',
-    finishedSpec: item.finishedSpec || item.trimmedSize || '-',
-    orderQuantity: item.orderQuantity ?? item.quantity ?? '-',
-    unit: item.unit || '-',
-    amount: item.money ?? item.amount ?? 0
-  }))
-})
+const changeMode = (mode) => {
+  if (activeMode.value === mode) return
+  activeMode.value = mode
+  resetFilters()
+}
 
 const openDetail = async (row) => {
-  currentRow.value = row
-  detailVisible.value = true
-  if (!row.id) return
-  state.detailLoading = true
-  try {
-    const detail = await getTenantOrderDetail(row.id)
-    currentRow.value = normalizeDetail(detail, row)
-  } catch (error) {
-    ElMessage.error(error?.message || '订单详情加载失败')
-  } finally {
-    state.detailLoading = false
-  }
+  const detailId = row.detailId || row.id || row.orderNo
+  if (!detailId || detailId === '-') return ElMessage.error('缺少订单ID，无法查看详情')
+  router.push({ name: 'orders', query: { detailId } })
 }
 
 const printOrder = async (row) => {
@@ -203,6 +179,14 @@ onMounted(loadData)
 <template>
   <div class="module-page">
     <PageBlock class="search-card">
+      <div class="tab-switch">
+        <button type="button" :class="{ active: activeMode === 'incoming' }" @click="changeMode('incoming')">
+          转入订单
+        </button>
+        <button type="button" :class="{ active: activeMode === 'outgoing' }" @click="changeMode('outgoing')">
+          转出订单
+        </button>
+      </div>
       <el-form class="search-form" :model="filters" label-width="86px">
         <el-form-item label="单位名称">
           <el-input v-model="filters.customer" clearable placeholder="请输入单位名称" @keyup.enter="searchData" />
@@ -255,7 +239,7 @@ onMounted(loadData)
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link :icon="View" @click="openDetail(row)">详情</el-button>
-            <el-button v-if="mode === 'incoming'" type="primary" link :icon="Printer" @click="printOrder(row)">打印</el-button>
+            <el-button v-if="activeMode === 'incoming'" type="primary" link :icon="Printer" @click="printOrder(row)">打印</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -273,30 +257,6 @@ onMounted(loadData)
       </div>
     </PageBlock>
 
-    <el-dialog v-model="detailVisible" title="外协订单详情" width="980px">
-      <div v-loading="state.detailLoading" class="detail-wrap">
-        <dl v-if="currentRow" class="detail-grid">
-          <div><dt>订单号</dt><dd>{{ currentRow.orderNo }}</dd></div>
-          <div><dt>单位名称</dt><dd>{{ currentRow.customer }}</dd></div>
-          <div><dt>联系人</dt><dd>{{ currentRow.contact || '-' }}</dd></div>
-          <div><dt>联系方式</dt><dd>{{ currentRow.phone || '-' }}</dd></div>
-          <div><dt>单位地址</dt><dd>{{ currentRow.address || '-' }}</dd></div>
-          <div><dt>业务员</dt><dd>{{ currentRow.sales || '-' }}</dd></div>
-          <div><dt>{{ supplierLabel }}</dt><dd>{{ currentRow.supplier || '-' }}</dd></div>
-          <div><dt>订单状态</dt><dd>{{ currentRow.status || '-' }}</dd></div>
-          <div><dt>订单金额</dt><dd>{{ moneyText(currentRow.amount) }}</dd></div>
-          <div><dt>印刷要求</dt><dd>{{ currentRow.printRequirement || '-' }}</dd></div>
-          <div><dt>备注</dt><dd>{{ currentRow.remark || '-' }}</dd></div>
-        </dl>
-        <el-table :data="currentRow?.products || []" border>
-          <el-table-column prop="productName" label="产品名称" />
-          <el-table-column prop="finishedSpec" label="成品规格" />
-          <el-table-column prop="orderQuantity" label="订货数量" />
-          <el-table-column prop="unit" label="单位" />
-          <el-table-column prop="amount" label="金额" />
-        </el-table>
-      </div>
-    </el-dialog>
   </div>
 </template>
 
@@ -306,6 +266,30 @@ onMounted(loadData)
   flex-direction: column;
   gap: 12px;
   padding: 0 20px;
+}
+
+.tab-switch {
+  display: inline-flex;
+  margin-bottom: 18px;
+  border: 1px solid #1f6bff;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.tab-switch button {
+  min-width: 110px;
+  height: 36px;
+  border: 0;
+  background: #ffffff;
+  color: #1f6bff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tab-switch button.active {
+  background: #1f6bff;
+  color: #ffffff;
 }
 
 .search-form {
@@ -341,36 +325,4 @@ onMounted(loadData)
   margin-top: 14px;
 }
 
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 24px;
-  margin: 0 0 18px;
-  padding: 18px;
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  background: #fafafa;
-}
-
-.detail-grid div {
-  display: grid;
-  grid-template-columns: 88px 1fr;
-  gap: 10px;
-  min-width: 0;
-}
-
-.detail-grid dt {
-  color: #8a93a3;
-  font-weight: 700;
-}
-
-.detail-grid dd {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  color: #111111;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 </style>

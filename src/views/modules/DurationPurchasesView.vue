@@ -103,9 +103,7 @@ const loadPlans = async () => {
     const data = await getTenantVipList()
     plans.value = listRows(data).map(normalizePlan)
     selectedPlanKey.value = plans.value[0]?.key || ''
-    if (selectedPlanKey.value) {
-      await createOrder()
-    }
+    resetPayResult()
   } catch (error) {
     plans.value = []
     selectedPlanKey.value = ''
@@ -115,16 +113,16 @@ const loadPlans = async () => {
   }
 }
 
-const selectPlan = async (plan) => {
+const selectPlan = (plan) => {
   if (selectedPlanKey.value === plan.key) return
   selectedPlanKey.value = plan.key
-  await createOrder()
+  resetPayResult()
 }
 
-const selectPayType = async (type) => {
+const selectPayType = (type) => {
   if (payType.value === type) return
   payType.value = type
-  await createOrder()
+  resetPayResult()
 }
 
 const schedulePayStatusCheck = () => {

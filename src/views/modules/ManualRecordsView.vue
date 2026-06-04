@@ -98,8 +98,8 @@ const normalizeRow = (row = {}) => ({
   imageRemark: row.imgRemark || row.imageRemark || row.fileId || '',
   imageUrl: row.imgRemarkUrl || row.fileUrl || row.img || row.image || row.picture || row.proofImg || '',
   remark: row.remark || row.detailNote || '',
-  orderNo: row.order?.orderId || row.orderId || '-',
-  orderId: row.order?.id || row.orderId || '',
+  orderNo: row.order?.orderId || row.orderNo || row.orderId || '-',
+  orderId: row.order?.id || (typeof row.orderId === 'number' ? row.orderId : ''),
   operator: row.createUserName || row.operator || '-',
   updatedAt: row.createTime || row.updatedAt || '-'
 })
@@ -123,6 +123,26 @@ const normalizeOrderOption = (row = {}) => ({
   amount: row.billMoney ?? row.totalMoney ?? row.payMoney ?? row.amount ?? 0,
   status: row.orderStatus || row.status || '-'
 })
+
+const fillFormFromRecord = (record = {}) => {
+  const order = record.order || {}
+  Object.assign(form, {
+    id: record.id || '',
+    name: record.name === '-' ? '' : record.name || '',
+    orderId: record.orderId || order.id || '',
+    orderNo: order.orderId || record.orderNo || '',
+    orderCustomer: order.companyName || '',
+    orderTime: order.orderTime || '',
+    orderFiller: order.fillUserName || '',
+    orderProductInfo: productInfoText(order),
+    orderAmount: order.totalMoney ?? order.billMoney ?? 0,
+    orderStatus: order.status || order.orderStatus || '',
+    quantity: record.num ?? record.quantity ?? '',
+    imageRemark: record.imgRemark || record.imageRemark || '',
+    imageUrl: record.imgRemarkUrl || record.imageUrl || '',
+    remark: record.remark || ''
+  })
+}
 
 const queryPayload = () => ({
   pageNum: filters.pageNum,
@@ -260,24 +280,20 @@ const openCreate = () => {
   formVisible.value = true
 }
 
-const openEdit = (row) => {
-  Object.assign(form, {
-    id: row.id,
-    name: row.name === '-' ? '' : row.name,
-    orderId: row.orderId === '-' ? '' : row.orderId,
-    orderNo: row.orderNo === '-' ? '' : row.orderNo,
-    orderCustomer: row.order?.companyName || '',
-    orderTime: row.order?.orderTime || '',
-    orderFiller: row.order?.fillUserName || '',
-    orderProductInfo: productInfoText(row.order || {}),
-    orderAmount: row.order?.totalMoney || row.order?.billMoney || 0,
-    orderStatus: row.order?.status || row.order?.orderStatus || '',
-    quantity: row.quantity,
-    imageRemark: row.imageRemark || '',
-    imageUrl: row.imageUrl || '',
-    remark: row.remark || ''
-  })
+const openEdit = async (row) => {
+  resetForm()
   formVisible.value = true
+  if (!row.id) return
+  state.detailLoading = true
+  try {
+    const data = await getTenantHandKeptDetail(row.id)
+    fillFormFromRecord(data)
+  } catch (error) {
+    ElMessage.error(error?.message || '编辑回显加载失败')
+    formVisible.value = false
+  } finally {
+    state.detailLoading = false
+  }
 }
 
 const submitForm = async () => {
@@ -412,49 +428,51 @@ onMounted(loadData)
     </PageBlock>
 
     <el-dialog v-model="formVisible" :title="isEdit ? '编辑手工记录' : '添加手工记录'" width="1080px">
-      <el-form class="manual-form" :model="form" label-position="top">
-        <el-form-item label="手工名称" required>
-          <el-input v-model="form.name" placeholder="请输入手工名称" />
-        </el-form-item>
-        <el-form-item label="数量">
-          <el-input v-model="form.quantity" placeholder="请输入数量" />
-        </el-form-item>
-        <el-form-item label="图片备注" class="full">
-          <div class="image-upload">
-            <el-upload accept="image/*" :show-file-list="false" :http-request="uploadImage">
-              <el-button size="small" :loading="state.uploading">选择文件</el-button>
-            </el-upload>
-            <span class="upload-tip">{{ form.imageRemark ? `文件ID：${form.imageRemark}` : '未选择任何文件' }}</span>
-            <el-image v-if="form.imageUrl" :src="form.imageUrl" :preview-src-list="[form.imageUrl]" fit="cover" preview-teleported />
-            <el-button v-if="form.imageUrl" link type="danger" @click="removeImage">删除图片</el-button>
+      <div v-loading="state.detailLoading">
+        <el-form class="manual-form" :model="form" label-position="top">
+          <el-form-item label="手工名称" required>
+            <el-input v-model="form.name" placeholder="请输入手工名称" />
+          </el-form-item>
+          <el-form-item label="数量">
+            <el-input v-model="form.quantity" placeholder="请输入数量" />
+          </el-form-item>
+          <el-form-item label="图片备注" class="full">
+            <div class="image-upload">
+              <el-upload accept="image/*" :show-file-list="false" :http-request="uploadImage">
+                <el-button size="small" :loading="state.uploading">选择文件</el-button>
+              </el-upload>
+              <span class="upload-tip">{{ form.imageRemark ? `文件ID：${form.imageRemark}` : '未选择任何文件' }}</span>
+              <el-image v-if="form.imageUrl" :src="form.imageUrl" :preview-src-list="[form.imageUrl]" fit="cover" preview-teleported />
+              <el-button v-if="form.imageUrl" link type="danger" @click="removeImage">删除图片</el-button>
+            </div>
+          </el-form-item>
+          <el-form-item label="备注" class="full">
+            <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="输入" />
+          </el-form-item>
+        </el-form>
+        <section class="selected-order-section">
+          <div class="selected-order-head">
+            <h3>订单信息</h3>
+            <el-button type="primary" :icon="Search" @click="openOrderPicker">
+              {{ form.orderId ? '更换订单' : '选择订单' }}
+            </el-button>
           </div>
-        </el-form-item>
-        <el-form-item label="备注" class="full">
-          <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="输入" />
-        </el-form-item>
-      </el-form>
-      <section class="selected-order-section">
-        <div class="selected-order-head">
-          <h3>订单信息</h3>
-          <el-button type="primary" :icon="Search" @click="openOrderPicker">
-            {{ form.orderId ? '更换订单' : '选择订单' }}
-          </el-button>
-        </div>
-        <el-table :data="selectedOrderRows" border>
-          <el-table-column prop="orderNo" label="订单号" min-width="150" />
-          <el-table-column prop="customer" label="单位名称" min-width="160" />
-          <el-table-column prop="orderTime" label="订单时间" min-width="160" />
-          <el-table-column prop="filler" label="填单员" min-width="110" />
-          <el-table-column prop="productInfo" label="产品信息" min-width="220" show-overflow-tooltip />
-          <el-table-column prop="amount" label="订单金额" min-width="110" />
-          <el-table-column prop="status" label="订单状态" min-width="110" />
-          <el-table-column label="操作" width="90" fixed="right">
-            <template #default>
-              <el-button type="primary" link @click="openOrderPicker">{{ form.orderId ? '更换' : '选择' }}</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </section>
+          <el-table :data="selectedOrderRows" border>
+            <el-table-column prop="orderNo" label="订单号" min-width="150" />
+            <el-table-column prop="customer" label="单位名称" min-width="160" />
+            <el-table-column prop="orderTime" label="订单时间" min-width="160" />
+            <el-table-column prop="filler" label="填单员" min-width="110" />
+            <el-table-column prop="productInfo" label="产品信息" min-width="220" show-overflow-tooltip />
+            <el-table-column prop="amount" label="订单金额" min-width="110" />
+            <el-table-column prop="status" label="订单状态" min-width="110" />
+            <el-table-column label="操作" width="90" fixed="right">
+              <template #default>
+                <el-button type="primary" link @click="openOrderPicker">{{ form.orderId ? '更换' : '选择' }}</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </section>
+      </div>
       <template #footer>
         <el-button @click="formVisible = false">取消</el-button>
         <el-button type="primary" :loading="state.saving" @click="submitForm">保存</el-button>
