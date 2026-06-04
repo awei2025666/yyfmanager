@@ -74,7 +74,10 @@ const toPage = url => {
 }
 
 const parseScanOrderId = result => {
-	const text = String(result || '').trim()
+	const raw = typeof result === 'object' && result
+		? (result.result || result.path || result.rawData || result.scanResult || '')
+		: result
+	const text = String(raw || '').trim()
 	if (!text) return ''
 	try {
 		const url = new URL(text)
@@ -105,7 +108,7 @@ const scanTo = type => {
 	uni.scanCode({
 		onlyFromCamera: true,
 		success: res => {
-			openScannedPage(type, res.result)
+			openScannedPage(type, res)
 		},
 		fail: () => {
 			uni.showToast({ title: '扫码失败', icon: 'none' })
