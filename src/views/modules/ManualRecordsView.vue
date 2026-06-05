@@ -519,9 +519,8 @@ onMounted(loadData)
           <div><dt>关联订单</dt><dd>{{ currentRow.orderNo }}</dd></div>
           <div><dt>操作员</dt><dd>{{ currentRow.operator }}</dd></div>
           <div><dt>操作时间</dt><dd>{{ currentRow.updatedAt }}</dd></div>
-          <div><dt>图片备注</dt><dd>{{ currentRow.imageRemark || '-' }}</dd></div>
-          <div v-if="currentRow.imageUrl" class="full"><dt>图片</dt><dd><el-image class="detail-image" :src="currentRow.imageUrl" :preview-src-list="[currentRow.imageUrl]" fit="cover" preview-teleported /></dd></div>
           <div class="full"><dt>备注</dt><dd>{{ currentRow.remark || '-' }}</dd></div>
+          <div v-if="currentRow.imageUrl" class="full"><dt>图片备注</dt><dd><el-image class="detail-image" :src="currentRow.imageUrl" :preview-src-list="[currentRow.imageUrl]" fit="cover" preview-teleported /></dd></div>
         </dl>
       </div>
     </el-dialog>

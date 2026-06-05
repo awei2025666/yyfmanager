@@ -9,8 +9,8 @@ const router = useRouter()
 const route = useRoute()
 const loading = ref(false)
 const form = reactive({
-  account: 'admin',
-  password: '123456',
+  account: '',
+  password: '',
   token: localStorage.getItem('platform_token') || ''
 })
 
@@ -52,14 +52,6 @@ const submit = async () => {
         </el-form-item>
         <el-form-item label="密码">
           <el-input v-model="form.password" type="password" show-password placeholder="请输入密码" />
-        </el-form-item>
-        <el-form-item label="Token（可选）">
-          <el-input
-            v-model="form.token"
-            type="textarea"
-            :rows="4"
-            placeholder="如果你已经有租户端 token，可以直接填入；留空则走登录接口。"
-          />
         </el-form-item>
         <el-button type="primary" class="login-button" :loading="loading" @click="submit">
           进入后台

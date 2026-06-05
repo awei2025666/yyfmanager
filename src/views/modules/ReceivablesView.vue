@@ -167,7 +167,7 @@ const normalizeOrderRow = (row = {}) => {
   return {
     ...row,
     id: row.id || row.orderId,
-    orderNo: row.orderId || row.orderNo || '-',
+    orderNo: row.orderNo || '-',
     companyName: row.companyName || row.customerName || row.customer || '-',
     orderTime: row.orderTime || row.createTime || '-',
     fillUserName: row.fillUserName || row.userName || row.filler || '-',
@@ -221,7 +221,7 @@ const unitQuery = () => ({
 const detailQuery = () => ({
   pageNum: detailFilters.pageNum,
   pageSize: detailFilters.pageSize,
-  companyName: currentUnit.value?.companyName === '-' ? undefined : currentUnit.value?.companyName,
+  cooperativeClientId: currentUnit.value?.cooperativeClientId,
   orderNo: detailFilters.orderNo || undefined
 })
 

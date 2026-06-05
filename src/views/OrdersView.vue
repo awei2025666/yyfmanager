@@ -21,7 +21,7 @@ import {
   getTenantOrderProcess,
   outsourceTenantOrder,
   returnTenantOrder,
-  searchTenantClients
+  searchTenantClients, getTenantOutsourceTenants
 } from '../api/tenant'
 
 const route = useRoute()
@@ -213,20 +213,13 @@ const normalizeOutsourceOptions = (data) => {
       memberName: item.memberName || item.companyName || item.name || '-',
       contact: item.contact || item.linkman || item.userName || '-'
     }))
-    .filter((item) => {
-      const idMatched = !outsourceFilters.memberId || String(item.memberId).includes(String(outsourceFilters.memberId))
-      const nameMatched = !outsourceFilters.memberName || String(item.memberName).includes(String(outsourceFilters.memberName))
-      return idMatched && nameMatched
-    })
-    .slice(0, 20)
 }
 
 const loadOutsourceUnits = async () => {
   outsourceLoading.value = true
   try {
-    const data = await searchTenantClients({
-      companyName: outsourceFilters.memberName || undefined,
-      customerType: 3
+    const data = await getTenantOutsourceTenants({
+      tenantName: outsourceFilters.memberName || undefined,
     })
     outsourceOptions.value = normalizeOutsourceOptions(data)
   } catch (error) {
@@ -875,7 +868,7 @@ const openOutsource = async (row) => {
   if (row?.id) {
     detailLoading.value = true
     try {
-      const detail = await getTenantOrderDetail(row.id)
+      const detail = await getTenantOrderEditInfo(row.id)
       record = normalizeDetailRow(detail || {}, row, row.timeline || [])
     } catch (error) {
       ElMessage.error(error?.message || '订单详情加载失败')
@@ -1105,7 +1098,7 @@ const handleAction = (row, action) => {
   if (action === '审批') return openDetail(row)
   if (action === '编辑') return openEdit(row)
   if (action === '删除') return removeOrder(row)
-  if (action === '重新申请') return reapplyOrder(row)
+  if (action === '重新申请') return openEdit(row)
   if (action === '转外协') return outsourceOrder(row)
   if (action === '返单') return repeatOrder(row)
   return openDetail(row)
@@ -1296,10 +1289,6 @@ watch(
         <template v-if="formMode === 'outsource' && currentStep === 1">
           <div class="outsource-search">
             <label>
-              <span>会员id</span>
-              <el-input v-model="outsourceFilters.memberId" placeholder="请输入" />
-            </label>
-            <label>
               <span>会员名称</span>
               <el-input v-model="outsourceFilters.memberName" placeholder="请输入" />
             </label>
@@ -1324,8 +1313,7 @@ watch(
                 />
               </template>
             </el-table-column>
-            <el-table-column prop="memberId" label="会员id" min-width="260" />
-            <el-table-column prop="memberName" label="会员名称" min-width="320" />
+            <el-table-column prop="tenantName" label="会员名称" min-width="320" />
             <el-table-column prop="contact" label="联系人" min-width="240" />
           </el-table>
         </template>

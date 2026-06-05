@@ -127,6 +127,7 @@ const productInfoText = (row = {}) => {
 const normalizeOrderRow = (row = {}) => ({
   ...row,
   id: row.id || row.orderId,
+  orderNum: row.orderNum,
   orderNo: row.orderId || row.orderNo || '-',
   customer: row.companyName || row.customer || '-',
   orderTime: row.orderTime || row.createTime || '-',
@@ -536,7 +537,7 @@ onMounted(() => {
     <el-dialog v-model="detailVisible" title="配送单详情" width="1080px">
       <div v-loading="state.detailLoading">
         <el-table :data="currentRow?.deliveryOrders || []" border>
-          <el-table-column prop="orderNo" label="订单号" />
+          <el-table-column prop="orderNum" label="订单号" />
           <el-table-column prop="customer" label="单位名称" />
           <el-table-column prop="orderTime" label="订单时间" />
           <el-table-column prop="filler" label="填单员" />

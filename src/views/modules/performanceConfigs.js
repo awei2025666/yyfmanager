@@ -100,12 +100,10 @@ export const deliveryPerformanceConfig = {
 export const craftStatsConfig = {
   title: '工艺统计',
   searchFields: [
-    { key: 'craftId', label: '工艺id' },
     { key: 'name', label: '工艺名称' },
     { key: 'time', label: '起始时间', type: 'daterange' }
   ],
   columns: [
-    { prop: 'craftId', label: '工艺id' },
     { prop: 'name', label: '工艺名称' },
     { prop: 'unit', label: '单位' },
     { prop: 'count', label: '累计生产数', minWidth: 130 },
