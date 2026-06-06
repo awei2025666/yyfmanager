@@ -59,6 +59,7 @@ const normalizeRow = (row = {}) => ({
   account: row.accountName || row.account || '-',
   accountNo: row.card || row.accountNo || row.cardNo || '',
   bank: row.openingBank || row.bank || '',
+  money: row.money,
   income: Number(row.type) === 1 ? row.money : row.income,
   expense: Number(row.type) === 2 ? row.money : row.expense,
   balance: row.balance ?? row.surplusMoney ?? ''
@@ -212,12 +213,10 @@ onMounted(() => {
       <el-table v-loading="state.loading" :data="rows" border>
         <el-table-column prop="time" label="时间" min-width="170" />
         <el-table-column prop="bizNo" label="单号" min-width="150" />
-        <el-table-column prop="type" label="类型" min-width="100" />
         <el-table-column prop="remark" label="摘要" min-width="180" show-overflow-tooltip />
         <el-table-column prop="account" label="账户名称" min-width="140" />
-        <el-table-column prop="income" label="收入金额" min-width="120" />
-        <el-table-column prop="expense" label="支出金额" min-width="120" />
-        <el-table-column prop="balance" label="余额" min-width="120" />
+        <el-table-column prop="type" label="类型" min-width="100" />
+        <el-table-column prop="money" label="金额" min-width="120" />
         <el-table-column label="操作" width="90" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link :icon="View" @click="openDetail(row)">详情</el-button>
@@ -242,13 +241,11 @@ onMounted(() => {
       <dl v-if="currentRow" class="detail-grid">
         <div><dt>时间</dt><dd>{{ currentRow.time }}</dd></div>
         <div><dt>单号</dt><dd>{{ currentRow.bizNo }}</dd></div>
-        <div><dt>类型</dt><dd>{{ currentRow.type }}</dd></div>
         <div><dt>账户名称</dt><dd>{{ currentRow.account }}</dd></div>
         <div><dt>卡号</dt><dd>{{ currentRow.accountNo || '-' }}</dd></div>
         <div><dt>开户行</dt><dd>{{ currentRow.bank || '-' }}</dd></div>
-        <div><dt>收入金额</dt><dd>{{ currentRow.income ?? '-' }}</dd></div>
-        <div><dt>支出金额</dt><dd>{{ currentRow.expense ?? '-' }}</dd></div>
-        <div><dt>余额</dt><dd>{{ currentRow.balance || '-' }}</dd></div>
+        <div><dt>类型</dt><dd>{{ currentRow.type }}</dd></div>
+        <div><dt>金额</dt><dd>{{ currentRow.money ?? '-' }}</dd></div>
         <div class="full"><dt>摘要</dt><dd>{{ currentRow.remark || '-' }}</dd></div>
       </dl>
     </el-dialog>

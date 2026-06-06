@@ -9,8 +9,7 @@ import {
   deleteTenantConsumableDetail,
   editTenantConsumableDetail,
   getTenantConsumableDetail,
-  getTenantConsumableDetailList,
-  getTenantReceivableOrderList,
+  getTenantConsumableDetailList, getTenantOrderListAll,
   searchTenantConsumables,
   uploadTenantFile
 } from '../../api/tenant'
@@ -311,11 +310,11 @@ const uploadImage = async ({ file }) => {
 const loadOrderOptions = async () => {
   orderPicker.loading = true
   try {
-    const data = await getTenantReceivableOrderList({
+    const data = await getTenantOrderListAll({
       pageNum: orderPicker.pageNum,
       pageSize: orderPicker.pageSize,
       companyName: orderPicker.companyName || undefined,
-      orderNo: orderPicker.orderNo || undefined
+      orderId: orderPicker.orderNo || undefined
     })
     const normalizedRows = listRows(data).map(normalizeOrderOption)
     orderPicker.records = normalizedRows
@@ -552,7 +551,7 @@ onMounted(() => {
               <el-upload action="#" accept="image/*" :show-file-list="false" :http-request="uploadImage">
                 <el-button size="small" :loading="state.uploading" :icon="Upload">选择文件</el-button>
               </el-upload>
-              <span class="upload-tip">{{ form.fileId ? `文件ID：${form.fileId}` : '未选择任何文件' }}</span>
+              <span class="upload-tip">{{ form.fileId ? `` : '未选择任何文件' }}</span>
               <el-image v-if="form.fileUrl" class="preview-image" :src="form.fileUrl" :preview-src-list="[form.fileUrl]" fit="cover" preview-teleported />
             </div>
           </el-form-item>
@@ -656,11 +655,6 @@ onMounted(() => {
               <template #default="{ row }">¥{{ Number(row.money || 0).toFixed(2) }}</template>
             </el-table-column>
             <el-table-column prop="status" label="订单状态" min-width="110" />
-            <el-table-column label="操作" width="100" fixed="right">
-              <template #default>
-                <el-button type="primary" link @click="openCurrentRowOrderDetail">详情</el-button>
-              </template>
-            </el-table-column>
           </el-table>
         </PageBlock>
       </div>
