@@ -114,7 +114,7 @@ const normalizeRow = (row = {}) => ({
   id: row.id || row.consumableDetailId,
   name: row.consumableName || row.name || '-',
   unit: row.unit || row.consumableUnit || row.unitName || '个',
-  price: row.price ?? row.unitPrice ?? row.consumablePrice ?? row.money ?? row.amount ?? 0,
+  price: row.consumableMoney ?? row.price ?? row.unitPrice ?? row.consumablePrice ?? row.money ?? row.amount ?? 0,
   type: typeText(row.type),
   typeValue: String(row.type || ''),
   quantity: row.num ?? row.quantity ?? 0,

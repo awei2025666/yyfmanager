@@ -21,7 +21,7 @@ import {
   getTenantOrderProcess,
   outsourceTenantOrder,
   returnTenantOrder,
-  searchTenantClients, getTenantOutsourceTenants
+  searchTenantClients, getTenantOutsourceTenants, searchTenantCrafts
 } from '../api/tenant'
 
 const route = useRoute()
@@ -256,10 +256,8 @@ const searchCrafts = async (keyword = '') => {
   if (!craftName && lastCraftKeyword.value === '' && craftOptions.value.length) return
   lastCraftKeyword.value = craftName
   craftSearching.value = true
-  const request = getTenantCraftList({
-    pageNum: 1,
-    pageSize: 30,
-    craftName: craftName || undefined
+  const request = searchTenantCrafts({
+    name: craftName || undefined
   })
   craftSearchPromise = request
   try {
