@@ -101,7 +101,7 @@
 		<div class="delivery-bottom" v-if="isDeliveryPending">
 			<button class="delivery-create" @click="createDelivery">创建配送单</button>
 		</div>
-		<div class="btn" v-else-if="orderId">
+		<div class="btn" v-else-if="orderId && (currentOrderStatus==1 || currentOrderStatus==7)">
 			<u-button type="primary" @click="cancelOrder">取消订单</u-button>
 		</div>
 		
