@@ -1264,7 +1264,6 @@ watch(
     <el-dialog
       v-model="orderFormVisible"
       :title="orderDialogTitle"
-      width="1280px"
       class="order-form-dialog"
       :close-on-click-modal="false"
     >
@@ -2242,4 +2241,15 @@ watch(
     padding: 54px 28px;
   }
 }
+/* 强制垂直居中并限制最大宽高 */
+::v-deep .el-dialog {
+  margin: 0 !important;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-height: calc(100% - 30px);
+  max-width: calc(100% - 30px);
+}
+
 </style>
