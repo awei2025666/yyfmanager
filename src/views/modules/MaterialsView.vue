@@ -67,7 +67,7 @@ const normalizeRow = (row = {}) => ({
   ...row,
   id: row.id || row.consumableId,
   name: row.name || row.consumableName || '-',
-  unit: row.unit || row.consumableUnit || row.unitName || '个',
+  unit: row.unit || row.consumableUnit || row.unitName || '-',
   price: row.price ?? row.consumablePrice ?? row.unitPrice ?? row.money ?? 0,
   remark: row.remark || row.detailNote || '',
   status: statusText(row.status),
@@ -89,7 +89,7 @@ const savePayload = () => ({
   consumableName: form.name,
   unit: form.unit,
   consumableUnit: form.unit,
-  price: form.price,
+  money: form.price,
   consumablePrice: form.price,
   remark: form.remark,
   status: form.status
@@ -162,6 +162,7 @@ const openDetail = (row) => {
 const submitForm = async () => {
   if (!form.name) return ElMessage.warning('请输入耗材名称')
   if (!form.unit) return ElMessage.warning('请输入单位')
+  if (!form.price) return ElMessage.warning('请输入耗材价值')
   state.saving = true
   try {
     if (form.id) {
@@ -275,13 +276,8 @@ onMounted(loadData)
         <el-form-item label="单位" required>
           <el-input v-model="form.unit" placeholder="请输入单位" />
         </el-form-item>
-        <el-form-item label="耗材价值">
+        <el-form-item label="耗材价值" required>
           <el-input v-model="form.price" placeholder="请输入耗材价值" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="form.status" placeholder="请选择状态">
-            <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
         </el-form-item>
         <el-form-item label="备注" class="full">
           <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注" />

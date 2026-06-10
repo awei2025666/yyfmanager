@@ -243,6 +243,8 @@ const handleAccountChange = (id) => {
 const uploadProof = async ({ file }) => {
   try {
     const data = await uploadTenantFile(file)
+    form.fileUrl = data?.url || data?.fileUrl || URL.createObjectURL(file)
+
     form.proofImg = data?.url || data?.path || data?.fileUrl || data?.id || data || ''
     form.proofImgName = file.name
     ElMessage.success('上传成功')
@@ -461,8 +463,9 @@ onMounted(() => {
           <el-form-item label="报销凭证" class="wide">
             <el-upload action="#" accept="image/*" :show-file-list="false" :http-request="uploadProof">
               <el-button :icon="Upload">选择文件</el-button>
-              <span v-if="form.proofImgName" class="upload-name">{{ form.proofImgName }}</span>
             </el-upload>
+            <span class="upload-tip">{{ form.proofImg ? `` : '未选择任何文件' }}</span>
+            <el-image v-if="form.fileUrl" :src="form.fileUrl" :preview-src-list="[form.fileUrl]" fit="cover" preview-teleported />
           </el-form-item>
         </el-form>
       </div>
@@ -490,6 +493,20 @@ onMounted(() => {
           <div><dt>报销金额</dt><dd>{{ formatMoney(detailData.money) }}</dd></div>
           <div><dt>折让金额</dt><dd>{{ formatMoney(detailData.allowanceMoney) }}</dd></div>
           <div class="wide"><dt>摘要</dt><dd>{{ detailData.digest || '-' }}</dd></div>
+          <div>
+            <span>报销凭证</span>
+            <div class="detail-images">
+              <el-image
+                  v-if="detailData?.proofImgUrl"
+                  class="detail-image"
+                  :src="detailData?.proofImgUrl"
+                  :preview-src-list="[detailData?.proofImgUrl]"
+                  fit="cover"
+                  preview-teleported
+              />
+              <span v-else>-</span>
+            </div>
+          </div>
         </dl>
       </div>
     </el-dialog>

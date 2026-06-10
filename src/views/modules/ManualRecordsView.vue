@@ -9,7 +9,7 @@ import {
   editTenantHandKept,
   exportTenantHandKept,
   getTenantHandKeptDetail,
-  getTenantHandKeptList,
+  getTenantHandKeptList, getTenantOrderListAll,
   getTenantReceivableOrderList,
   uploadTenantFile
 } from '../../api/tenant'
@@ -215,11 +215,11 @@ const resetForm = () => {
 const loadOrderOptions = async () => {
   orderPicker.loading = true
   try {
-    const data = await getTenantReceivableOrderList({
+    const data = await getTenantOrderListAll({
       pageNum: orderPicker.pageNum,
       pageSize: orderPicker.pageSize,
       companyName: orderPicker.companyName || undefined,
-      orderNo: orderPicker.orderId || undefined
+      orderId: orderPicker.orderId || undefined
     })
     const normalizedRows = listRows(data).map(normalizeOrderOption)
     orderPicker.records = normalizedRows
@@ -441,7 +441,7 @@ onMounted(loadData)
               <el-upload accept="image/*" :show-file-list="false" :http-request="uploadImage">
                 <el-button size="small" :loading="state.uploading">选择文件</el-button>
               </el-upload>
-              <span class="upload-tip">{{ form.imageRemark ? `文件ID：${form.imageRemark}` : '未选择任何文件' }}</span>
+              <span class="upload-tip">{{ form.imageRemark ? `` : '未选择任何文件' }}</span>
               <el-image v-if="form.imageUrl" :src="form.imageUrl" :preview-src-list="[form.imageUrl]" fit="cover" preview-teleported />
               <el-button v-if="form.imageUrl" link type="danger" @click="removeImage">删除图片</el-button>
             </div>
@@ -519,9 +519,8 @@ onMounted(loadData)
           <div><dt>关联订单</dt><dd>{{ currentRow.orderNo }}</dd></div>
           <div><dt>操作员</dt><dd>{{ currentRow.operator }}</dd></div>
           <div><dt>操作时间</dt><dd>{{ currentRow.updatedAt }}</dd></div>
-          <div><dt>图片备注</dt><dd>{{ currentRow.imageRemark || '-' }}</dd></div>
-          <div v-if="currentRow.imageUrl" class="full"><dt>图片</dt><dd><el-image class="detail-image" :src="currentRow.imageUrl" :preview-src-list="[currentRow.imageUrl]" fit="cover" preview-teleported /></dd></div>
           <div class="full"><dt>备注</dt><dd>{{ currentRow.remark || '-' }}</dd></div>
+          <div v-if="currentRow.imageUrl" class="full"><dt>图片备注</dt><dd><el-image class="detail-image" :src="currentRow.imageUrl" :preview-src-list="[currentRow.imageUrl]" fit="cover" preview-teleported /></dd></div>
         </dl>
       </div>
     </el-dialog>

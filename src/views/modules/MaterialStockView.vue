@@ -131,11 +131,11 @@ onMounted(loadData)
         <el-table-column prop="name" label="耗材名称" min-width="160" />
         <el-table-column prop="unit" label="单位" min-width="90" />
         <el-table-column prop="price" label="耗材价值" min-width="110" />
-        <el-table-column prop="inbound" label="入库数量" min-width="110" />
-        <el-table-column prop="outbound" label="出库数量" min-width="110" />
-        <el-table-column prop="stock" label="当前库存" min-width="110" />
-        <el-table-column prop="cost" label="耗材成本" min-width="120" />
-        <el-table-column prop="status" label="状态" min-width="100" />
+        <el-table-column prop="inCount" label="入库数量" min-width="110" />
+        <el-table-column prop="outCount" label="出库数量" min-width="110" />
+        <el-table-column prop="currentStock" label="当前库存" min-width="110" />
+        <el-table-column prop="consumableCost" label="耗材成本" min-width="120" />
+
         <el-table-column label="操作" width="110" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link :icon="View" @click="openDetails(row)">明细</el-button>

@@ -9,8 +9,8 @@ const router = useRouter()
 const route = useRoute()
 const loading = ref(false)
 const form = reactive({
-  account: 'admin',
-  password: '123456',
+  account: '',
+  password: '',
   token: localStorage.getItem('platform_token') || ''
 })
 

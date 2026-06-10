@@ -139,12 +139,18 @@ const checkPayStatus = async () => {
     const status = getPayStatusValue(data)
     if (status === 2) {
       clearStatusTimer()
-      ElMessage.success('支付成功，请刷新用户信息')
+      ElMessage.success('支付成功，正在刷新会员时长')
+      setTimeout(()=>{
+        window.location.reload()
+      },3000)
       return
     }
     if (status === 3) {
       clearStatusTimer()
       ElMessage.error('支付失败，请重新生成二维码支付')
+      setTimeout(()=>{
+        window.location.reload()
+      },3000)
       return
     }
     schedulePayStatusCheck()
