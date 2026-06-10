@@ -10,6 +10,20 @@
 	/*每个页面公共css */
 	@import "./uni_modules/vk-uview-ui/index.scss";
 
+	.nav-wrap,
+	.create-nav,
+	.detail-nav {
+		padding-top: calc(20rpx + constant(safe-area-inset-top)) !important;
+		padding-top: calc(20rpx + env(safe-area-inset-top)) !important;
+		box-sizing: border-box;
+	}
+
+	.pageTop {
+		padding-top: calc(34rpx + constant(safe-area-inset-top)) !important;
+		padding-top: calc(34rpx + env(safe-area-inset-top)) !important;
+		box-sizing: border-box;
+	}
+
 	/* H5 preview is constrained to the mini-program artboard width for Figma parity. */
 	/* #ifdef H5 */
 	html,

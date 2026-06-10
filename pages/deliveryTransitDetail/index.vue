@@ -7,7 +7,7 @@
 			</view>
 		</view>
 
-    <view :class="['status-band', detail.status === 2 ? 'done' : 'active']">{{ deliveryStatusText }}</view>
+    <view :class="['status-band', deliveryStatus === 2 ? 'done' : 'active']">{{ deliveryStatusText }}</view>
 
 		<view class="section order-section">
 			<view class="section-title"><view class="mark"></view><text>订单信息</text></view>
@@ -33,7 +33,7 @@
 			</view>
 		</view>
 
-		<view class="bottom-bar" v-if="detail.status === 1">
+		<view class="bottom-bar" v-if="deliveryStatus === 1">
 			<button class="complete-btn" @click="toComplete">已完成配送</button>
 		</view>
 	</view>
@@ -41,7 +41,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 
 const deliveryId = ref('')
 const detail = ref({})
@@ -71,7 +71,8 @@ const companyInfo = computed(() => {
 
 const driverName = computed(() => detail.value.driverName || detail.value.deliveryTenantUserName || detail.value.tenantUserName || '')
 const driverPhone = computed(() => detail.value.driverPhone || detail.value.deliveryTenantUserPhone || detail.value.tenantUserPhone || '')
-const deliveryStatusText = computed(() => detail.value.status === 2 ? '已完成' : '配送中')
+const deliveryStatus = computed(() => Number(detail.value.deliveryStatus ?? detail.value.status ?? 1))
+const deliveryStatusText = computed(() => deliveryStatus.value === 2 ? '已完成' : '配送中')
 
 const formatProduct = product => {
 	const name = product.name || product.productName || product.productInfo || ''
@@ -138,6 +139,7 @@ onLoad(options => {
 	deliveryId.value = options.id || ''
 	loadDetail()
 })
+onShow(loadDetail)
 </script>
 
 <style lang="scss" scoped>

@@ -9,7 +9,10 @@
 		</view>
 
 		<view class="profile-band" @click="toPage('/pages/mine/info')">
-			<view class="avatar">头像</view>
+			<view class="avatar">
+				<image v-if="avatarUrl" :src="avatarUrl" mode="aspectFill"></image>
+				<text v-else>头像</text>
+			</view>
 			<view class="profile-main">
 				<view class="nickname">{{ userName }}</view>
 			</view>
@@ -50,6 +53,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 
 const userInfo = ref({})
 
@@ -62,6 +66,7 @@ const userName = computed(() => (
 	userInfo.value.account ||
 	'微信昵称'
 ))
+const avatarUrl = computed(() => userInfo.value.avatarUrl || userInfo.value.avatarURL || userInfo.value.headUrl || '')
 
 const getSelfInfo = async () => {
 	try {
@@ -76,6 +81,7 @@ const toPage = url => {
 }
 
 onMounted(getSelfInfo)
+onShow(getSelfInfo)
 </script>
 
 <style lang="scss" scoped>
@@ -118,6 +124,11 @@ onMounted(getSelfInfo)
 	color: #fff;
 	font-size: 28rpx;
 	box-sizing: border-box;
+	overflow: hidden;
+	image{
+		width: 100%;
+		height: 100%;
+	}
 }
 .profile-main{
 	min-width: 0;

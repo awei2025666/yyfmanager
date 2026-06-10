@@ -108,7 +108,7 @@
 			</view>
 			<view class="form-row">
 				<text class="label required">金额</text>
-				<input v-model="productForm.money" type="digit" placeholder="请输入" placeholder-class="placeholder" />
+				<text class="default-text">{{ productFormAmountText }}</text>
 			</view>
 			<view class="inline-actions">
 				<button class="save" @click="saveProduct">保存</button>
@@ -159,7 +159,7 @@
 			</view>
 			<view class="form-row">
 				<text class="label">起价</text>
-				<text class="default-text">{{ craftForm.priceBase || '默认带出' }}</text>
+				<input v-model="craftForm.priceBase" type="digit" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
 			<view class="form-row">
 				<text class="label required">成品数量</text>
@@ -167,7 +167,7 @@
 			</view>
 			<view class="form-row">
 				<text class="label">单位</text>
-				<text class="default-text">{{ craftForm.unit || '默认带出' }}</text>
+				<input v-model="craftForm.unit" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
 			<view class="form-row">
 				<text class="label required">单价</text>
@@ -175,7 +175,7 @@
 			</view>
 			<view class="form-row">
 				<text class="label required">客户金额</text>
-				<input v-model="craftForm.customerMoney" type="digit" placeholder="请输入" placeholder-class="placeholder" />
+				<text class="default-text">{{ craftFormCustomerMoneyText }}</text>
 			</view>
 			<view class="textarea-block compact">
 				<text class="label">备注</text>
@@ -196,15 +196,68 @@
 			<view class="picker-panel" @click.stop>
 				<view class="picker-head">
 					<text>{{ pickerTitle }}</text>
-					<text class="picker-close" @click="closePicker">×</text>
+					<view class="picker-actions">
+						<text v-if="pickerType === 'client'" class="picker-add" @click.stop="openClientCreate">新增</text>
+						<text class="picker-close" @click="closePicker">×</text>
+					</view>
+				</view>
+				<view v-if="pickerType === 'client'" class="picker-search">
+					<input v-model="pickerSearchKeyword" placeholder="请输入单位名称、联系人、电话" placeholder-class="placeholder" />
 				</view>
 				<scroll-view scroll-y class="picker-list">
-					<view v-if="!pickerOptions.length" class="picker-empty">暂无数据</view>
-					<view class="picker-item" v-for="item in pickerOptions" :key="item.key" @click="selectPickerItem(item)">
+					<view v-if="!filteredPickerOptions.length" class="picker-empty">暂无数据</view>
+					<view class="picker-item" v-for="item in filteredPickerOptions" :key="item.key" @click="selectPickerItem(item)">
 						<view class="picker-main">{{ item.label }}</view>
 						<view v-if="item.subLabel" class="picker-sub">{{ item.subLabel }}</view>
 					</view>
 				</scroll-view>
+			</view>
+		</view>
+
+		<view v-if="showClientCreate" class="dialog-mask" @click="closeClientCreate">
+			<view class="client-dialog" @click.stop>
+				<view class="dialog-head">
+					<text>新增单位</text>
+					<text class="dialog-close" @click="closeClientCreate">×</text>
+				</view>
+				<scroll-view scroll-y class="dialog-body">
+					<view class="dialog-row">
+						<text class="label required">单位名称</text>
+						<input v-model="clientForm.name" placeholder="请输入单位名称" placeholder-class="placeholder" />
+					</view>
+					<view class="dialog-row">
+						<text class="label required">联系人</text>
+						<input v-model="clientForm.contact" placeholder="请输入联系人" placeholder-class="placeholder" />
+					</view>
+					<view class="dialog-row">
+						<text class="label required">联系方式</text>
+						<input v-model="clientForm.phone" placeholder="请输入联系方式" placeholder-class="placeholder" />
+					</view>
+					<view class="dialog-row">
+						<text class="label">客户类型</text>
+						<picker :range="customerTypes" range-key="label" :value="clientTypeIndex" @change="handleClientTypeChange">
+							<view class="dialog-value">{{ clientTypeText || '请选择' }}</view>
+						</picker>
+					</view>
+					<view class="dialog-row">
+						<text class="label">业务员</text>
+						<picker :range="salesOptions" range-key="label" :value="salesIndex" @change="handleSalesChange">
+							<view class="dialog-value">{{ salesText || '请选择' }}</view>
+						</picker>
+					</view>
+					<view class="dialog-row">
+						<text class="label">单位地址</text>
+						<input v-model="clientForm.address" placeholder="请输入单位地址" placeholder-class="placeholder" />
+					</view>
+					<view class="dialog-textarea">
+						<text class="label">备注</text>
+						<textarea v-model="clientForm.remark" placeholder="请输入备注" placeholder-class="placeholder" />
+					</view>
+				</scroll-view>
+				<view class="dialog-footer">
+					<button class="dialog-cancel" @click="closeClientCreate">取消</button>
+					<button class="dialog-submit" :disabled="clientSaving" @click="submitClientCreate">{{ clientSaving ? '保存中...' : '保存' }}</button>
+				</view>
 			</view>
 		</view>
 	</view>
@@ -225,6 +278,12 @@ const deliveryTypeOptions = Object.entries(deliveryTypeMap).map(([value, label])
 	value: Number(value),
 	label
 }))
+const customerTypes = [
+	{ label: '月结客户', value: '1' },
+	{ label: '现结客户', value: '2' },
+	{ label: '供应商', value: '3' },
+	{ label: '货运站代收', value: '4' }
+]
 const form = reactive({
 	cooperativeClientId: '',
 	companyName: '',
@@ -242,17 +301,20 @@ const deliveryDateValue = computed(() => (form.deliveryDate || '').slice(0, 10))
 const products = ref([])
 const crafts = ref([])
 const clientOptions = ref([])
+const salesOptions = ref([])
 const craftOptions = ref([])
 const showPicker = ref(false)
+const showClientCreate = ref(false)
+const clientSaving = ref(false)
 const pickerType = ref('')
 const pickerTitle = ref('')
 const pickerOptions = ref([])
+const pickerSearchKeyword = ref('')
 const productForm = reactive({
 	name: '',
 	trimmedSize: '',
 	orderQuantity: '',
-	unit: '',
-	money: ''
+	unit: ''
 })
 const craftForm = reactive({
 	productLocalId: '',
@@ -268,9 +330,61 @@ const craftForm = reactive({
 	customerMoney: '',
 	remark: ''
 })
+const clientForm = reactive({
+	name: '',
+	contact: '',
+	phone: '',
+	customerType: '',
+	sales: '',
+	address: '',
+	remark: ''
+})
+const zeroIfEmpty = value => (value === '' || value === null || value === undefined ? 0 : value)
+const toFixed4Number = value => Number(Number(value || 0).toFixed(4))
+const computedCraftCustomerAmount = (craft = {}) => {
+	const finishNum = Number(zeroIfEmpty(craft.finishNum ?? craft.orderQuantity))
+	const price = Number(zeroIfEmpty(craft.price ?? craft.unitPrice))
+	const startPrice = Number(zeroIfEmpty(craft.startPrice ?? craft.priceBase))
+	return toFixed4Number(Math.max(finishNum * price, startPrice))
+}
+const isCraftOfProduct = (craft = {}, product = {}) => {
+	const productValues = [product.localId, product.id, product.productId, product.name, product.productName]
+		.map(value => String(value || ''))
+		.filter(Boolean)
+	const craftValues = [craft.productLocalId, craft.productId, craft.productName, craft.name]
+		.map(value => String(value || ''))
+		.filter(Boolean)
+	return craftValues.some(value => productValues.includes(value))
+}
+const productCraftAmount = product => crafts.value
+	.filter(craft => isCraftOfProduct(craft, product))
+	.reduce((sum, craft) => sum + computedCraftCustomerAmount(craft), 0)
+const productFormAmountText = computed(() => '自动计算')
+const craftFormCustomerMoney = computed(() => computedCraftCustomerAmount(craftForm))
+const craftFormCustomerMoneyText = computed(() => craftFormCustomerMoney.value ? craftFormCustomerMoney.value : '自动计算')
+const filteredPickerOptions = computed(() => {
+	if (pickerType.value !== 'client') return pickerOptions.value
+	const keyword = pickerSearchKeyword.value.trim().toLowerCase()
+	if (!keyword) return pickerOptions.value
+	return pickerOptions.value.filter(item => {
+		const text = [
+			item.label,
+			item.subLabel,
+			item.value?.companyName,
+			item.value?.name,
+			item.value?.linkman,
+			item.value?.phone
+		].filter(Boolean).join(' ').toLowerCase()
+		return text.includes(keyword)
+	})
+})
+const clientTypeIndex = computed(() => Math.max(0, customerTypes.findIndex(item => item.value === clientForm.customerType)))
+const clientTypeText = computed(() => customerTypes.find(item => item.value === clientForm.customerType)?.label || '')
+const salesIndex = computed(() => Math.max(0, salesOptions.value.findIndex(item => String(item.value) === String(clientForm.sales))))
+const salesText = computed(() => salesOptions.value.find(item => String(item.value) === String(clientForm.sales))?.label || '')
 
 const formatProductCard = item => {
-	return [item.trimmedSize, item.orderQuantity, item.money ? `¥${item.money}` : ''].filter(Boolean).join('*') || '-'
+	return [item.trimmedSize, item.orderQuantity, productCraftAmount(item) ? `¥${productCraftAmount(item)}` : ''].filter(Boolean).join('*') || '-'
 }
 
 const formatCraftCard = item => {
@@ -278,7 +392,7 @@ const formatCraftCard = item => {
 		item.name,
 		item.orderQuantity,
 		item.unitPrice ? `¥${item.unitPrice}` : '',
-		item.customerMoney ? `¥${item.customerMoney}` : ''
+		computedCraftCustomerAmount(item) ? `¥${computedCraftCustomerAmount(item)}` : ''
 	].filter(Boolean).join('*') || '-'
 }
 
@@ -291,11 +405,108 @@ const openPicker = (type, title, options) => {
 	pickerType.value = type
 	pickerTitle.value = title
 	pickerOptions.value = options
+	pickerSearchKeyword.value = ''
 	showPicker.value = true
 }
 
 const closePicker = () => {
 	showPicker.value = false
+}
+
+const resetClientForm = () => {
+	clientForm.name = ''
+	clientForm.contact = ''
+	clientForm.phone = ''
+	clientForm.customerType = ''
+	clientForm.sales = ''
+	clientForm.address = ''
+	clientForm.remark = ''
+}
+
+const getUserRecords = data => {
+	const records = data?.records || data?.list || data
+	return Array.isArray(records) ? records : []
+}
+
+const loadSalesOptions = async () => {
+	try {
+		const data = await uni.$api.userAll({ name: '' })
+		salesOptions.value = getUserRecords(data).map(item => ({
+			label: item.name || item.userName || item.nickname || '-',
+			value: String(item.id || item.userId || item.name || '')
+		})).filter(item => item.value)
+	} catch (e) {
+		salesOptions.value = []
+	}
+}
+
+const openClientCreate = async () => {
+	resetClientForm()
+	showClientCreate.value = true
+	if (!salesOptions.value.length) await loadSalesOptions()
+}
+
+const closeClientCreate = () => {
+	if (clientSaving.value) return
+	showClientCreate.value = false
+}
+
+const handleClientTypeChange = event => {
+	const item = customerTypes[Number(event.detail.value)]
+	clientForm.customerType = item?.value || ''
+}
+
+const handleSalesChange = event => {
+	const item = salesOptions.value[Number(event.detail.value)]
+	clientForm.sales = item?.value || ''
+}
+
+const fillClientForm = client => {
+	form.cooperativeClientId = client.id
+	form.companyName = client.companyName || client.name || ''
+	form.linkman = client.linkman || client.contact || ''
+	form.phone = client.phone || ''
+	form.companyAddress = client.companyAddress || client.address || ''
+}
+
+const submitClientCreate = async () => {
+	if (!clientForm.name) return uni.showToast({ title: '请输入单位名称', icon: 'none' })
+	if (!clientForm.contact) return uni.showToast({ title: '请输入联系人', icon: 'none' })
+	if (!clientForm.phone) return uni.showToast({ title: '请输入联系方式', icon: 'none' })
+	if (clientSaving.value) return
+	clientSaving.value = true
+	try {
+		const payload = {
+			companyName: clientForm.name,
+			userId: clientForm.sales || undefined,
+			type: clientForm.customerType || undefined,
+			linkman: clientForm.contact,
+			phone: clientForm.phone,
+			companyAddress: clientForm.address,
+			remark: clientForm.remark
+		}
+		const created = await uni.$api.cooperativeClientAdd(payload)
+		const createdId = typeof created === 'string' || typeof created === 'number'
+			? created
+			: (created?.id || created?.cooperativeClientId || '')
+		const latest = getRecords(await uni.$api.cooperativeClientAll({ companyName: '' }))
+		clientOptions.value = latest
+		const selected = latest.find(item => String(item.id) === String(createdId))
+			|| latest.find(item => item.companyName === payload.companyName && item.phone === payload.phone)
+			|| {
+				...payload,
+				id: createdId,
+				companyName: payload.companyName
+			}
+		fillClientForm(selected)
+		uni.showToast({ title: '新增成功', icon: 'none' })
+		showClientCreate.value = false
+		closePicker()
+	} catch (e) {
+		uni.showToast({ title: e?.message || '新增失败', icon: 'none' })
+	} finally {
+		clientSaving.value = false
+	}
 }
 
 const openClientPicker = async () => {
@@ -335,7 +546,7 @@ const saveProduct = () => {
 		trimmedSize: productForm.trimmedSize,
 		orderQuantity: Number(productForm.orderQuantity || 0),
 		unit: productForm.unit,
-		money: Number(productForm.money || 0)
+		money: 0
 	})
 	resetProduct()
 }
@@ -345,11 +556,13 @@ const resetProduct = () => {
 	productForm.trimmedSize = ''
 	productForm.orderQuantity = ''
 	productForm.unit = ''
-	productForm.money = ''
 }
 
 const removeProduct = index => {
+	const product = products.value[index]
 	products.value.splice(index, 1)
+	if (!product) return
+	crafts.value = crafts.value.filter(craft => !isCraftOfProduct(craft, product))
 }
 
 const openCraftPicker = async () => {
@@ -384,11 +597,7 @@ const openProductPicker = () => {
 const selectPickerItem = item => {
 	if (pickerType.value === 'client') {
 		const client = item.value || {}
-		form.cooperativeClientId = client.id
-		form.companyName = client.companyName || client.name || ''
-		form.linkman = client.linkman || ''
-		form.phone = client.phone || ''
-		form.companyAddress = client.companyAddress || ''
+		fillClientForm(client)
 	}
 	if (pickerType.value === 'deliveryType') {
 		form.deliveryType = item.value
@@ -397,16 +606,16 @@ const selectPickerItem = item => {
 		const product = item.value || {}
 		craftForm.productLocalId = product.localId || ''
 		craftForm.productName = product.name || ''
-		craftForm.orderQuantity = product.orderQuantity || ''
-		craftForm.unit = craftForm.unit || product.unit || ''
 	}
 	if (pickerType.value === 'craft') {
 		const craft = item.value || {}
 		craftForm.craftId = craft.id
 		craftForm.name = craft.name || craft.craftName || ''
-		craftForm.priceBase = craft.priceBase || craft.startingPrice || ''
+		craftForm.specification = craft.spec || craft.specification || craft.formatSize || craftForm.specification || ''
+		craftForm.priceBase = zeroIfEmpty(craft.startPrice ?? craft.priceBase ?? craft.basePrice ?? craft.startingPrice)
 		craftForm.unit = craft.unit || craftForm.unit || ''
-		craftForm.formatSize = craft.formatSize || craft.numberPerEdition || ''
+		craftForm.formatSize = craft.openNum ?? craft.openCount ?? craft.formatSize ?? craft.numberPerEdition ?? craftForm.formatSize
+		craftForm.unitPrice = zeroIfEmpty(craft.price ?? craft.unitPrice ?? craftForm.unitPrice)
 	}
 	closePicker()
 }
@@ -428,7 +637,7 @@ const saveCraft = () => {
 		unit: craftForm.unit || '',
 		orderQuantity: Number(craftForm.orderQuantity || 0),
 		unitPrice: Number(craftForm.unitPrice || 0),
-		customerMoney: Number(craftForm.customerMoney || 0),
+		customerMoney: craftFormCustomerMoney.value,
 		remark: craftForm.remark || ''
 	})
 	resetCraft()
@@ -473,6 +682,29 @@ const handleNext = async () => {
 	} catch (e) {}
 }
 
+const buildCraftPayload = craft => ({
+	craftId: craft.craftId || undefined,
+	productName: craft.productName,
+	unit: craft.unit,
+	priceBase: Number(craft.priceBase || 0),
+	startPrice: Number(craft.priceBase || 0),
+	formatSize: Number(craft.formatSize || 0),
+	openNum: Number(craft.formatSize || 0),
+	name: craft.name,
+	craftName: craft.name,
+	orderQuantity: Number(craft.orderQuantity || 0),
+	finishNum: Number(craft.orderQuantity || 0),
+	remark: craft.remark,
+	specification: craft.specification,
+	spec: craft.specification,
+	unitPrice: Number(craft.unitPrice || 0),
+	price: Number(craft.unitPrice || 0),
+	customerMoney: computedCraftCustomerAmount(craft),
+	customerAmount: computedCraftCustomerAmount(craft)
+})
+
+const orderTotalAmount = () => products.value.reduce((sum, product) => sum + productCraftAmount(product), 0)
+
 const buildOrderPayload = () => ({
 	cooperativeClientId: form.cooperativeClientId,
 	companyName: form.companyName,
@@ -483,27 +715,23 @@ const buildOrderPayload = () => ({
 	deliveryType: form.deliveryType,
 	printingRequirements: form.printingRequirements,
 	remark: form.remark,
+	payMoney: orderTotalAmount(),
+	totalMoney: orderTotalAmount(),
 	productList: products.value.map(product => ({
-		money: Number(product.money || 0),
+		amount: productCraftAmount(product),
+		money: productCraftAmount(product),
 		name: product.name,
+		productName: product.name,
 		orderQuantity: Number(product.orderQuantity || 0),
+		quantity: Number(product.orderQuantity || 0),
 		trimmedSize: product.trimmedSize,
+		finishedSpec: product.trimmedSize,
 		unit: product.unit,
 		craftList: crafts.value
 			.filter(craft => craft.productLocalId === product.localId || craft.productName === product.name)
-			.map(craft => ({
-				craftId: craft.craftId,
-				unit: craft.unit,
-				priceBase: Number(craft.priceBase || 0),
-				formatSize: Number(craft.formatSize || 0),
-				name: craft.name,
-				orderQuantity: Number(craft.orderQuantity || 0),
-				remark: craft.remark,
-				specification: craft.specification,
-				unitPrice: Number(craft.unitPrice || 0),
-				customerMoney: Number(craft.customerMoney || 0)
-			}))
-	}))
+			.map(buildCraftPayload)
+	})),
+	craftList: crafts.value.map(buildCraftPayload)
 })
 
 const goBack = () => {
@@ -879,8 +1107,34 @@ picker{
 	font-weight: 300;
 	line-height: 1;
 }
+.picker-actions{
+	display: flex;
+	align-items: center;
+	gap: 28rpx;
+}
+.picker-add{
+	color: #1f7cff;
+	font-size: 28rpx;
+	font-weight: 500;
+	line-height: 1;
+}
+.picker-search{
+	padding: 20rpx 32rpx;
+	border-bottom: 1rpx solid #eeeeee;
+	input{
+		width: 100%;
+		height: 72rpx;
+		padding: 0 22rpx;
+		border: 1rpx solid #d8d8d8;
+		border-radius: 8rpx;
+		background: #fff;
+		color: #222;
+		font-size: 28rpx;
+		box-sizing: border-box;
+	}
+}
 .picker-list{
-	max-height: 56vh;
+	max-height: 48vh;
 }
 .picker-item{
 	padding: 24rpx 32rpx;
@@ -904,5 +1158,112 @@ picker{
 	color: #999;
 	font-size: 28rpx;
 	text-align: center;
+}
+.dialog-mask{
+	position: fixed;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 120;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 32rpx;
+	background: rgba(0, 0, 0, 0.38);
+	box-sizing: border-box;
+}
+.client-dialog{
+	width: 100%;
+	max-width: 360px;
+	max-height: 82vh;
+	border-radius: 18rpx;
+	background: #fff;
+	overflow: hidden;
+}
+.dialog-head{
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 92rpx;
+	padding: 0 28rpx;
+	border-bottom: 1rpx solid #eeeeee;
+	color: #222;
+	font-size: 31rpx;
+	font-weight: 600;
+}
+.dialog-close{
+	color: #999;
+	font-size: 42rpx;
+	font-weight: 300;
+	line-height: 1;
+}
+.dialog-body{
+	max-height: 56vh;
+	padding: 0 28rpx;
+	box-sizing: border-box;
+}
+.dialog-row{
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 96rpx;
+	border-bottom: 1rpx solid #eeeeee;
+	gap: 24rpx;
+	.label{
+		flex: 0 0 auto;
+		color: #333;
+		font-size: 28rpx;
+	}
+	input,
+	picker{
+		flex: 1;
+		min-width: 0;
+		text-align: right;
+		color: #222;
+		font-size: 28rpx;
+	}
+}
+.dialog-value{
+	color: #999;
+	text-align: right;
+	font-size: 28rpx;
+	line-height: 96rpx;
+}
+.dialog-textarea{
+	padding: 24rpx 0;
+	.label{
+		display: block;
+		margin-bottom: 16rpx;
+		color: #333;
+		font-size: 28rpx;
+	}
+	textarea{
+		width: 100%;
+		height: 132rpx;
+		color: #222;
+		font-size: 28rpx;
+		box-sizing: border-box;
+	}
+}
+.dialog-footer{
+	display: flex;
+	gap: 20rpx;
+	padding: 22rpx 28rpx 28rpx;
+	border-top: 1rpx solid #eeeeee;
+	button{
+		flex: 1;
+		height: 76rpx;
+		border-radius: 8rpx;
+		color: #fff;
+		font-size: 28rpx;
+		line-height: 76rpx;
+	}
+	.dialog-cancel{
+		background: #cfcfcf;
+	}
+	.dialog-submit{
+		background: #1f7cff;
+	}
 }
 </style>

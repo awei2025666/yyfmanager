@@ -34,7 +34,7 @@ import { onShow } from '@dcloudio/uni-app'
 
 const list = ref([])
 
-const normalizeStatus = item => item.deliveryStatus
+const normalizeStatus = item => Number(item.deliveryStatus ?? item.status ?? 1)
 const isDone = item => normalizeStatus(item) === 2
 const formatProduct = product => {
 	const name = product.name || product.productName || product.productInfo || ''
