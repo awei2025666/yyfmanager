@@ -150,8 +150,8 @@ onMounted(loadData)
             v-model="filters[field.key]"
             type="daterange"
             value-format="YYYY-MM-DD"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
+            start-placeholder="请选择开始日期"
+            end-placeholder="请选择结束日期"
           />
           <el-select
             v-else-if="field.type === 'select'"

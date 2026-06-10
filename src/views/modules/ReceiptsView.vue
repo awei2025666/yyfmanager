@@ -533,8 +533,8 @@ onMounted(() => {
             v-model="filters.createTime"
             type="daterange"
             value-format="YYYY-MM-DD"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
+            start-placeholder="请选择开始日期"
+            end-placeholder="请选择结束日期"
           />
         </el-form-item>
         <el-form-item class="search-actions">
@@ -714,10 +714,10 @@ onMounted(() => {
     <el-dialog v-model="orderDialogVisible" title="关联订单" width="88%" class="order-select-dialog" destroy-on-close>
       <el-form class="dialog-search" :model="orderFilters" label-position="top">
         <el-form-item label="订单号">
-          <el-input v-model="orderFilters.orderNo" clearable placeholder="请输入" @keyup.enter="searchSelectableOrders" />
+          <el-input v-model="orderFilters.orderNo" clearable placeholder="请输入订单号" @keyup.enter="searchSelectableOrders" />
         </el-form-item>
         <el-form-item label="产品名称">
-          <el-input v-model="orderFilters.productInfo" clearable placeholder="请输入" @keyup.enter="searchSelectableOrders" />
+          <el-input v-model="orderFilters.productInfo" clearable placeholder="请输入产品信息" @keyup.enter="searchSelectableOrders" />
         </el-form-item>
         <el-form-item class="dialog-actions">
           <el-button type="primary" :icon="Search" @click="searchSelectableOrders">查询</el-button>

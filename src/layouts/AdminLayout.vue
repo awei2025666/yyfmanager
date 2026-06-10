@@ -360,9 +360,9 @@ onMounted(loadUserInfo)
         class="sidebar-menu"
         :default-active="activeMenuName"
         :default-openeds="openGroupIndexes"
-        background-color="#ffffff"
-        text-color="#606266"
-        active-text-color="#409eff"
+        background-color="#303133"
+        text-color="#c0c4cc"
+        active-text-color="#ffffff"
         @select="handleMenuSelect"
       >
         <template v-for="item in menus" :key="item.name || item.label">
@@ -386,9 +386,9 @@ onMounted(loadUserInfo)
 
     <div class="admin-main">
       <header class="admin-topbar">
-        <button type="button" class="screen-button" @click="openLargeScreen">可视化大屏</button>
+        <el-button type="primary" @click="openLargeScreen">可视化大屏</el-button>
         <div class="topbar-actions">
-          <button type="button" class="vip-pill" @click="openDurationPurchase">剩余<strong>{{ vipDayText }}</strong>天到期</button>
+          <el-button round class="vip-pill" @click="openDurationPurchase">剩余<strong>{{ vipDayText }}</strong>天到期</el-button>
           <el-dropdown trigger="click" popper-class="avatar-dropdown" @command="(command) => command === 'password' ? openPasswordDialog() : logout()">
             <button type="button" class="avatar-button" :title="currentAccount">
               <img v-if="userState.avatar" :src="userState.avatar" alt="头像" />
@@ -409,15 +409,6 @@ onMounted(loadUserInfo)
           </el-dropdown>
         </div>
       </header>
-
-      <div class="admin-tabs">
-        <span class="collapse-icon">▸</span>
-        <a class="tab muted" href="/dashboard">主页</a>
-        <span class="tab active">
-          {{ activeTitle }}
-          <a v-if="route.name !== 'dashboard'" class="tab-close" href="/dashboard">×</a>
-        </span>
-      </div>
 
       <router-view :key="route.name" />
     </div>
@@ -466,8 +457,8 @@ onMounted(loadUserInfo)
   height: 100vh;
   padding: 0 0 16px;
   border-radius: 0;
-  background: #ffffff;
-  color: #303133;
+  background: #303133;
+  color: #c0c4cc;
   box-shadow: 1px 0 4px rgb(0 21 41 / 8%);
   overflow: hidden;
 }
@@ -480,7 +471,7 @@ onMounted(loadUserInfo)
   padding: 0 16px;
   border-radius: 0;
   background: transparent;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .brand__mark {
@@ -507,7 +498,7 @@ onMounted(loadUserInfo)
 }
 
 .brand strong {
-  color: #303133;
+  color: #ffffff;
   font-size: 18px;
   line-height: 1;
 }
@@ -531,7 +522,6 @@ onMounted(loadUserInfo)
   margin: 0;
   padding: 0 18px !important;
   border-radius: 0;
-  color: #606266;
   font-size: 14px;
   font-weight: 500;
   transition: background 0.18s ease, color 0.18s ease;
@@ -549,7 +539,6 @@ onMounted(loadUserInfo)
   margin: 0;
   padding-left: 42px !important;
   border-radius: 0;
-  color: #606266;
   font-size: 14px;
   font-weight: 400;
 }
@@ -562,35 +551,28 @@ onMounted(loadUserInfo)
 
 .sidebar-menu :deep(.el-menu-item:hover),
 .sidebar-menu :deep(.el-sub-menu__title:hover) {
-  background: #e6f4ff;
-  color: #409eff;
+  background: #3a3b3d;
+  color: #ffffff;
 }
 
 .sidebar-menu :deep(.el-sub-menu.is-opened > .el-sub-menu__title) {
-  background: #ffffff;
-  color: #409eff;
+  background: #303133;
+  color: #ffffff;
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active) {
-  background: #e6f4ff !important;
-  color: #409eff !important;
+  background: #2563ff !important;
+  color: #ffffff !important;
   font-weight: 700;
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active::after) {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: 8px;
-  width: 3px;
-  height: 26px;
-  border-radius: 2px 0 0 2px;
-  background: #409eff;
+  content: none;
 }
 
 .sidebar-menu :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
-  color: #409eff !important;
-  background: #ffffff;
+  color: #ffffff !important;
+  background: #303133;
 }
 
 .sidebar-menu :deep(.el-sub-menu__icon-arrow) {
@@ -617,18 +599,6 @@ onMounted(loadUserInfo)
   box-shadow: 0 1px 4px rgb(0 21 41 / 8%);
 }
 
-.screen-button {
-  height: 32px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 4px;
-  background: #409eff;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
 .topbar-actions {
   display: flex;
   align-items: center;
@@ -636,17 +606,9 @@ onMounted(loadUserInfo)
 }
 
 .vip-pill {
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 14px;
   border: 0;
-  border-radius: 16px;
   background: #e6f4ff;
   color: #303133;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
 }
 
 .vip-pill strong {
@@ -704,51 +666,9 @@ onMounted(loadUserInfo)
   border-radius: 6px;
 }
 
-.admin-tabs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 20px;
-}
-
-.collapse-icon {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.tab {
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 12px;
-  border-radius: 4px;
-  border: 1px solid #dcdfe6;
-  background: #ffffff;
-  color: #303133;
-  font-size: 14px;
-  text-decoration: none;
-}
-
-.tab.muted {
-  color: #a0a0a0;
-}
-
-.tab.active {
-  font-weight: 700;
-}
-
-.tab-close {
-  margin-left: 8px;
-  color: #606266;
-  font-size: 16px;
-  font-weight: 400;
-  line-height: 1;
-  text-decoration: none;
-}
-
 .admin-main > :deep(.page-stack),
-.admin-main > :deep(.special-stack) {
+.admin-main > :deep(.special-stack),
+.admin-main > :deep(.dashboard-page) {
   padding: 0 20px;
 }
 

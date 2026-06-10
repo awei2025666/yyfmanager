@@ -447,7 +447,7 @@ onMounted(loadData)
             </div>
           </el-form-item>
           <el-form-item label="备注" class="full">
-            <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="输入" />
+            <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注" />
           </el-form-item>
         </el-form>
         <section class="selected-order-section">
@@ -481,8 +481,8 @@ onMounted(loadData)
 
     <el-dialog v-model="orderPickerVisible" title="选择订单" width="980px">
       <div class="picker-head">
-        <el-input v-model="orderPicker.companyName" clearable placeholder="单位名称" @keyup.enter="searchOrderOptions" />
-        <el-input v-model="orderPicker.orderId" clearable placeholder="订单号" @keyup.enter="searchOrderOptions" />
+        <el-input v-model="orderPicker.companyName" clearable placeholder="请输入单位名称" @keyup.enter="searchOrderOptions" />
+        <el-input v-model="orderPicker.orderId" clearable placeholder="请输入订单号" @keyup.enter="searchOrderOptions" />
         <el-button type="primary" :icon="Search" @click="searchOrderOptions">查询</el-button>
       </div>
       <el-table v-loading="orderPicker.loading" :data="orderPicker.records" border>

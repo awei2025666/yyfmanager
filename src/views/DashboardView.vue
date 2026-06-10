@@ -194,17 +194,17 @@ const renderChart = () => {
 
   chart.setOption({
     tooltip: { trigger: 'axis' },
-    legend: { top: 8, right: 24, itemWidth: 28, itemHeight: 16, textStyle: { fontSize: 16 } },
-    grid: { top: 72, left: 52, right: 52, bottom: 42 },
+    legend: { top: 8, right: 16, itemWidth: 24, itemHeight: 14, textStyle: { fontSize: 14 } },
+    grid: { top: 64, left: 44, right: 44, bottom: 36 },
     xAxis: {
       type: 'category',
       data: state.trend.map((item) => item.day),
       axisTick: { alignWithLabel: true },
-      axisLabel: { fontSize: 16 }
+      axisLabel: { fontSize: 14 }
     },
     yAxis: [
-      { type: 'value', axisLabel: { fontSize: 16 }, splitLine: { lineStyle: { color: '#d7d7d7' } } },
-      { type: 'value', axisLabel: { fontSize: 16 }, splitLine: { show: false } }
+      { type: 'value', axisLabel: { fontSize: 14 }, splitLine: { lineStyle: { color: '#d7d7d7' } } },
+      { type: 'value', axisLabel: { fontSize: 14 }, splitLine: { show: false } }
     ],
     series
   }, true)
@@ -253,10 +253,10 @@ onBeforeUnmount(() => {
   <div class="dashboard-page">
     <section class="welcome-panel">
       <div class="welcome-user">
-        <div class="welcome-avatar">
+        <el-avatar class="welcome-avatar" :size="48">
           <img v-if="state.avatar" :src="state.avatar" alt="头像" />
           <span v-else>{{ accountInitial }}</span>
-        </div>
+        </el-avatar>
         <strong>{{ currentAccount }}，欢迎回来</strong>
       </div>
       <p>欢迎使用印刷ERP管理系统</p>
@@ -285,7 +285,7 @@ onBeforeUnmount(() => {
 
         <div class="bottom-tables">
           <PageBlock title="实时订单">
-            <el-table :data="state.orders" empty-text="暂无实时订单">
+            <el-table :data="state.orders" empty-text="暂无实时订单" size="default">
               <el-table-column prop="orderId" label="订单号" min-width="150" />
               <el-table-column prop="companyName" label="单位名称" min-width="180" />
               <el-table-column prop="status" label="订单状态" min-width="120">
@@ -302,7 +302,7 @@ onBeforeUnmount(() => {
           </PageBlock>
 
           <PageBlock title="产品工艺">
-            <el-table :data="state.crafts" empty-text="暂无工艺看板数据">
+            <el-table :data="state.crafts" empty-text="暂无工艺看板数据" size="default">
               <el-table-column prop="companyName" label="单位名称" min-width="150" />
               <el-table-column prop="craftName" label="工艺名称" min-width="150" />
               <el-table-column label="工艺状态" min-width="120">
@@ -335,20 +335,21 @@ onBeforeUnmount(() => {
 
         <PageBlock title="待办事项" class="side-card side-card--todo">
           <div class="quick-grid compact">
-            <button v-for="item in pendingActions" :key="item.label" type="button" @click="openDashboardAction(item)">
-              <span v-if="item.getBadge?.()">{{ item.getBadge() }}</span>
+            <el-button v-for="item in pendingActions" :key="item.label" text class="quick-action" @click="openDashboardAction(item)">
+              <el-badge :value="item.getBadge?.()" :hidden="!item.getBadge?.()">
               <em><el-icon><component :is="item.icon" /></el-icon></em>
+              </el-badge>
               <strong>{{ item.label }}</strong>
-            </button>
+            </el-button>
           </div>
         </PageBlock>
 
         <PageBlock title="快捷功能" class="side-card side-card--quick">
           <div class="quick-grid">
-            <button v-for="item in quickActions" :key="item.label" type="button" @click="openDashboardAction(item)">
+            <el-button v-for="item in quickActions" :key="item.label" text class="quick-action" @click="openDashboardAction(item)">
               <em><el-icon><component :is="item.icon" /></el-icon></em>
               <strong>{{ item.label }}</strong>
-            </button>
+            </el-button>
           </div>
         </PageBlock>
       </aside>
@@ -361,67 +362,57 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  color: var(--el-text-color-primary);
+  font-size: var(--el-font-size-base);
 }
 
 .welcome-panel {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 72px;
-  padding: 16px 20px;
-  border: 1px solid #ebeef5;
+  min-height: 88px;
+  padding: 20px 24px;
+  border: 1px solid var(--el-border-color-light);
   border-radius: 4px;
-  background: #ffffff;
+  background: var(--el-bg-color);
 }
 
 .welcome-user {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 
 .welcome-avatar {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
   background: linear-gradient(135deg, #caa17d, #1f2933);
-  color: #ffffff;
-  font-size: 16px;
+  color: var(--el-color-white);
+  font-size: var(--el-font-size-base);
   font-weight: 800;
-  overflow: hidden;
-}
-
-.welcome-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .welcome-user strong {
-  font-size: 18px;
+  font-size: var(--el-font-size-medium);
+  line-height: 1.4;
 }
 
 .welcome-panel p {
   margin: 0;
-  color: #909399;
-  font-size: 14px;
-  font-weight: 500;
+  color: var(--el-text-color-secondary);
+  font-size: var(--el-font-size-base);
 }
 
 .dashboard-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   align-items: start;
-  gap: 18px;
+  gap: 12px;
 }
 
 .dashboard-main,
 .dashboard-side {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .dashboard-side {
@@ -431,17 +422,18 @@ onBeforeUnmount(() => {
 .data-overview {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  padding: 20px 0;
-  border-top: 1px solid #ebeef5;
-  border-bottom: 1px solid #ebeef5;
+  padding: 16px 0;
+  border-top: 1px solid var(--el-border-color-lighter);
+  border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
 .metric-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 18px;
-  border-right: 1px solid #ebeef5;
+  gap: 16px;
+  min-height: 72px;
+  padding: 0 16px;
+  border-right: 1px solid var(--el-border-color-lighter);
 }
 
 .metric-item:last-child {
@@ -449,74 +441,77 @@ onBeforeUnmount(() => {
 }
 
 .metric-icon {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: #f4f6fb;
-  color: #409eff;
-  font-size: 22px;
+  background: var(--el-fill-color-light);
+  color: var(--el-color-primary);
+  font-size: 20px;
   flex: 0 0 auto;
 }
 
 .metric-item p {
-  margin: 0 0 6px;
-  font-size: 14px;
+  margin: 0 0 8px;
+  color: var(--el-text-color-primary);
+  font-size: var(--el-font-size-base);
   font-weight: 600;
 }
 
 .metric-item strong {
   display: block;
-  font-size: 24px;
-  font-weight: 500;
-  line-height: 1.15;
+  color: var(--el-text-color-primary);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .metric-item span {
   display: block;
-  margin-top: 8px;
-  color: #20c35a;
-  font-size: 13px;
+  margin-top: 6px;
+  color: var(--el-color-success);
+  font-size: var(--el-font-size-extra-small);
 }
 
 .metric-item span.down {
-  color: #ff4261;
+  color: var(--el-color-danger);
 }
 
 .chart-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-top: 12px;
+  padding-top: 20px;
 }
 
 .chart-head h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--el-font-size-medium);
+  line-height: 1.4;
 }
 
 .chart-box {
-  height: 320px;
+  height: 300px;
 }
 
 .bottom-tables {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 12px;
 }
 
 .status-text {
-  color: #ff8a00;
+  color: var(--el-color-warning);
 }
 
 .status-text.produced {
-  color: #22c55e;
+  color: var(--el-color-success);
 }
 
 .activity-list {
   display: grid;
   gap: 12px;
-  color: #7a8594;
-  font-size: 14px;
+  color: var(--el-text-color-secondary);
+  font-size: var(--el-font-size-base);
 }
 
 .activity-list div {
@@ -534,97 +529,65 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.side-card :deep(.page-block__head) {
-  padding: 16px 16px 0;
-}
-
-.side-card :deep(.page-block__title) {
-  font-size: 16px;
-}
-
-.side-card :deep(.page-block__body) {
-  padding: 16px;
-}
-
 .side-more {
-  border: 0;
-  background: transparent;
-  color: #409eff;
-  font-size: 14px;
+  color: var(--el-color-primary);
+  font-size: var(--el-font-size-base);
   font-weight: 500;
   text-decoration: none;
-  cursor: pointer;
 }
 
 .side-card--updates {
-  min-height: 180px;
+  min-height: 172px;
 }
 
 .side-card--todo {
-  min-height: 190px;
+  min-height: 184px;
 }
 
 .side-card--quick {
-  min-height: 300px;
+  min-height: 292px;
 }
 
 .quick-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px 12px;
+  gap: 16px 12px;
 }
 
-.quick-grid button {
-  position: relative;
+.quick-action {
+  width: 100%;
+  height: auto;
+  min-height: 72px;
+  padding: 0;
+  color: var(--el-text-color-primary);
+}
+
+.quick-action :deep(> span) {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  border: 0;
-  min-height: 72px;
-  padding: 0;
-  background: transparent;
-  color: #303133;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
 }
 
 .quick-grid em {
-  position: relative;
   width: 42px;
   height: 42px;
   display: grid;
   place-items: center;
   border-radius: 4px;
-  background: #f5f7fa;
-  color: #303133;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-primary);
   font-style: normal;
-  font-size: 22px;
+  font-size: 20px;
 }
 
 .quick-grid strong {
   max-width: 100%;
-  color: #303133;
-  font-size: 14px;
+  color: var(--el-text-color-primary);
+  font-size: var(--el-font-size-base);
   line-height: 1.25;
   font-weight: 600;
   white-space: nowrap;
-}
-
-.quick-grid span {
-  position: absolute;
-  top: -10px;
-  left: calc(50% - 42px);
-  z-index: 1;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: #ff4261;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 30px;
 }
 
 @media (max-width: 1180px) {

@@ -145,8 +145,8 @@ onMounted(loadData)
       </template>
 
       <div class="filter-grid">
-        <el-input v-model="filters.name" placeholder="套餐名称" />
-        <el-select v-model="filters.status" placeholder="状态" clearable>
+        <el-input v-model="filters.name" placeholder="请输入套餐名称" />
+        <el-select v-model="filters.status" placeholder="请选择状态" clearable>
           <el-option label="已启用" :value="1" />
           <el-option label="已禁用" :value="0" />
         </el-select>

@@ -368,8 +368,8 @@ onMounted(async () => {
             v-model="filters.createTimeRange"
             type="daterange"
             value-format="YYYY-MM-DD"
-            start-placeholder="开始时间"
-            end-placeholder="结束时间"
+            start-placeholder="请选择开始时间"
+            end-placeholder="请选择结束时间"
             range-separator="至"
           />
         </el-form-item>

@@ -201,15 +201,15 @@ onMounted(() => {
         <div class="craft-search-grid">
           <label>
             <span>工艺名称</span>
-            <el-input v-model="filters.name" placeholder="请输入" />
+            <el-input v-model="filters.name" placeholder="请输入工艺名称" />
           </label>
           <label>
             <span>单位</span>
-            <el-input v-model="filters.unit" placeholder="请输入" />
+            <el-input v-model="filters.unit" placeholder="请输入单位" />
           </label>
           <label>
             <span>状态</span>
-            <el-select v-model="filters.status" placeholder="请选择" clearable>
+            <el-select v-model="filters.status" placeholder="请选择状态" clearable>
               <el-option label="启用" :value="1" />
               <el-option label="禁用" :value="0" />
             </el-select>
@@ -272,31 +272,31 @@ onMounted(() => {
         <div class="craft-form-grid">
           <label>
             <span><em>*</em>工艺名称</span>
-            <el-input v-model="form.name" placeholder="输入" />
+            <el-input v-model="form.name" placeholder="请输入工艺名称" />
           </label>
           <label>
             <span><em>*</em>起价基数</span>
-            <el-input v-model="form.priceBase" placeholder="输入" />
+            <el-input v-model="form.priceBase" placeholder="请输入起步价" />
           </label>
           <label>
             <span><em>*</em>单位</span>
-            <el-input v-model="form.unit" placeholder="输入" />
+            <el-input v-model="form.unit" placeholder="请输入单位" />
           </label>
           <label>
             <span>开数</span>
-            <el-input v-model="form.formatSize" placeholder="输入" />
+            <el-input v-model="form.formatSize" placeholder="请输入成品规格" />
           </label>
           <label>
             <span>专色</span>
-            <el-input v-model="form.spotColors" placeholder="输入" />
+            <el-input v-model="form.spotColors" placeholder="请输入专色" />
           </label>
           <label>
             <span>排序</span>
-            <el-input v-model="form.sort" placeholder="输入" />
+            <el-input v-model="form.sort" placeholder="请输入排序" />
           </label>
           <label class="craft-form-remark">
             <span>描述</span>
-            <el-input v-model="form.remark" type="textarea" :rows="4" placeholder="输入" />
+            <el-input v-model="form.remark" type="textarea" :rows="4" placeholder="请输入备注" />
           </label>
         </div>
       </PageBlock>

@@ -532,10 +532,10 @@ onMounted(() => {
             </el-select>
           </el-form-item>
           <el-form-item label="耗材单位">
-            <el-input v-model="form.consumableUnit" disabled placeholder="默认带出" />
+            <el-input v-model="form.consumableUnit" disabled placeholder="请输入耗材单位" />
           </el-form-item>
           <el-form-item label="耗材价值">
-            <el-input v-model="form.consumableMoney" disabled placeholder="默认带出">
+            <el-input v-model="form.consumableMoney" disabled placeholder="请输入耗材金额">
               <template #append>元</template>
             </el-input>
           </el-form-item>
@@ -672,8 +672,8 @@ onMounted(() => {
 
     <el-dialog v-model="orderPickerVisible" title="选择订单" width="980px">
       <div class="picker-head">
-        <el-input v-model="orderPicker.companyName" clearable placeholder="单位名称" @keyup.enter="searchOrderOptions" />
-        <el-input v-model="orderPicker.orderNo" clearable placeholder="订单号" @keyup.enter="searchOrderOptions" />
+        <el-input v-model="orderPicker.companyName" clearable placeholder="请输入单位名称" @keyup.enter="searchOrderOptions" />
+        <el-input v-model="orderPicker.orderNo" clearable placeholder="请输入订单号" @keyup.enter="searchOrderOptions" />
         <el-button type="primary" :icon="Search" @click="searchOrderOptions">查询</el-button>
       </div>
       <el-table v-loading="orderPicker.loading" :data="orderPicker.records" border>

@@ -1149,19 +1149,19 @@ watch(
       <div class="filter-grid">
         <label>
           <span>单位名称</span>
-          <el-input v-model="filters.companyName" placeholder="请输入" />
+          <el-input v-model="filters.companyName" placeholder="请输入单位名称" />
         </label>
         <label>
           <span>业务员</span>
-          <el-input v-model="filters.fillUserName" placeholder="请输入" />
+          <el-input v-model="filters.fillUserName" placeholder="请输入业务员" />
         </label>
         <label>
           <span>订单号</span>
-          <el-input v-model="filters.orderId" placeholder="请输入" />
+          <el-input v-model="filters.orderId" placeholder="请输入订单号" />
         </label>
         <label>
           <span>订单状态</span>
-          <el-select v-model="filters.status" placeholder="请选择" clearable>
+          <el-select v-model="filters.status" placeholder="请选择订单状态" clearable>
             <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </label>
@@ -1171,8 +1171,8 @@ watch(
             v-model="filters.orderTimeRange"
             type="daterange"
             value-format="YYYY-MM-DD"
-            start-placeholder="开始时间"
-            end-placeholder="结束时间"
+            start-placeholder="请选择开始时间"
+            end-placeholder="请选择结束时间"
             range-separator="至"
           />
         </label>
@@ -1186,15 +1186,17 @@ watch(
     <PageBlock v-if="viewMode === 'list'" class="table-card">
       <div class="list-actions">
         <el-button type="primary" :icon="Plus" @click="openAdd">添加</el-button>
-        <div class="auto-approve">
-          <span>自动审批</span>
-          <el-switch
-            :model-value="autoApprove"
-            :loading="autoApproveLoading"
-            @change="changeAutoApprove"
-          />
+        <div class="list-actions__right">
+          <div class="auto-approve">
+            <span>自动审批</span>
+            <el-switch
+              :model-value="autoApprove"
+              :loading="autoApproveLoading"
+              @change="changeAutoApprove"
+            />
+          </div>
+          <el-button :icon="Refresh" @click="loadData">刷新</el-button>
         </div>
-        <el-button :icon="Refresh" @click="loadData">刷新</el-button>
       </div>
 
       <div v-if="activeFilters.length" class="filter-tags">
@@ -1297,11 +1299,11 @@ watch(
           <div class="outsource-search">
             <label>
               <span>会员id</span>
-              <el-input v-model="outsourceFilters.memberId" placeholder="请输入" />
+              <el-input v-model="outsourceFilters.memberId" placeholder="请输入会员id" />
             </label>
             <label>
               <span>会员名称</span>
-              <el-input v-model="outsourceFilters.memberName" placeholder="请输入" />
+              <el-input v-model="outsourceFilters.memberName" placeholder="请输入会员名称" />
             </label>
             <div class="outsource-search__actions">
               <el-button type="primary" :icon="Search" @click="loadOutsourceUnits">查询</el-button>
@@ -1340,7 +1342,7 @@ watch(
                 remote
                 clearable
                 reserve-keyword
-                placeholder="边输边搜"
+                placeholder="请输入单位名称"
                 :remote-method="searchClients"
                 :loading="clientSearching"
                 @visible-change="handleClientDropdownVisible"
@@ -1356,15 +1358,15 @@ watch(
             </label>
             <label>
               <span><em>*</em>联系人</span>
-              <el-input v-model="formState.linkman" disabled placeholder="根据所选单位自动带出" />
+              <el-input v-model="formState.linkman" disabled placeholder="请输入联系人" />
             </label>
             <label>
               <span><em>*</em>联系方式</span>
-              <el-input v-model="formState.phone" disabled placeholder="根据所选单位自动带出" />
+              <el-input v-model="formState.phone" disabled placeholder="请输入联系方式" />
             </label>
             <label class="full-span">
               <span><em>*</em>送货地址</span>
-              <el-input v-model="formState.companyAddress" disabled placeholder="根据所选单位自动带出" />
+              <el-input v-model="formState.companyAddress" disabled placeholder="请输入送货地址" />
             </label>
             <label>
               <span><em>*</em>交货日期</span>
@@ -1372,22 +1374,22 @@ watch(
                 v-model="formState.deliveryDate"
                 type="datetime"
                 value-format="YYYY-MM-DD HH:mm:ss"
-                placeholder="年/月/日 时:分"
+                placeholder="请选择交货日期"
               />
             </label>
             <label>
               <span><em>*</em>交货方式</span>
-              <el-select v-model="formState.deliveryType" placeholder="请选择">
+              <el-select v-model="formState.deliveryType" placeholder="请选择交货方式">
                 <el-option v-for="item in deliveryTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </label>
             <label class="full-span">
               <span>印刷要求</span>
-              <el-input v-model="formState.printingRequirements" placeholder="输入" />
+              <el-input v-model="formState.printingRequirements" placeholder="请输入印刷要求" />
             </label>
             <label class="full-span">
               <span>备注</span>
-              <el-input v-model="formState.remark" type="textarea" :rows="4" placeholder="输入" />
+              <el-input v-model="formState.remark" type="textarea" :rows="4" placeholder="请输入备注" />
             </label>
           </div>
         </template>
@@ -1396,25 +1398,25 @@ watch(
           <el-table :data="productRows" class="design-table">
             <el-table-column prop="productName" label="产品名称" min-width="460">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.productName" placeholder="请输入" />
+                <el-input v-if="row._isEditing" v-model="row.productName" placeholder="请输入产品名称" />
                 <span v-else>{{ row.productName || '-' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="finishedSpec" label="成品规格" min-width="150">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.finishedSpec" placeholder="请输入" />
+                <el-input v-if="row._isEditing" v-model="row.finishedSpec" placeholder="请输入成品规格" />
                 <span v-else>{{ row.finishedSpec || '-' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="quantity" label="订货数量" min-width="150">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.quantity" placeholder="请输入" />
+                <el-input v-if="row._isEditing" v-model="row.quantity" placeholder="请输入数量" />
                 <span v-else>{{ row.quantity || '-' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="unit" label="单位" min-width="130">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.unit" placeholder="请输入" />
+                <el-input v-if="row._isEditing" v-model="row.unit" placeholder="请输入单位" />
                 <span v-else>{{ row.unit || '-' }}</span>
               </template>
             </el-table-column>
@@ -1444,7 +1446,7 @@ watch(
           <el-table :data="craftRows" class="design-table">
             <el-table-column prop="productName" label="产品名称" min-width="150">
               <template #default="{ row }">
-                <el-select v-if="row._isEditing" v-model="row.productName" placeholder="请选择" @change="selectCraftProduct(row)">
+                <el-select v-if="row._isEditing" v-model="row.productName" placeholder="请选择产品" @change="selectCraftProduct(row)">
                   <el-option
                     v-for="item in savedProductOptions"
                     :key="item.optionId"
@@ -1464,7 +1466,7 @@ watch(
                   remote
                   clearable
                   reserve-keyword
-                  placeholder="边输边搜"
+                  placeholder="请输入工艺名称"
                   :remote-method="searchCrafts"
                   :loading="craftSearching"
                   @visible-change="handleCraftDropdownVisible"
@@ -1482,37 +1484,37 @@ watch(
             </el-table-column>
             <el-table-column prop="spec" label="规格" min-width="120">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.spec" placeholder="请输入" />
+                <el-input v-if="row._isEditing" v-model="row.spec" placeholder="请输入规格" />
                 <span v-else>{{ row.spec || '-' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="openNum" label="开数" min-width="120">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.openNum" placeholder="请输入" />
+                <el-input v-if="row._isEditing" v-model="row.openNum" placeholder="请输入开数" />
                 <span v-else>{{ row.openNum || '-' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="startPrice" label="起价" min-width="120">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.startPrice" placeholder="请输入" />
+                <el-input v-if="row._isEditing" v-model="row.startPrice" placeholder="请输入起步价" />
                 <span v-else>{{ row.startPrice === '' || row.startPrice === undefined || row.startPrice === null ? '-' : row.startPrice }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="finishNum" label="成品数量" min-width="150">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.finishNum" placeholder="请输入" />
+                <el-input v-if="row._isEditing" v-model="row.finishNum" placeholder="请输入成品数" />
                 <span v-else>{{ row.finishNum === '' || row.finishNum === undefined || row.finishNum === null ? '-' : row.finishNum }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="unit" label="单位" min-width="120">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.unit" placeholder="请输入" />
+                <el-input v-if="row._isEditing" v-model="row.unit" placeholder="请输入单位" />
                 <span v-else>{{ row.unit || '-' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="price" label="单价" min-width="120">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.price" placeholder="请输入" />
+                <el-input v-if="row._isEditing" v-model="row.price" placeholder="请输入价格" />
                 <span v-else>{{ formatMoney(row.price) }}</span>
               </template>
             </el-table-column>
@@ -1523,7 +1525,7 @@ watch(
             </el-table-column>
             <el-table-column prop="remark" label="备注" min-width="150">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.remark" placeholder="请输入" />
+                <el-input v-if="row._isEditing" v-model="row.remark" placeholder="请输入备注" />
                 <span v-else>{{ row.remark || '-' }}</span>
               </template>
             </el-table-column>
@@ -1649,7 +1651,7 @@ watch(
     </el-dialog>
 
     <el-dialog v-model="approveVisible" title="通过订单" width="620px">
-      <el-input v-model="approvalRemark" type="textarea" :rows="5" placeholder="备注" />
+      <el-input v-model="approvalRemark" type="textarea" :rows="5" placeholder="请输入备注" />
       <template #footer>
         <el-button @click="approveVisible = false">取消</el-button>
         <el-button type="primary" @click="confirmApprove">确定</el-button>
@@ -1789,9 +1791,16 @@ watch(
 
 .list-actions {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.list-actions__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .table-meta {

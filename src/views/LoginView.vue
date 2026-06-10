@@ -42,8 +42,8 @@ const submit = async () => {
     <div class="login-card">
       <div class="login-copy">
         <p>PRINTING PLATFORM</p>
-        <h1>YYF 管理后台</h1>
-        <span>按墨刀原型风格扩展为完整的 Vue3 + Element Plus 多页面后台。</span>
+        <h1>风行猫印刷ERP管理后台</h1>
+        <span>为企业提供在线订单管理系统、订单进度跟踪、生产流程协作等企业级服务。</span>
       </div>
 
       <el-form label-position="top" :model="form" class="login-form">
@@ -58,7 +58,7 @@ const submit = async () => {
             v-model="form.token"
             type="textarea"
             :rows="4"
-            placeholder="如果你已经有租户端 token，可以直接填入；留空则走登录接口。"
+            placeholder="请输入Token"
           />
         </el-form-item>
         <el-button type="primary" class="login-button" :loading="loading" @click="submit">

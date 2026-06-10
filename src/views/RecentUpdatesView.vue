@@ -113,11 +113,11 @@ onMounted(loadUpdates)
     <section class="recent-filter">
       <label>
         <span>动态标题</span>
-        <el-input v-model="filters.keyword" placeholder="请输入" clearable @keyup.enter="searchUpdates" />
+        <el-input v-model="filters.keyword" placeholder="请输入关键词" clearable @keyup.enter="searchUpdates" />
       </label>
       <label>
         <span>动态类型</span>
-        <el-select v-model="filters.type" placeholder="请选择" clearable>
+        <el-select v-model="filters.type" placeholder="请选择类型" clearable>
           <el-option v-for="item in typeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </label>

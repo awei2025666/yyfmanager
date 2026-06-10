@@ -419,8 +419,8 @@ onMounted(() => {
             v-model="filters.createdAt"
             type="daterange"
             value-format="YYYY-MM-DD"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
+            start-placeholder="请选择开始日期"
+            end-placeholder="请选择结束日期"
           />
         </el-form-item>
         <el-form-item class="search-actions">
@@ -468,8 +468,8 @@ onMounted(() => {
         <section>
           <div class="picker-head">
             <strong>订单信息</strong>
-            <el-input v-model="orderPicker.companyName" clearable placeholder="单位名称" @keyup.enter="searchOrderOptions" />
-            <el-input v-model="orderPicker.orderId" clearable placeholder="订单号" @keyup.enter="searchOrderOptions" />
+            <el-input v-model="orderPicker.companyName" clearable placeholder="请输入单位名称" @keyup.enter="searchOrderOptions" />
+            <el-input v-model="orderPicker.orderId" clearable placeholder="请输入订单号" @keyup.enter="searchOrderOptions" />
             <el-button type="primary" :icon="Search" @click="searchOrderOptions">查询</el-button>
           </div>
           <el-table
@@ -505,7 +505,7 @@ onMounted(() => {
         <section>
           <div class="picker-head">
             <strong>配送员</strong>
-            <el-input v-model="userPicker.name" clearable placeholder="配送员姓名" @keyup.enter="searchUserOptions" />
+            <el-input v-model="userPicker.name" clearable placeholder="请输入配送员姓名" @keyup.enter="searchUserOptions" />
             <el-button type="primary" :icon="Search" @click="searchUserOptions">查询</el-button>
           </div>
           <el-table

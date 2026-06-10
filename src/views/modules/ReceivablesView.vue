@@ -417,8 +417,8 @@ onMounted(reloadPage)
             v-model="orderFilters.orderTime"
             type="daterange"
             value-format="YYYY-MM-DD"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
+            start-placeholder="请选择开始日期"
+            end-placeholder="请选择结束日期"
           />
         </el-form-item>
         <el-form-item class="search-actions">
@@ -526,7 +526,7 @@ onMounted(reloadPage)
     <el-dialog v-model="detailVisible" title="详情" width="88%" class="receivable-detail-dialog" destroy-on-close>
       <el-form class="detail-search" :model="detailFilters" label-width="86px">
         <el-form-item label="订单号">
-          <el-input v-model="detailFilters.orderNo" clearable placeholder="请输入" @keyup.enter="searchDetail" />
+          <el-input v-model="detailFilters.orderNo" clearable placeholder="请输入订单号" @keyup.enter="searchDetail" />
         </el-form-item>
         <el-form-item class="detail-search-actions">
           <el-button type="primary" :icon="Search" @click="searchDetail">查询</el-button>

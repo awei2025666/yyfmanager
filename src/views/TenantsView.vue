@@ -354,15 +354,15 @@ onMounted(loadTenants)
       </template>
 
       <div class="filter-grid">
-        <el-input v-model="filters.tenantName" placeholder="会员名称" :prefix-icon="Search" />
-        <el-input v-model="filters.userName" placeholder="联系人" />
-        <el-input v-model="filters.userPhone" placeholder="手机号" />
-        <el-select v-model="filters.status" placeholder="状态" clearable>
+        <el-input v-model="filters.tenantName" placeholder="请输入会员名称" :prefix-icon="Search" />
+        <el-input v-model="filters.userName" placeholder="请输入联系人" />
+        <el-input v-model="filters.userPhone" placeholder="请输入手机号" />
+        <el-select v-model="filters.status" placeholder="请选择状态" clearable>
           <el-option label="已启用" :value="1" />
           <el-option label="已禁用" :value="0" />
         </el-select>
-        <el-date-picker v-model="filters.startTime" value-format="YYYY-MM-DD" placeholder="注册开始时间" />
-        <el-date-picker v-model="filters.endTime" value-format="YYYY-MM-DD" placeholder="注册结束时间" />
+        <el-date-picker v-model="filters.startTime" value-format="YYYY-MM-DD" placeholder="请选择注册开始时间" />
+        <el-date-picker v-model="filters.endTime" value-format="YYYY-MM-DD" placeholder="请选择注册结束时间" />
         <el-button type="primary" @click="loadTenants">查询</el-button>
         <el-button @click="resetFilters">重置</el-button>
       </div>
@@ -444,7 +444,7 @@ onMounted(loadTenants)
         </div>
         <div class="field-block">
           <label>登录密码</label>
-          <el-input v-model="form.password" placeholder="新增时请输入密码，编辑可留空" />
+          <el-input v-model="form.password" placeholder="请输入密码" />
         </div>
         <div class="field-block full-span">
           <label>营业执照</label>
@@ -539,8 +539,8 @@ onMounted(loadTenants)
     <el-dialog v-model="tenantUsersVisible" title="子账号管理" width="980px">
       <div class="toolbar-row">
         <div class="filter-grid filter-grid--drawer">
-          <el-input v-model="tenantUserQuery.name" placeholder="姓名" />
-          <el-input v-model="tenantUserQuery.phone" placeholder="手机号" />
+        <el-input v-model="tenantUserQuery.name" placeholder="请输入姓名" />
+        <el-input v-model="tenantUserQuery.phone" placeholder="请输入手机号" />
           <el-button type="primary" @click="loadTenantUsers">查询</el-button>
         </div>
         <el-button type="primary" :icon="User" @click="openTenantUserCreate">新增子账号</el-button>
@@ -572,9 +572,9 @@ onMounted(loadTenants)
 
     <el-dialog v-model="tenantUserFormVisible" :title="isTenantUserEdit ? '编辑子账号' : '新增子账号'" width="640px">
       <div class="form-grid">
-        <el-input v-model="tenantUserForm.name" placeholder="用户姓名" />
-        <el-input v-model="tenantUserForm.phone" placeholder="手机号" />
-        <el-input v-if="!isTenantUserEdit" v-model="tenantUserForm.password" placeholder="登录密码" />
+        <el-input v-model="tenantUserForm.name" placeholder="请输入用户姓名" />
+        <el-input v-model="tenantUserForm.phone" placeholder="请输入手机号" />
+        <el-input v-if="!isTenantUserEdit" v-model="tenantUserForm.password" placeholder="请输入登录密码" />
       </div>
       <div class="tree-wrap">
         <p class="muted">菜单权限</p>

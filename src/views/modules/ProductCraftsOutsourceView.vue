@@ -237,8 +237,8 @@ onMounted(() => {
             v-model="filters.orderTime"
             type="daterange"
             value-format="YYYY-MM-DD"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
+            start-placeholder="请选择开始日期"
+            end-placeholder="请选择结束日期"
           />
         </el-form-item>
         <el-form-item class="search-actions">
