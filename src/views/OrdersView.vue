@@ -244,7 +244,7 @@ const selectOutsourceUnit = (row = {}) => {
 
 const normalizeCraftOptions = (data) => {
   const list = Array.isArray(data) ? data : data?.records || data?.list || []
-  return list.slice(0, 30).map((item) => ({
+  return list.map((item) => ({
     ...item,
     id: item.id ?? item.craftId ?? item.craftName ?? item.name,
     craftName: item.craftName || item.name || item.craft || '-'
