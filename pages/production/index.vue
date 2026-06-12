@@ -44,7 +44,7 @@
 </template>
 
 <script setup>
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
 const orderId = ref('')
@@ -122,6 +122,12 @@ onLoad(options => {
 	orderId.value = options.id || options.orderId || ''
 	loadCrafts()
 	loadConsumables()
+})
+
+onShow(() => {
+	if (orderId.value) {
+		loadConsumables()
+	}
 })
 </script>
 
