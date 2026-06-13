@@ -201,7 +201,14 @@ const openDetail = async (row) => {
     state.detailLoading = false
   }
 }
-
+const deliveryTypeOptions = [
+  { label: '自提', value: 1 },
+  { label: '发货', value: 2 },
+  { label: '送货', value: 3 },
+  { label: '客运', value: 4 }
+]
+const deliveryTypeText = (value) =>
+    deliveryTypeOptions.find((item) => String(item.value) === String(value))?.label || value || '-'
 onMounted(() => {
   loadStatistics()
   loadData()
@@ -287,10 +294,9 @@ onMounted(() => {
           <div><dt>联系方式</dt><dd>{{ currentRow.phone || '-' }}</dd></div>
           <div><dt>送货地址</dt><dd>{{ currentRow.deliveryAddress || '-' }}</dd></div>
           <div><dt>交货日期</dt><dd>{{ currentRow.deliveryDate || '-' }}</dd></div>
-          <div><dt>交货方式</dt><dd>{{ currentRow.deliveryType || '-' }}</dd></div>
+          <div><dt>交货方式</dt><dd>{{ deliveryTypeText(currentRow.deliveryType) || '-' }}</dd></div>
           <div><dt>印刷要求</dt><dd>{{ currentRow.printRequirement || '-' }}</dd></div>
           <div><dt>备注</dt><dd>{{ currentRow.remark || '-' }}</dd></div>
-          <div><dt>操作员</dt><dd>{{ currentRow.operator || '-' }}</dd></div>
         </dl>
         <el-tabs v-model="activeDetailTab">
           <el-tab-pane label="工艺信息" name="crafts">
@@ -318,9 +324,19 @@ onMounted(() => {
           <el-tab-pane label="生产记录" name="production">
             <dl class="detail-grid detail-grid--small">
               <div><dt>操作员</dt><dd>{{ currentRow?.operator || '-' }}</dd></div>
-              <div><dt>操作时间</dt><dd>{{ currentRow?.productionTime || '-' }}</dd></div>
-              <div><dt>备注</dt><dd>{{ currentRow?.productionRemark || '-' }}</dd></div>
-              <div><dt>图片备注</dt><dd>{{ currentRow?.imageNote || '-' }}</dd></div>
+              <div><dt>操作时间</dt><dd>{{ currentRow?.completedTime || '-' }}</dd></div>
+              <div><dt>备注</dt><dd>{{ currentRow?.completeRemark || '-' }}</dd></div>
+              <div><dt>图片备注</dt><dd>
+                <el-image
+                    v-if="currentRow?.completeImgRemarkUrl"
+                    class="detail-image"
+                    :src="currentRow.completeImgRemarkUrl"
+                    :preview-src-list="[currentRow.completeImgRemarkUrl]"
+                    fit="cover"
+                    preview-teleported
+                />
+                <span v-else>-</span>
+              </dd></div>
             </dl>
           </el-tab-pane>
         </el-tabs>
