@@ -34,6 +34,14 @@
 				/>
 			</view>
 
+			<view class="privacy-row" @click="togglePrivacy">
+				<view :class="['privacy-check', privacyAccepted ? 'checked' : '']">
+					<text v-if="privacyAccepted">✓</text>
+				</view>
+				<text class="privacy-text">我已阅读并同意</text>
+				<text class="privacy-link" @click.stop="openPrivacy">《用户隐私保护指引》</text>
+			</view>
+
 			<button class="login-btn" :disabled="loading" @click="submit">
 				{{ loading ? '登录中...' : '登录' }}
 			</button>
@@ -46,6 +54,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { reactive, ref } from 'vue'
 
 const loading = ref(false)
+const privacyAccepted = ref(false)
 const form = reactive({
 	account: '',
 	password: ''
@@ -63,6 +72,16 @@ const goHome = () => {
 	})
 }
 
+const togglePrivacy = () => {
+	privacyAccepted.value = !privacyAccepted.value
+}
+
+const openPrivacy = () => {
+	uni.navigateTo({
+		url: '/pages/privacy/index'
+	})
+}
+
 const submit = async () => {
 	if (!form.account.trim()) {
 		uni.showToast({ title: '请输入账号', icon: 'none' })
@@ -70,6 +89,10 @@ const submit = async () => {
 	}
 	if (!form.password) {
 		uni.showToast({ title: '请输入密码', icon: 'none' })
+		return
+	}
+	if (!privacyAccepted.value) {
+		uni.showToast({ title: '请先勾选用户隐私保护指引', icon: 'none' })
 		return
 	}
 	if (loading.value) return
@@ -171,9 +194,40 @@ onLoad(() => {
 .placeholder{
 	color: #c4c4c4;
 }
+.privacy-row{
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8rpx;
+	margin-top: 34rpx;
+	color: #8b8b8b;
+	font-size: 24rpx;
+	line-height: 34rpx;
+}
+.privacy-check{
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 30rpx;
+	height: 30rpx;
+	margin-right: 4rpx;
+	border: 2rpx solid #c7c7c7;
+	border-radius: 50%;
+	box-sizing: border-box;
+	color: #fff;
+	font-size: 22rpx;
+	line-height: 1;
+}
+.privacy-check.checked{
+	border-color: #1f7cff;
+	background: #1f7cff;
+}
+.privacy-link{
+	color: #1f7cff;
+}
 .login-btn{
 	height: 92rpx;
-	margin-top: 46rpx;
+	margin-top: 28rpx;
 	border-radius: 14rpx;
 	background: #1f7cff;
 	color: #fff;

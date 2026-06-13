@@ -100,6 +100,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
 const craftId = ref('')
+const orderId = ref('')
 const form = ref({
 	machineType: 1,
 	completeRemark: '',
@@ -191,6 +192,7 @@ const submit = async () => {
 		const fileId = await uploadImage()
 		await uni.$api.completeProduction({
 			id: craftId.value,
+			orderId: orderId.value,
 			machineType: form.value.machineType,
 			completeRemark: form.value.completeRemark,
 			completeImgRemark: fileId || form.value.completeImgRemark,
@@ -199,18 +201,33 @@ const submit = async () => {
 		})
 		uni.showToast({ title: '已完成', icon: 'none' })
 		setTimeout(() => {
-			goBack()
-		}, 600)
-	} catch (e) {}
+			returnAfterComplete()
+		}, 700)
+	} catch (e) {
+		uni.showToast({ title: e?.message || '完成生产失败', icon: 'none' })
+	}
 }
 
 const goProduction = () => {
+	const url = `/pages/production/index${orderId.value ? `?orderId=${orderId.value}` : ''}`
 	uni.redirectTo({
-		url: '/pages/production/index',
+		url,
 		fail: () => {
-			uni.reLaunch({ url: '/pages/production/index' })
+			uni.reLaunch({ url })
 		}
 	})
+}
+
+const returnAfterComplete = () => {
+	const pages = getCurrentPages()
+	if (pages.length > 1) {
+		uni.navigateBack({
+			delta: 1,
+			fail: goProduction
+		})
+		return
+	}
+	goProduction()
 }
 
 const goBack = () => {
@@ -229,6 +246,7 @@ const goBack = () => {
 
 onLoad(options => {
 	craftId.value = options.id || ''
+	orderId.value = options.orderId || ''
 })
 </script>
 
