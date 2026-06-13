@@ -113,6 +113,7 @@ export const getTenantDeliveryOrderOptions = (payload = {}) => tenantHttp.post('
 export const getTenantDeliveryUserOptions = (payload = {}) => tenantHttp.post('/api/tenant/user/driver', payload)
 export const addTenantDelivery = (payload = {}) => tenantHttp.post('/api/tenant/delivery/add', payload)
 export const editTenantDelivery = (payload = {}) => tenantHttp.post('/api/tenant/delivery/edit', payload)
+export const delTenantDelivery = (id) => tenantHttp.get('/api/tenant/delivery/del', {params:{id}})
 export const getTenantDeliveryTotal = () => tenantHttp.get('/api/tenant/delivery/total')
 export const getTenantReceivableOrderList = (payload = {}) => tenantHttp.post('/api/tenant/receivable/orderList', payload)
 export const getTenantOrderListAll = (payload = {}) => tenantHttp.post('/api/tenant/order/all', payload)

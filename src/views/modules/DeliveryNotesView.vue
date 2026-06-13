@@ -1,10 +1,10 @@
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import {ElMessage, ElMessageBox} from 'element-plus'
 import { Edit, Plus, Search, View } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
 import {
-  addTenantDelivery,
+  addTenantDelivery, deleteTenantReceipt, delTenantDelivery,
   editTenantDelivery,
   getTenantDeliveryDetail,
   getTenantDeliveryList,
@@ -388,7 +388,20 @@ const openDetail = async (row) => {
     state.detailLoading = false
   }
 }
-
+const removeRow = async (row) => {
+  try {
+    await ElMessageBox.confirm(`确认删除配送单吗？`, '删除确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await delTenantDelivery(row.id)
+    ElMessage.success('删除成功')
+    searchData()
+  } catch (error) {
+    ElMessage.error(error?.message || '删除失败')
+  }
+}
 onMounted(() => {
   loadData()
 })
@@ -446,7 +459,8 @@ onMounted(() => {
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link :icon="View" @click="openDetail(row)">详情</el-button>
-            <el-button type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>
+<!--            <el-button type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>-->
+            <el-button type="primary" link @click="removeRow(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
