@@ -373,15 +373,19 @@ const submitForm = async () => {
   if (!form.consumableId) return ElMessage.warning('请选择耗材名称')
   if (!form.num) return ElMessage.warning('请输入数量')
   state.saving = true
+  const editId = form.id
   try {
-    if (form.id) {
+    if (editId) {
       await editTenantConsumableDetail(savePayload())
     } else {
       await addTenantConsumableDetail(savePayload())
     }
-    ElMessage.success(form.id ? '编辑成功' : '新增成功')
+    ElMessage.success(editId ? '编辑成功' : '新增成功')
     formVisible.value = false
-    loadData()
+    await loadData()
+    if (editId && detailVisible.value) {
+      await openDetail({ ...(currentRow.value || {}), id: editId })
+    }
   } catch (error) {
     ElMessage.error(error?.message || '保存失败')
   } finally {

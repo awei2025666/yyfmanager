@@ -363,7 +363,7 @@ onMounted(async () => {
         <el-form-item label="联系方式">
           <el-input v-model="filters.phone" clearable placeholder="请输入联系方式" @keyup.enter="searchData" />
         </el-form-item>
-        <el-form-item label="创建时间">
+        <el-form-item label="创建时间" class="date-range-item">
           <el-date-picker
             v-model="filters.createTimeRange"
             type="daterange"
@@ -517,8 +517,12 @@ onMounted(async () => {
 
 .search-form :deep(.el-input),
 .search-form :deep(.el-select),
-.search-form :deep(.el-date-editor.el-input) {
+.search-form :deep(.el-date-editor) {
   width: 100%;
+}
+
+.date-range-item {
+  grid-column: span 2;
 }
 
 .search-actions {
