@@ -202,11 +202,7 @@ onBeforeUnmount(() => {
       <header class="screen-header">
         <img class="header-frame-image" :src="largeScreenHeader" alt="" aria-hidden="true" />
         <div class="screen-time" :aria-label="clockText">
-          <span>{{ clockParts.date }}</span>
-          <span>{{ clockParts.week }}</span>
-          <span class="time-clock">
-            {{ clockParts.hour }}:{{ clockParts.minute }}:<b :key="clockParts.second">{{ clockParts.second }}</b>
-          </span>
+          {{ clockText }}
         </div>
         <h1>{{ tenantName || '印刷ERP数据大屏' }}</h1>
       </header>
@@ -298,15 +294,15 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 96px;
+  min-height: 116px;
 }
 
 .header-frame-image {
   position: absolute;
-  top: 0;
+  top: 4px;
   left: 50%;
   width: 100%;
-  height: 78px;
+  height: 90px;
   object-fit: fill;
   object-position: center center;
   transform: translateX(-50%);
@@ -316,67 +312,36 @@ onBeforeUnmount(() => {
 
 .screen-header h1 {
   position: absolute;
-  top: 39px;
+  top: 48px;
   left: 50%;
   z-index: 2;
   margin: 0;
-  min-width: min(43vw, 820px);
-  padding: 0 92px;
+  width: 760px;
+  max-width: 42%;
+  padding: 0 40px;
   color: #ffffff;
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 900;
   letter-spacing: 0;
   text-shadow: 0 0 18px rgba(83, 165, 255, 0.7);
   text-align: center;
-  line-height: 1;
+  line-height: 1.28;
+  white-space: nowrap;
   transform: translate(-50%, -50%);
 }
 
 .screen-time {
   position: absolute;
   left: 72px;
-  top: 80px;
+  top: 84px;
   z-index: 1;
-  color: #f7fbff;
+  color: #ffffff;
   font-size: 28px;
-  font-weight: 500;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+  font-weight: 700;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
-}
-
-.time-clock {
-  display: inline-flex;
-  align-items: baseline;
   white-space: nowrap;
-}
-
-.time-clock b {
-  display: inline-block;
-  min-width: 2ch;
-  color: inherit;
-  font-weight: 900;
-  text-align: left;
-  text-shadow: inherit;
-  animation: second-tick 0.32s ease-out;
-}
-
-@keyframes second-tick {
-  0% {
-    transform: translateY(4px) scale(0.92);
-    opacity: 0.45;
-  }
-
-  65% {
-    transform: translateY(-1px) scale(1.08);
-    opacity: 1;
-  }
-
-  100% {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
+  text-shadow: 0 0 12px rgba(89, 159, 255, 0.28);
 }
 
 .total-panel {

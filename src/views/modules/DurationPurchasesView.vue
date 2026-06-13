@@ -16,6 +16,7 @@ const selectedPlanKey = ref('')
 const payInfo = ref(null)
 const payType = ref(1)
 const wechatQr = ref('')
+const alipayQr = ref('')
 const agreement = ref(true)
 let statusTimer = null
 
@@ -41,6 +42,8 @@ const normalizePlan = (item = {}) => {
     id,
     name: item.name || item.vipName || item.packageName || '-',
     days: day ? `有效时长${day}天` : item.durationLabel || '有效时长-',
+    iconUrl: item.iconUrl || item.icon || item.iconPath || '',
+    iconLoadFailed: false,
     currentPrice,
     oldPrice,
     price: moneyText(currentPrice),
@@ -51,6 +54,7 @@ const normalizePlan = (item = {}) => {
 const selectedPlan = computed(() => plans.value.find((item) => item.key === selectedPlanKey.value))
 const payOrderId = computed(() => getPayOrderId(payInfo.value))
 const payContent = computed(() => getPayContent(payInfo.value))
+const alipayFrameContent = computed(() => normalizeAlipayFrameContent(payContent.value))
 const payAmount = computed(() => payInfo.value?.amount || payInfo.value?.payMoney || selectedPlan.value?.currentPrice || 0)
 const payButtonText = computed(() => (payType.value === 1 ? '生成支付二维码' : '生成支付宝支付'))
 
@@ -64,6 +68,7 @@ const resetPayResult = () => {
   clearStatusTimer()
   payInfo.value = null
   wechatQr.value = ''
+  alipayQr.value = ''
 }
 
 const getPayOrderId = (payload) => {
@@ -89,6 +94,38 @@ const getPayContent = (payload) => {
     payload.data ||
     ''
   )
+}
+
+const isHtmlPayContent = (value = '') => /<\/?[a-z][\s\S]*>/i.test(String(value))
+
+const normalizeAlipayFrameContent = (value = '') => {
+  const content = String(value || '')
+  if (!isHtmlPayContent(content)) return ''
+  const frameStyle = `
+    <style>
+      html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: #fff;
+      }
+      body {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+      img, canvas, svg {
+        display: block;
+        max-width: 146px !important;
+        max-height: 146px !important;
+        margin: auto !important;
+      }
+    </style>
+  `
+  if (content.includes('</head>')) return content.replace('</head>', `${frameStyle}</head>`)
+  return `<!doctype html><html><head>${frameStyle}</head><body>${content}</body></html>`
 }
 
 const getPayStatusValue = (payload) => {
@@ -123,6 +160,10 @@ const selectPayType = (type) => {
   if (payType.value === type) return
   payType.value = type
   resetPayResult()
+}
+
+const markIconFailed = (plan) => {
+  plan.iconLoadFailed = true
 }
 
 const schedulePayStatusCheck = () => {
@@ -180,6 +221,12 @@ const createOrder = async () => {
         margin: 1,
         errorCorrectionLevel: 'M'
       })
+    } else if (!isHtmlPayContent(payContent.value)) {
+      alipayQr.value = await QRCode.toDataURL(payContent.value, {
+        width: 150,
+        margin: 1,
+        errorCorrectionLevel: 'M'
+      })
     }
     ElMessage.success(payType.value === 1 ? '二维码已生成' : '支付宝支付页面已生成')
     schedulePayStatusCheck()
@@ -208,7 +255,14 @@ onBeforeUnmount(clearStatusTimer)
             :class="{ active: selectedPlanKey === plan.key }"
             @click="selectPlan(plan)"
           >
-            <span class="plan-card__mark"></span>
+            <img
+              v-if="plan.iconUrl && !plan.iconLoadFailed"
+              class="plan-card__icon"
+              :src="plan.iconUrl"
+              :alt="plan.name"
+              @error="markIconFailed(plan)"
+            />
+            <span v-else class="plan-card__mark"></span>
             <strong>{{ plan.name }}</strong>
             <em>{{ plan.days }}</em>
             <b>{{ plan.price }}</b>
@@ -222,9 +276,10 @@ onBeforeUnmount(clearStatusTimer)
             <button type="button" :class="{ active: payType === 2 }" @click="selectPayType(2)">支</button>
           </div>
           <span>扫码支付</span>
-          <div class="qr-box" :class="{ empty: payType === 1 ? !wechatQr : !payContent }">
+          <div class="qr-box" :class="{ empty: payType === 1 ? !wechatQr : !alipayQr && !alipayFrameContent }">
             <img v-if="payType === 1 && wechatQr" :src="wechatQr" alt="微信支付二维码" />
-            <iframe v-else-if="payType === 2 && payContent" title="支付宝支付" :srcdoc="payContent"></iframe>
+            <img v-else-if="payType === 2 && alipayQr" :src="alipayQr" alt="支付宝支付二维码" />
+            <iframe v-else-if="payType === 2 && alipayFrameContent" title="支付宝支付" :srcdoc="alipayFrameContent"></iframe>
             <span v-else>{{ state.creating ? '生成中' : '请先生成二维码' }}</span>
           </div>
           <strong>{{ moneyText(payAmount) }}</strong>
@@ -272,13 +327,21 @@ onBeforeUnmount(clearStatusTimer)
   background: #eaf2ff;
 }
 
-.plan-card__mark {
+.plan-card__mark,
+.plan-card__icon {
   display: block;
   width: 42px;
   height: 42px;
   margin: 0 auto 24px;
   border-radius: 50%;
+}
+
+.plan-card__mark {
   background: #555555;
+}
+
+.plan-card__icon {
+  object-fit: cover;
 }
 
 .plan-card strong,

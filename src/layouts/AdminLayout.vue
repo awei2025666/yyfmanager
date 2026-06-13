@@ -303,10 +303,19 @@ const openPasswordDialog = () => {
   passwordDialogVisible.value = true
 }
 
+const normalizePasswordInput = (value = '') => {
+  const nextValue = String(value).replace(/[^\x21-\x7e]/g, '').slice(0, 20)
+  if (passwordForm.password !== nextValue) passwordForm.password = nextValue
+}
+
 const submitPassword = async () => {
   const password = passwordForm.password.trim()
   if (!password) {
     ElMessage.warning('请输入新密码')
+    return
+  }
+  if (!/^[\x21-\x7e]{6,20}$/.test(password)) {
+    ElMessage.warning('密码需为6-20位字母、数字或符号，不能包含中文和空格')
     return
   }
   passwordSaving.value = true
@@ -426,7 +435,9 @@ onMounted(loadUserInfo)
           v-model="passwordForm.password"
           type="password"
           show-password
+          maxlength="20"
           placeholder="请输入新密码"
+          @input="normalizePasswordInput"
           @keyup.enter="submitPassword"
         />
       </label>
