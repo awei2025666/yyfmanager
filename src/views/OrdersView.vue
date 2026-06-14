@@ -90,7 +90,7 @@ const formState = reactive({
   outsourceSupplierName: '',
   outsourceSupplierContact: '',
   status: 1,
-  printCode: '--',
+  printCode: '',
   remark: ''
 })
 
@@ -116,7 +116,7 @@ const deliveryTypeOptions = [
   { label: '客运', value: 4 }
 ]
 const deliveryTypeText = (value) =>
-  deliveryTypeOptions.find((item) => String(item.value) === String(value))?.label || value || '-'
+  deliveryTypeOptions.find((item) => String(item.value) === String(value))?.label || value || ''
 const statusToneClass = (status) => `order-status--${statusMap[status]?.tone || 'outsourced'}`
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -132,9 +132,9 @@ const productInfoText = (item = {}) => {
     return products
       .map((product) => product.productName || product.name || product.productInfo)
       .filter(Boolean)
-      .join('、') || '--'
+      .join('、') || ''
   }
-  return item.productName || item.vipName || '--'
+  return item.productName || item.vipName || ''
 }
 
 const fillClientInfo = (client = {}) => {
@@ -190,7 +190,7 @@ const seedClientOption = (record = {}) => {
   formState.companyName = companyName
   formState.linkman = record.linkman || ''
   formState.phone = record.phone || ''
-  formState.companyAddress = record.companyAddress || '--'
+  formState.companyAddress = record.companyAddress || ''
   clientOptions.value = [{
     id,
     companyName,
@@ -210,9 +210,9 @@ const normalizeOutsourceOptions = (data) => {
     .map((item) => ({
       ...item,
       memberId: item.memberId || item.id || item.customerId || item.companyCode || '',
-      memberName: item.memberName || item.tenantName || item.companyName || item.name || '-',
-      tenantName: item.tenantName || item.memberName || item.companyName || item.name || '-',
-      contact: item.contact || item.linkman || item.userName || '-'
+      memberName: item.memberName || item.tenantName || item.companyName || item.name || '',
+      tenantName: item.tenantName || item.memberName || item.companyName || item.name || '',
+      contact: item.contact || item.linkman || item.userName || ''
     }))
 }
 
@@ -247,7 +247,7 @@ const normalizeCraftOptions = (data) => {
   return list.map((item) => ({
     ...item,
     id: item.id ?? item.craftId ?? item.craftName ?? item.name,
-    craftName: item.craftName || item.name || item.craft || '-'
+    craftName: item.craftName || item.name || item.craft || ''
   }))
 }
 
@@ -292,7 +292,7 @@ const enrichOrderRow = (item = {}) => {
     ? item.timeline
     : [
         {
-          date: item.orderTime || item.createTime || '--',
+          date: item.orderTime || item.createTime || '',
           title: '创建订单',
           desc: `${item.fillUserName || item.userName || '系统'} 提交订单`
         }
@@ -301,18 +301,18 @@ const enrichOrderRow = (item = {}) => {
   return {
     ...item,
     deliveryType: item.deliveryType || '',
-    companyAddress: item.companyAddress || '--',
+    companyAddress: item.companyAddress || '',
     linkman: item.linkman || '',
     phone: item.phone || '',
     deliveryDate: item.deliveryDate || item.orderTime || item.createTime || '',
     printingRequirements: item.printingRequirements || '',
     productInfo: productInfoText(item),
-    companyName: item.companyName || '--',
-    fillUserName: item.fillUserName || item.userName || '--',
-    orderTime: item.orderTime || item.createTime || '--',
+    companyName: item.companyName || '',
+    fillUserName: item.fillUserName || item.userName || '',
+    orderTime: item.orderTime || item.createTime || '',
     totalMoney: item.totalMoney ?? item.payMoney ?? 0,
     payMoney: item.totalMoney ?? item.payMoney ?? 0,
-    printCode: item.printCode || '--',
+    printCode: item.printCode || '',
     remark: item.remark || '',
     products,
     crafts,
@@ -322,23 +322,23 @@ const enrichOrderRow = (item = {}) => {
 
 const normalizeProductRow = (item = {}) => ({
     ...item,
-    productName: item.productName || item.name || item.productInfo || '-',
-    finishedSpec: item.finishedSpec || item.trimmedSize || item.specification || item.trimmedSize || '--',
+    productName: item.productName || item.name || item.productInfo || '',
+    finishedSpec: item.finishedSpec || item.trimmedSize || item.specification || item.trimmedSize || '',
     quantity: item.quantity ?? item.orderQuantity ?? 0,
-    unit: item.unit || '-',
+    unit: item.unit || '',
     amount: item.amount ?? item.money ?? 0
 })
 
 const normalizeCraftRow = (item = {}, product = {}) => ({
     ...item,
     productId: item.productId || product.id || undefined,
-    productName: item.productName || product.productName || product.name || item.productInfo || '-',
-    craftName: item.craftName || item.name || '-',
-    spec: item.spec || item.specification || '--',
-    openNum: item.openNum ?? item.formatSize ?? '--',
+    productName: item.productName || product.productName || product.name || item.productInfo || '',
+    craftName: item.craftName || item.name || '',
+    spec: item.spec || item.specification || '',
+    openNum: item.openNum ?? item.formatSize ?? '',
     startPrice: item.startPrice ?? item.priceBase ?? 0,
     finishNum: item.finishNum ?? item.orderQuantity ?? 0,
-    unit: item.unit || '-',
+    unit: item.unit || '',
     price: item.price ?? item.unitPrice ?? 0,
     customerAmount: item.customerAmount ?? item.customerMoney ?? 0,
     remark: item.remark || ''
@@ -356,25 +356,25 @@ const consumableTypeLabels = {
   3: '订单消耗'
 }
 
-const consumableTypeText = (value) => consumableTypeLabels[Number(value)] || value || '-'
+const consumableTypeText = (value) => consumableTypeLabels[Number(value)] || value || ''
 
 const normalizeConsumableRecord = (item = {}) => ({
   id: item.id || `${item.consumableName || item.name}-${item.createTime || item.num}`,
-  name: item.consumableName || item.name || '-',
+  name: item.consumableName || item.name || '',
   type: consumableTypeText(item.type),
   num: item.num ?? item.quantity ?? 0,
-  remark: item.remark || '-',
-  operator: item.createUserName || item.operator || item.tenantUserName || '-',
-  time: item.createTime || item.updateTime || '-'
+  remark: item.remark || '',
+  operator: item.createUserName || item.operator || item.tenantUserName || '',
+  time: item.createTime || item.updateTime || ''
 })
 
 const normalizeHandKeptRecord = (item = {}) => ({
   id: item.id || `${item.consumableName || item.name}-${item.createTime || item.num}`,
-  name: item.consumableName || item.name || '-',
+  name: item.consumableName || item.name || '',
   num: item.num ?? item.quantity ?? 0,
-  remark: item.remark || '-',
-  operator: item.createUserName || item.operator || item.tenantUserName || '-',
-  time: item.createTime || item.updateTime || '-'
+  remark: item.remark || '',
+  operator: item.createUserName || item.operator || item.tenantUserName || '',
+  time: item.createTime || item.updateTime || ''
 })
 
 const normalizeDetailRow = (detail = {}, base = {}, processList = []) => {
@@ -383,7 +383,7 @@ const normalizeDetailRow = (detail = {}, base = {}, processList = []) => {
   const rawCrafts = detail.craftList || detail.crafts || []
   const crafts = rawCrafts.length ? rawCrafts.map((item) => normalizeCraftRow(item)) : nestedCraftRows(rawProducts)
   const timeline = (processList || []).map((item) => ({
-    date: item.createTime || '--',
+    date: item.createTime || '',
     title: item.content || '订单记录',
     desc: item.tenantUserName || item.createUserName || ''
   }))
@@ -824,7 +824,7 @@ const openAdd = () => {
     outsourceSupplierName: '',
     outsourceSupplierContact: '',
     status: autoApprove.value ? 2 : 1,
-    printCode: '--',
+    printCode: '',
     remark: ''
   })
   clientOptions.value = []
@@ -1223,7 +1223,7 @@ watch(
           <template #default="{ row }">
             <button type="button" class="status-link" @click="openDetail(row)">
               <el-tag class="order-status-tag" :class="statusToneClass(row.status)" effect="plain">
-                {{ statusMap[row.status]?.label || '-' }}
+                {{ statusMap[row.status]?.label || '' }}
               </el-tag>
             </button>
           </template>
@@ -1385,25 +1385,25 @@ watch(
             <el-table-column prop="productName" label="产品名称" min-width="460">
               <template #default="{ row }">
                 <el-input v-if="row._isEditing" v-model="row.productName" placeholder="请输入产品名称" />
-                <span v-else>{{ row.productName || '-' }}</span>
+                <span v-else>{{ row.productName || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="finishedSpec" label="成品规格" min-width="150">
               <template #default="{ row }">
                 <el-input v-if="row._isEditing" v-model="row.finishedSpec" placeholder="请输入成品规格" />
-                <span v-else>{{ row.finishedSpec || '-' }}</span>
+                <span v-else>{{ row.finishedSpec || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="quantity" label="订货数量" min-width="150">
               <template #default="{ row }">
                 <el-input v-if="row._isEditing" v-model="row.quantity" placeholder="请输入数量" />
-                <span v-else>{{ row.quantity || '-' }}</span>
+                <span v-else>{{ row.quantity || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="unit" label="单位" min-width="130">
               <template #default="{ row }">
                 <el-input v-if="row._isEditing" v-model="row.unit" placeholder="请输入单位" />
-                <span v-else>{{ row.unit || '-' }}</span>
+                <span v-else>{{ row.unit || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="amount" label="金额" min-width="160">
@@ -1440,7 +1440,7 @@ watch(
                     :value="item.productName"
                   />
                 </el-select>
-                <span v-else>{{ row.productName || '-' }}</span>
+                <span v-else>{{ row.productName || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="craftName" label="工艺名称" min-width="150">
@@ -1465,37 +1465,37 @@ watch(
                     :value="item.id"
                   />
                 </el-select>
-                <span v-else>{{ row.craftName || '-' }}</span>
+                <span v-else>{{ row.craftName || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="spec" label="规格" min-width="120">
               <template #default="{ row }">
                 <el-input v-if="row._isEditing" v-model="row.spec" placeholder="请输入规格" />
-                <span v-else>{{ row.spec || '-' }}</span>
+                <span v-else>{{ row.spec || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="openNum" label="开数" min-width="120">
               <template #default="{ row }">
                 <el-input v-if="row._isEditing" v-model="row.openNum" placeholder="请输入开数" />
-                <span v-else>{{ row.openNum || '-' }}</span>
+                <span v-else>{{ row.openNum || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="startPrice" label="起价" min-width="120">
               <template #default="{ row }">
                 <el-input v-if="row._isEditing" v-model="row.startPrice" placeholder="请输入起步价" />
-                <span v-else>{{ row.startPrice === '' || row.startPrice === undefined || row.startPrice === null ? '-' : row.startPrice }}</span>
+                <span v-else>{{ row.startPrice === '' || row.startPrice === undefined || row.startPrice === null ? '' : row.startPrice }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="finishNum" label="成品数量" min-width="150">
               <template #default="{ row }">
                 <el-input v-if="row._isEditing" v-model="row.finishNum" placeholder="请输入成品数" />
-                <span v-else>{{ row.finishNum === '' || row.finishNum === undefined || row.finishNum === null ? '-' : row.finishNum }}</span>
+                <span v-else>{{ row.finishNum === '' || row.finishNum === undefined || row.finishNum === null ? '' : row.finishNum }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="unit" label="单位" min-width="120">
               <template #default="{ row }">
                 <el-input v-if="row._isEditing" v-model="row.unit" placeholder="请输入单位" />
-                <span v-else>{{ row.unit || '-' }}</span>
+                <span v-else>{{ row.unit || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="price" label="单价" min-width="120">
@@ -1512,7 +1512,7 @@ watch(
             <el-table-column prop="remark" label="备注" min-width="150">
               <template #default="{ row }">
                 <el-input v-if="row._isEditing" v-model="row.remark" placeholder="请输入备注" />
-                <span v-else>{{ row.remark || '-' }}</span>
+                <span v-else>{{ row.remark || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column label="操作" min-width="120" fixed="right">

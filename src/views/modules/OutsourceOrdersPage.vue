@@ -167,7 +167,7 @@ const printOrder = async (row) => {
   if (!row.id) return ElMessage.error('缺少订单ID，无法打印')
   try {
     const url = await getTenantOrderPrintUrl(row.id)
-    if (url) window.open(url, '_blank')
+    if (url) window.open(url.url, '_blank')
   } catch (error) {
     ElMessage.error(error?.message || '打印地址获取失败')
   }
