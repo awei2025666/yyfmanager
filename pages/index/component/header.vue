@@ -132,7 +132,9 @@ const scanTo = type => {
 		success: res => {
 			openScannedPage(type, res)
 		},
-		fail: () => {
+		fail: err => {
+			const message = String(err?.errMsg || err?.message || '')
+			if (/cancel|取消/i.test(message)) return
 			uni.showToast({ title: '扫码失败', icon: 'none' })
 		}
 	})
