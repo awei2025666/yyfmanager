@@ -378,7 +378,8 @@ onBeforeUnmount(clearStatusTimer)
   flex-direction: column;
   align-items: center;
   gap: 14px;
-  padding-left: 28px;
+  box-sizing: border-box;
+  padding: 0 24px;
   border-left: 1px solid #e4e7ed;
 }
 
@@ -406,6 +407,7 @@ onBeforeUnmount(clearStatusTimer)
   place-items: center;
   width: 150px;
   height: 150px;
+  margin: 0 auto;
   border-radius: 6px;
   background: #f5f7fa;
   color: #909399;
