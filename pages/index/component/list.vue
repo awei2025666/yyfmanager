@@ -226,7 +226,7 @@ const toDetail = item => {
 	}
 	if (props.type === 3 && item.orderId) {
 		uni.navigateTo({
-			url: `/pages/orderDetail/index?orderId=${encodeURIComponent(item.orderId)}`
+			url: `/pages/orderDetail/index?id=${item.handKeptOrderId}`
 		})
 	}
 }
