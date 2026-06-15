@@ -16,12 +16,12 @@
 			<view class="craft-card" v-for="item in craftList" :key="item.id">
 				<view class="craft-head">
 					<text class="craft-name">{{ item.productInfo || item.productName || '-' }}</text>
-					<text :class="['pill', item.craftStatus === 2 ? 'done' : 'pending']">{{ statusMap[item.craftStatus] || '待生产' }}</text>
+					<text :class="['pill', isCraftDone(item) ? 'done' : 'pending']">{{ statusMap[getCraftStatus(item)] || '待生产' }}</text>
 				</view>
 				<view class="craft-desc">
 					{{ getCraftDesc(item) }}<text v-if="item.remark" class="danger">*{{ item.remark }}</text>
 				</view>
-				<button class="complete-btn" @click="toComplete(item)">已完成生产</button>
+				<button v-if="!isCraftDone(item)" class="complete-btn" @click="toComplete(item)">已完成生产</button>
 			</view>
 			<view v-if="!craftList.length" class="empty-state">暂无数据</view>
 		</view>
@@ -44,7 +44,7 @@
 </template>
 
 <script setup>
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
 
 const orderId = ref('')
@@ -54,6 +54,16 @@ const statusMap = {
 	1: '待生产',
 	2: '已生产'
 }
+
+const getCraftStatus = item => {
+	const rawStatus = item?.craftStatus ?? item?.status ?? item?.productionStatus
+	if (rawStatus === '已生产') return 2
+	if (rawStatus === '待生产') return 1
+	const status = Number(rawStatus)
+	return Number.isFinite(status) ? status : 1
+}
+
+const isCraftDone = item => getCraftStatus(item) === 2
 
 const formatMoney = value => {
 	if (value === undefined || value === null || value === '') return ''
@@ -122,6 +132,13 @@ onLoad(options => {
 	orderId.value = options.id || options.orderId || ''
 	loadCrafts()
 	loadConsumables()
+})
+
+onShow(() => {
+	if (orderId.value) {
+		loadCrafts()
+		loadConsumables()
+	}
 })
 </script>
 

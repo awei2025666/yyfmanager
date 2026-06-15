@@ -79,17 +79,39 @@ const parseScanOrderId = result => {
 		: result
 	const text = String(raw || '').trim()
 	if (!text) return ''
+	if (/^\d+$/.test(text)) return text
+	const findOrderNo = value => {
+		const source = String(value || '')
+		const labeled = source.match(/(?:orderId|id|orderNo|orderNum|订单号)[:=：\s]+([^&\s]+)/i)
+		if (labeled?.[1]) return decodeURIComponent(labeled[1])
+		const number = source.match(/\d{10,}/)
+		return number?.[0] || ''
+	}
 	try {
 		const url = new URL(text)
-		return url.searchParams.get('orderId') || url.searchParams.get('id') || ''
+		const params = url.searchParams
+		const hashParams = new URLSearchParams((url.hash || '').replace(/^#\/?[^?]*\??/, ''))
+		return (
+			params.get('orderId') ||
+			params.get('id') ||
+			params.get('orderNo') ||
+			params.get('orderNum') ||
+			hashParams.get('orderId') ||
+			hashParams.get('id') ||
+			hashParams.get('orderNo') ||
+			hashParams.get('orderNum') ||
+			findOrderNo(text) ||
+			text
+		)
 	} catch (e) {}
 	try {
 		const data = JSON.parse(text)
-		return data.orderId || data.id || data.orderNo || ''
+		if (typeof data === 'string' || typeof data === 'number') return String(data)
+		return data.orderId || data.id || data.orderNo || data.orderNum || ''
 	} catch (e) {}
-	const match = text.match(/(?:orderId|id|orderNo)=([^&\s]+)/i)
+	const match = text.match(/(?:orderId|id|orderNo|orderNum)=([^&\s]+)/i)
 	if (match?.[1]) return decodeURIComponent(match[1])
-	return text
+	return findOrderNo(text) || text
 }
 
 const openScannedPage = (type, result) => {

@@ -7,6 +7,12 @@
 					}
 				},
 		{
+					"path": "pages/privacy/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+		{
 					"path": "pages/index/index",
 					"style": {
 						"navigationBarTitleText": "首页",

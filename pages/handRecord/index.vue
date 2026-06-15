@@ -27,7 +27,11 @@
 			<view class="field-block image-block">
 				<text class="label">图片备注</text>
 				<view class="image-row">
-					<view class="upload-box" @click="chooseImage">+</view>
+					<view v-if="images.length < maxImages" class="upload-box" @click="chooseImage">+</view>
+					<view class="image-item" v-for="(item,index) in images" :key="item">
+						<image :src="item" mode="aspectFill"></image>
+						<view class="remove-image" @click.stop="removeImage(index)">×</view>
+					</view>
 					<view class="image-placeholder" v-for="item in imageSlots" :key="item"></view>
 				</view>
 			</view>
@@ -45,6 +49,7 @@ import { computed, reactive, ref } from 'vue'
 
 const orderId = ref('')
 const images = ref([])
+const maxImages = 1
 const form = reactive({
 	name: '',
 	num: '',
@@ -52,16 +57,32 @@ const form = reactive({
 	imgRemark: ''
 })
 
-const imageSlots = computed(() => Math.max(0, 3 - images.value.length))
+const imageSlots = computed(() => Math.max(0, maxImages - images.value.length - (images.value.length < maxImages ? 1 : 0)))
 
 const chooseImage = () => {
 	uni.chooseImage({
-		count: 1,
+		count: maxImages - images.value.length,
+		sizeType: ['compressed'],
 		success: res => {
-			const filePath = res.tempFilePaths?.[0]
-			if (filePath) images.value.push(filePath)
+			const paths = res.tempFilePaths || []
+			images.value = images.value.concat(paths).slice(0, maxImages)
 		}
 	})
+}
+
+const removeImage = index => {
+	images.value.splice(index, 1)
+}
+
+const getUploadFileId = result => {
+	if (typeof result === 'string' || typeof result === 'number') return String(result)
+	return result?.fileId || result?.id || result?.fileID || result?.file?.id || ''
+}
+
+const uploadImage = async () => {
+	if (!images.value.length) return ''
+	const result = await uni.$api.uploadFile(images.value[0])
+	return getUploadFileId(result)
 }
 
 const submit = async () => {
@@ -74,12 +95,14 @@ const submit = async () => {
 		return
 	}
 	try {
+		const fileId = await uploadImage()
 		await uni.$api.handKeptAdd({
 			name: form.name,
 			orderId: orderId.value,
 			num: Number(form.num),
 			remark: form.remark,
-			imgRemark: form.imgRemark
+			imgRemark: fileId || form.imgRemark,
+			fileId
 		})
 		uni.showToast({ title: '已添加', icon: 'none' })
 		setTimeout(() => {
@@ -227,6 +250,7 @@ onLoad(options => {
 	margin-top: 16rpx;
 }
 .upload-box,
+.image-item,
 .image-placeholder{
 	width: 132rpx;
 	height: 132rpx;
@@ -243,6 +267,31 @@ onLoad(options => {
 }
 .image-placeholder{
 	background: #d8d8d8;
+}
+.image-item{
+	position: relative;
+	overflow: hidden;
+	background: #f2f2f2;
+	image{
+		width: 100%;
+		height: 100%;
+		display: block;
+	}
+}
+.remove-image{
+	position: absolute;
+	right: 0;
+	top: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36rpx;
+	height: 36rpx;
+	border-bottom-left-radius: 8rpx;
+	background: rgba(0, 0, 0, .55);
+	color: #fff;
+	font-size: 28rpx;
+	line-height: 1;
 }
 .bottom-bar{
 	position: fixed;
