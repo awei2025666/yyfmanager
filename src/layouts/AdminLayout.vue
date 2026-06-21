@@ -78,7 +78,8 @@ const allMenus = [
     children: [
       { name: 'staff', label: '人员管理', icon: User },
       { name: 'roles', label: '角色管理', icon: Tickets },
-      { name: 'organization', label: '组织架构', icon: Fold }
+      { name: 'organization', label: '组织架构', icon: Fold },
+      { name: 'machine', label: '机器管理', icon: Setting }
     ]
   }
 ]
@@ -95,6 +96,7 @@ const readCachedMenuTree = () => {
 const cachedMenuTree = readCachedMenuTree()
 const userState = reactive({
   name: localStorage.getItem('platform_account') || '',
+  tenantName: localStorage.getItem('platform_tenant_name') || '',
   vipDay: localStorage.getItem('platform_vip_day') || '',
   avatar: localStorage.getItem('platform_avatar') || '',
   menuTree: cachedMenuTree,
@@ -183,7 +185,9 @@ const menuRouteAliases = {
   roles: 'roles',
   dept: 'organization',
   组织架构: 'organization',
-  organization: 'organization'
+  organization: 'organization',
+  machine: 'machine',
+  机器管理: 'machine'
 }
 
 const flattenMenus = (items = []) =>
@@ -263,6 +267,7 @@ const activeTitle = computed(
   }
 )
 const currentAccount = computed(() => userState.name || localStorage.getItem('platform_account') || 'admin')
+const tenantDisplayName = computed(() => userState.tenantName || localStorage.getItem('platform_tenant_name') || '印刷ERP')
 const activeMenuName = computed(() => {
   if (route.name === 'receivableUnits') return 'receivableOrders'
   return route.meta.parent || route.name
@@ -292,6 +297,7 @@ const openLargeScreen = () => {
 const logout = () => {
   localStorage.removeItem('platform_token')
   localStorage.removeItem('platform_account')
+  localStorage.removeItem('platform_tenant_name')
   localStorage.removeItem('platform_vip_day')
   localStorage.removeItem('platform_avatar')
   localStorage.removeItem('platform_menu_tree')
@@ -334,11 +340,17 @@ const loadUserInfo = async () => {
   try {
     const info = await getTenantUserInfo()
     userState.name = info?.name || userState.name
+    userState.tenantName = info?.tenantName || info?.companyName || info?.tenant?.tenantName || userState.tenantName
     userState.vipDay = info?.vipDay ?? ''
     userState.avatar = getAvatarUrl(info)
     userState.menuTree = Array.isArray(info?.menuTree) ? info.menuTree : []
     userState.menuLoaded = true
     localStorage.setItem('platform_account', userState.name)
+    if (userState.tenantName) {
+      localStorage.setItem('platform_tenant_name', userState.tenantName)
+    } else {
+      localStorage.removeItem('platform_tenant_name')
+    }
     localStorage.setItem('platform_vip_day', String(userState.vipDay))
     localStorage.setItem('platform_menu_tree', JSON.stringify(userState.menuTree))
     if (userState.avatar) {
@@ -346,13 +358,17 @@ const loadUserInfo = async () => {
     } else {
       localStorage.removeItem('platform_avatar')
     }
+    document.title = userState.tenantName || '印刷ERP'
   } catch {
     userState.menuLoaded = true
     if (route.name !== 'login') router.push({ name: 'login', query: { redirect: route.fullPath } })
   }
 }
 
-onMounted(loadUserInfo)
+onMounted(() => {
+  document.title = tenantDisplayName.value
+  loadUserInfo()
+})
 </script>
 
 <template>
@@ -361,7 +377,7 @@ onMounted(loadUserInfo)
       <div class="brand">
         <div class="brand__mark"><span></span><i></i></div>
         <div>
-          <strong>印刷ERP</strong>
+          <strong>{{ tenantDisplayName }}</strong>
         </div>
       </div>
 

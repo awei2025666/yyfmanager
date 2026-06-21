@@ -1,14 +1,16 @@
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import {ElMessage, ElMessageBox} from 'element-plus'
-import { Edit, Plus, Search, View } from '@element-plus/icons-vue'
+import { Edit, Plus, Printer, Search, View } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
 import {
   addTenantDelivery, deleteTenantReceipt, delTenantDelivery,
   editTenantDelivery,
+  editTenantDeliveryShippingInformation,
   getTenantDeliveryDetail,
   getTenantDeliveryList,
   getTenantDeliveryOrderOptions,
+  getTenantDeliveryPrintUrl,
   getTenantDeliveryProcess,
   getTenantDeliveryUserOptions
 } from '../../api/tenant'
@@ -36,6 +38,13 @@ const form = reactive({
   selectedOrders: []
 })
 
+const shippingForm = reactive({
+  orderId: '',
+  linkman: '',
+  phone: '',
+  companyAddress: ''
+})
+
 const orderPicker = reactive({
   loading: false,
   pageNum: 1,
@@ -59,6 +68,7 @@ const state = reactive({
   loading: false,
   optionLoading: false,
   saving: false,
+  shippingSaving: false,
   detailLoading: false,
   total: 0
 })
@@ -67,6 +77,7 @@ const rows = ref([])
 const currentRow = ref(null)
 const formVisible = ref(false)
 const detailVisible = ref(false)
+const shippingVisible = ref(false)
 const selectedOrderIds = ref([])
 const orderTableRef = ref(null)
 
@@ -82,8 +93,17 @@ const listTotal = (payload, normalizedRows) => {
   return Number(payload?.total ?? normalizedRows.length) || 0
 }
 
-const statusText = (value) =>
-  statusOptions.find((item) => String(item.value) === String(value))?.label || value || '-'
+const statusText = (value) => {
+  if (['待配送', '配送中', '已完成'].includes(value)) return value
+  return statusOptions.find((item) => String(item.value) === String(value))?.label || value || '-'
+}
+
+const deliveryStatusClass = (value) => {
+  const text = statusText(value)
+  if (text === '已完成') return 'delivery-status-success'
+  if (text === '配送中') return 'delivery-status-primary'
+  return 'delivery-status-warning'
+}
 
 const normalizeRow = (row = {}) => ({
   ...row,
@@ -124,9 +144,20 @@ const productInfoText = (row = {}) => {
   return products.map((item) => item.productInfo || item.productName || item.name).filter(Boolean).join('、') || '-'
 }
 
+const displayText = (value) => {
+  if (value === undefined || value === null || value === '') return '-'
+  return value
+}
+
+const editableText = (value) => {
+  if (value === undefined || value === null || value === '-') return ''
+  return String(value)
+}
+
 const normalizeOrderRow = (row = {}) => ({
   ...row,
   id: row.id || row.orderId,
+  orderId: row.orderId || row.id || '',
   orderNum: row.orderNum,
   orderNo: row.orderId || row.orderNo || '-',
   customer: row.companyName || row.customer || '-',
@@ -134,6 +165,9 @@ const normalizeOrderRow = (row = {}) => ({
   filler: row.fillUserName || row.filler || '-',
   productInfo: productInfoText(row),
   amount: row.totalMoney ?? row.amount ?? 0,
+  linkman: displayText(row.linkman || row.contact || row.contacts),
+  phone: displayText(row.phone || row.linkPhone || row.contactPhone),
+  companyAddress: displayText(row.companyAddress || row.deliveryAddress || row.address),
   orderStatus: orderStatusMap[Number(row.orderStatus || row.status)] || row.orderStatus || row.status || '-',
   status: deliveryOrderStatusMap[Number(row.deliveryStatus)] || row.deliveryStatus || '-'
 })
@@ -150,6 +184,16 @@ const normalizeDeliveryUser = (row = {}) => ({
 const imageList = (value) => {
   if (!value) return []
   if (Array.isArray(value)) return value.filter(Boolean)
+  return String(value).split(/[,，\s]+/).filter(Boolean)
+}
+
+const mediaList = (value) => {
+  if (!value) return []
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => item?.url || item?.fileUrl || item?.path || item)
+      .filter(Boolean)
+  }
   return String(value).split(/[,，\s]+/).filter(Boolean)
 }
 
@@ -379,7 +423,8 @@ const openDetail = async (row) => {
         title: item.content || '配送记录',
         description: item.tenantUserName || item.createUserName || '',
         remark: item.remark || '',
-        images: imageList(item.img || item.image || item.images || item.picture || item.pictures)
+        images: imageList(item.img || item.image || item.images || item.picture || item.pictures),
+        videos: mediaList(item.video || item.videos)
       }))
     }
   } catch (error) {
@@ -388,6 +433,58 @@ const openDetail = async (row) => {
     state.detailLoading = false
   }
 }
+
+const openShippingEdit = (row) => {
+  Object.assign(shippingForm, {
+    orderId: row.orderId || row.id || '',
+    linkman: editableText(row.linkman),
+    phone: editableText(row.phone),
+    companyAddress: editableText(row.companyAddress)
+  })
+  shippingVisible.value = true
+}
+
+const submitShippingEdit = async () => {
+  if (!shippingForm.orderId) return ElMessage.warning('缺少订单ID')
+  state.shippingSaving = true
+  try {
+    await editTenantDeliveryShippingInformation({
+      orderId: shippingForm.orderId,
+      linkman: shippingForm.linkman,
+      phone: shippingForm.phone,
+      companyAddress: shippingForm.companyAddress
+    })
+    const target = currentRow.value?.deliveryOrders?.find(
+      (item) => String(item.orderId || item.id) === String(shippingForm.orderId)
+    )
+    if (target) {
+      target.linkman = displayText(shippingForm.linkman)
+      target.phone = displayText(shippingForm.phone)
+      target.companyAddress = displayText(shippingForm.companyAddress)
+    }
+    shippingVisible.value = false
+    ElMessage.success('配送信息已更新')
+  } catch (error) {
+    ElMessage.error(error?.message || '配送信息保存失败')
+  } finally {
+    state.shippingSaving = false
+  }
+}
+
+const printRow = async (row) => {
+  try {
+    const data = await getTenantDeliveryPrintUrl(row.id)
+    const url = data?.url || data
+    if (url) {
+      window.open(url, '_blank')
+    } else {
+      ElMessage.warning('未获取到打印地址')
+    }
+  } catch (error) {
+    ElMessage.error(error?.message || '打印失败')
+  }
+}
+
 const removeRow = async (row) => {
   try {
     await ElMessageBox.confirm(`确认删除配送单吗？`, '删除确认', { type: 'warning' })
@@ -455,9 +552,14 @@ onMounted(() => {
         <el-table-column prop="orderInfo" label="订单信息" min-width="180" show-overflow-tooltip />
         <el-table-column prop="driver" label="配送员" min-width="110" />
         <el-table-column prop="progress" label="配送进度" min-width="120" />
-        <el-table-column prop="status" label="配送状态" min-width="110" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="配送状态" min-width="110">
           <template #default="{ row }">
+            <span :class="deliveryStatusClass(row.rawStatus || row.status)">{{ row.status }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="190" fixed="right">
+          <template #default="{ row }">
+            <el-button type="primary" link :icon="Printer" @click="printRow(row)">打印</el-button>
             <el-button type="primary" link :icon="View" @click="openDetail(row)">详情</el-button>
 <!--            <el-button type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>-->
             <el-button type="primary" link @click="removeRow(row)">删除</el-button>
@@ -551,14 +653,26 @@ onMounted(() => {
     <el-dialog v-model="detailVisible" title="配送单详情" width="1080px">
       <div v-loading="state.detailLoading">
         <el-table :data="currentRow?.deliveryOrders || []" border>
-          <el-table-column prop="orderNum" label="订单号" />
-          <el-table-column prop="customer" label="单位名称" />
-          <el-table-column prop="orderTime" label="订单时间" />
-          <el-table-column prop="filler" label="填单员" />
-          <el-table-column prop="productInfo" label="产品信息" show-overflow-tooltip />
-          <el-table-column prop="amount" label="订单金额" />
-          <el-table-column prop="orderStatus" label="订单状态" />
-          <el-table-column prop="status" label="配送状态" />
+          <el-table-column prop="orderNum" label="订单号" min-width="150" />
+          <el-table-column prop="customer" label="单位名称" min-width="130" />
+          <el-table-column prop="orderTime" label="订单时间" min-width="150" />
+          <el-table-column prop="filler" label="填单员" min-width="90" />
+          <el-table-column prop="productInfo" label="产品信息" min-width="170" show-overflow-tooltip />
+          <el-table-column prop="linkman" label="联系人" min-width="100" />
+          <el-table-column prop="phone" label="联系电话" min-width="130" />
+          <el-table-column prop="companyAddress" label="配送地址" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="amount" label="订单金额" min-width="90" />
+          <el-table-column prop="orderStatus" label="订单状态" min-width="90" />
+          <el-table-column label="配送状态" min-width="90">
+            <template #default="{ row }">
+              <span :class="deliveryStatusClass(row.status)">{{ row.status }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="90" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link :icon="Edit" @click="openShippingEdit(row)">编辑</el-button>
+            </template>
+          </el-table-column>
         </el-table>
         <el-table class="detail-section" :data="currentRow?.driverRows || []" border>
           <el-table-column prop="name" label="用户姓名" />
@@ -586,10 +700,44 @@ onMounted(() => {
                   preview-teleported
                 />
               </div>
+              <div v-if="item.videos?.length" class="timeline-videos">
+                <video
+                  v-for="src in item.videos"
+                  :key="src"
+                  class="timeline-video"
+                  :src="src"
+                  controls
+                  preload="metadata"
+                />
+              </div>
             </div>
           </el-timeline-item>
         </el-timeline>
       </div>
+    </el-dialog>
+
+    <el-dialog v-model="shippingVisible" title="编辑配送信息" width="620px" append-to-body>
+      <el-form class="shipping-form" :model="shippingForm" label-width="96px">
+        <el-form-item label="联系人">
+          <el-input v-model="shippingForm.linkman" clearable placeholder="请输入联系人" />
+        </el-form-item>
+        <el-form-item label="联系电话">
+          <el-input v-model="shippingForm.phone" clearable placeholder="请输入联系电话" />
+        </el-form-item>
+        <el-form-item label="配送地址">
+          <el-input
+            v-model="shippingForm.companyAddress"
+            clearable
+            type="textarea"
+            :rows="3"
+            placeholder="请输入配送地址"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="shippingVisible = false">取消</el-button>
+        <el-button type="primary" :loading="state.shippingSaving" @click="submitShippingEdit">保存</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
@@ -663,6 +811,21 @@ onMounted(() => {
   display: none;
 }
 
+.delivery-status-warning {
+  color: #ff9f1a;
+  font-weight: 700;
+}
+
+.delivery-status-primary {
+  color: #1f6bff;
+  font-weight: 700;
+}
+
+.delivery-status-success {
+  color: #22c55e;
+  font-weight: 700;
+}
+
 .timeline-content {
   display: grid;
   gap: 6px;
@@ -673,7 +836,8 @@ onMounted(() => {
   color: #606266;
 }
 
-.timeline-images {
+.timeline-images,
+.timeline-videos {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -684,5 +848,14 @@ onMounted(() => {
   height: 72px;
   border: 1px solid #e4e7ed;
   border-radius: 4px;
+}
+
+.timeline-video {
+  width: 160px;
+  height: 96px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  background: #000000;
+  object-fit: cover;
 }
 </style>

@@ -9,6 +9,7 @@ import {
   deleteTenantStaff,
   editTenantStaff,
   getTenantDepartmentOptions,
+  getTenantMachineOptions,
   getTenantRoleList,
   getTenantStaffList,
   resetTenantStaffPassword
@@ -41,6 +42,7 @@ const form = reactive({
   deptId: '',
   jobNo: '',
   roleIdList: [],
+  machineIdList: [],
   remark: '',
   status: '1'
 })
@@ -55,6 +57,7 @@ const state = reactive({
 const rows = ref([])
 const departments = ref([])
 const roles = ref([])
+const machines = ref([])
 const formVisible = ref(false)
 const treeRef = ref(null)
 
@@ -81,6 +84,13 @@ const statusValue = (value) => (statusText(value) === '启用' ? '1' : '0')
 
 const departmentNameMap = computed(() => new Map(departments.value.map((item) => [String(item.value), item.label])))
 const roleNameMap = computed(() => new Map(roles.value.map((item) => [String(item.value), item.label])))
+const machineNameMap = computed(() => new Map(machines.value.map((item) => [String(item.value), item.label])))
+
+const normalizeIdList = (value) => {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean)
+  if (value === undefined || value === null || value === '') return []
+  return String(value).split(/[,，]/).map((item) => item.trim()).filter(Boolean)
+}
 
 const normalizeStaff = (row = {}) => {
   const roleIds = Array.isArray(row.roleIdList)
@@ -90,6 +100,7 @@ const normalizeStaff = (row = {}) => {
       : row.roleId || row.roleIds
         ? String(row.roleId || row.roleIds).split(',')
         : []
+  const machineIds = normalizeIdList(row.machineIdList || row.machineIds || row.machineId)
   return {
     ...row,
     id: row.id || row.userId,
@@ -105,11 +116,17 @@ const normalizeStaff = (row = {}) => {
     jobNo: row.jobNumber || row.jobNo || '',
     hireDate: row.hiredate || row.hireDate || '',
     roleIdList: roleIds.map((item) => String(item)),
+    machineIdList: machineIds,
     roleText:
       row.roleText ||
       row.roleName ||
       row.menuName ||
       roleIds.map((id) => roleNameMap.value.get(String(id))).filter(Boolean).join('、') ||
+      '-',
+    machineText:
+      row.machineText ||
+      row.machineName ||
+      machineIds.map((id) => machineNameMap.value.get(String(id))).filter(Boolean).join('、') ||
       '-',
     remark: row.remark || '',
     status: statusText(row.status),
@@ -150,6 +167,7 @@ const savePayload = () => {
     deptId: form.deptId || undefined,
     jobNumber: form.jobNo || undefined,
     roleIdList: form.roleIdList,
+    machineIdList: form.machineIdList,
     remark: form.remark,
     status: form.status
   }
@@ -173,15 +191,52 @@ const normalizeRoleOptions = (data = []) =>
     }))
     .filter((item) => item.label && item.value)
 
+const normalizeMachineOptions = (data = []) =>
+  listRows(data)
+    .map((item) => ({
+      label: item.name || item.machineName || item.label,
+      value: String(item.id || item.machineId || item.value || '')
+    }))
+    .filter((item) => item.label && item.value)
+
+const appendMachineOptions = (options = []) => {
+  const optionMap = new Map(machines.value.map((item) => [String(item.value), item]))
+  options.forEach((item) => {
+    if (item?.label && item?.value) optionMap.set(String(item.value), item)
+  })
+  machines.value = Array.from(optionMap.values())
+}
+
+const ensureSelectedMachineOptions = (ids = [], names = '') => {
+  const nameList = String(names || '').split(/[,，、]/).map((item) => item.trim()).filter(Boolean)
+  appendMachineOptions(
+    ids.map((id, index) => ({
+      value: String(id),
+      label: nameList[index] || machineNameMap.value.get(String(id)) || String(id)
+    }))
+  )
+}
+
+const loadMachineOptions = async (name = '') => {
+  try {
+    const data = await getTenantMachineOptions({ name })
+    appendMachineOptions(normalizeMachineOptions(data))
+  } catch (error) {
+    ElMessage.error(error?.message || '机器列表加载失败')
+  }
+}
+
 const loadOptions = async () => {
   state.optionLoading = true
   try {
-    const [deptData, roleData] = await Promise.all([
+    const [deptData, roleData, machineData] = await Promise.all([
       getTenantDepartmentOptions({ name: '' }).catch(() => []),
-      getTenantRoleList({ pageNum: 1, pageSize: 100 }).catch(() => [])
+      getTenantRoleList({ pageNum: 1, pageSize: 100 }).catch(() => []),
+      getTenantMachineOptions({ name: '' }).catch(() => [])
     ])
     departments.value = normalizeDepartmentOptions(deptData)
     roles.value = normalizeRoleOptions(roleData)
+    machines.value = normalizeMachineOptions(machineData)
   } finally {
     state.optionLoading = false
   }
@@ -241,6 +296,7 @@ const resetForm = () => {
     deptId: '',
     jobNo: '',
     roleIdList: [],
+    machineIdList: [],
     remark: '',
     status: '1'
   })
@@ -248,10 +304,12 @@ const resetForm = () => {
 
 const openCreate = () => {
   resetForm()
+  loadMachineOptions()
   formVisible.value = true
 }
 
 const openEdit = (row) => {
+  ensureSelectedMachineOptions(row.machineIdList || [], row.machineText)
   Object.assign(form, {
     id: row.id,
     name: row.name === '-' ? '' : row.name,
@@ -265,6 +323,7 @@ const openEdit = (row) => {
     deptId: String(row.deptId || ''),
     jobNo: row.jobNo,
     roleIdList: row.roleIdList || [],
+    machineIdList: row.machineIdList || [],
     remark: row.remark,
     status: row.statusValue
   })
@@ -383,6 +442,7 @@ onMounted(async () => {
             <el-table-column prop="phone" label="联系方式（账号）" min-width="150" />
             <el-table-column prop="department" label="所在部门" min-width="130" />
             <el-table-column prop="roleText" label="用户角色" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="machineText" label="绑定机器" min-width="180" show-overflow-tooltip />
             <el-table-column label="状态" width="100">
               <template #default="{ row }">
                 <el-switch
@@ -471,6 +531,23 @@ onMounted(async () => {
             placeholder="请选择角色"
           >
             <el-option v-for="item in roles" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="机器绑定" class="full">
+          <el-select
+            v-model="form.machineIdList"
+            multiple
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            collapse-tags
+            collapse-tags-tooltip
+            :remote-method="loadMachineOptions"
+            :loading="state.optionLoading"
+            placeholder="请选择绑定机器"
+          >
+            <el-option v-for="item in machines" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="备注" class="full">

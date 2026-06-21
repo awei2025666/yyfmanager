@@ -36,6 +36,7 @@ const form = reactive({
   name: '',
   unit: '',
   priceBase: '',
+  foilingStartingPrice: '',
   formatSize: '',
   spotColors: '',
   sort: '',
@@ -48,6 +49,7 @@ const normalizeCraft = (row = {}, index = 0) => ({
   id: row.id || row.craftId || index + 1,
   name: row.name || row.craftName || '-',
   priceBase: row.priceBase ?? row.basePrice ?? 0,
+  foilingStartingPrice: row.foilingStartingPrice ?? 0,
   unit: row.unit || '-',
   sort: row.sort ?? row.sortNum ?? 0,
   remark: row.remark || row.description || '',
@@ -56,7 +58,11 @@ const normalizeCraft = (row = {}, index = 0) => ({
   status: Number(row.status ?? 1)
 })
 
-const formatMoney = (value) => `¥${Number(value || 0).toFixed(2)}`
+const formatNumber = (value) => {
+  const number = Number(value || 0)
+  if (!Number.isFinite(number)) return value || 0
+  return String(Math.trunc(number))
+}
 
 const loadData = async () => {
   state.loading = true
@@ -102,6 +108,7 @@ const resetForm = () => {
     name: '',
     unit: '',
     priceBase: '',
+    foilingStartingPrice: '',
     formatSize: '',
     spotColors: '',
     sort: '',
@@ -119,6 +126,7 @@ const openEdit = (row) => {
   Object.assign(form, {
     ...row,
     priceBase: row.priceBase === 0 ? 0 : row.priceBase || '',
+    foilingStartingPrice: row.foilingStartingPrice === 0 ? 0 : row.foilingStartingPrice || '',
     formatSize: row.formatSize === '--' ? '' : row.formatSize,
     spotColors: row.spotColors === '--' ? '' : row.spotColors
   })
@@ -143,6 +151,7 @@ const submit = async () => {
       name: form.name,
       unit: form.unit,
       priceBase: form.priceBase,
+      foilingStartingPrice: form.foilingStartingPrice,
       formatSize: form.formatSize,
       spotColors: form.spotColors,
       sort: form.sort,
@@ -229,7 +238,10 @@ onMounted(() => {
         <el-table v-loading="state.loading" :data="state.records" class="craft-table" empty-text="当前筛选下暂无工艺数据">
           <el-table-column prop="name" label="工艺名称" min-width="130" />
           <el-table-column prop="priceBase" label="起价基数" min-width="120">
-            <template #default="{ row }">{{ formatMoney(row.priceBase) }}</template>
+            <template #default="{ row }">{{ formatNumber(row.priceBase) }}</template>
+          </el-table-column>
+          <el-table-column prop="foilingStartingPrice" label="烫金起价" min-width="120">
+            <template #default="{ row }">{{ formatNumber(row.foilingStartingPrice) }}</template>
           </el-table-column>
           <el-table-column prop="unit" label="单位" min-width="100" />
           <el-table-column prop="sort" label="排序" min-width="100" />
@@ -277,6 +289,10 @@ onMounted(() => {
           <label>
             <span><em>*</em>起价基数</span>
             <el-input v-model="form.priceBase" placeholder="请输入起步价" />
+          </label>
+          <label>
+            <span>烫金起价</span>
+            <el-input v-model="form.foilingStartingPrice" placeholder="请输入烫金起价" />
           </label>
           <label>
             <span><em>*</em>单位</span>
@@ -352,18 +368,16 @@ onMounted(() => {
 .craft-search-card :deep(.el-input__wrapper),
 .craft-search-card :deep(.el-select__wrapper) {
   min-height: 42px;
-  border: 0;
   border-radius: 6px;
-  background: #f6f7f9;
-  box-shadow: none;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px var(--el-input-border-color, #dcdfe6) inset;
 }
 
 .craft-form-card :deep(.el-input__wrapper),
 .craft-form-card :deep(.el-textarea__inner) {
-  border: 0;
-  border-radius: 0;
-  background: #f5f6f8;
-  box-shadow: none;
+  border-radius: 4px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px var(--el-input-border-color, #dcdfe6) inset;
 }
 
 .craft-search-actions {

@@ -46,11 +46,13 @@ const state = reactive({
   exporting: false,
   saving: false,
   total: 0,
-  detailLoading: false
+  detailLoading: false,
+  clientLoading: false
 })
 
 const rows = ref([])
 const accountOptions = ref([])
+const allClientOptions = ref([])
 const clientOptions = ref([])
 const formVisible = ref(false)
 const formMode = ref('create')
@@ -91,7 +93,8 @@ const totals = reactive({
 
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
-  return payload?.records || payload?.list || payload?.rows || []
+  if (Array.isArray(payload?.data)) return payload.data
+  return payload?.records || payload?.list || payload?.rows || payload?.data?.records || payload?.data?.list || []
 }
 
 const listTotal = (payload, normalizedRows = []) => {
@@ -124,21 +127,25 @@ const normalizeReceipt = (row = {}) => ({
   digest: row.digest || ''
 })
 
-const normalizeReceiptOrder = (row = {}) => ({
-  ...row,
-  orderId: row.orderId || row.id,
-  orderNo: row.orderNo || row.orderId || '-',
-  orderTime: formatTime(row.orderTime || row.createTime),
-  fillUserName: row.fillUserName || row.filler || '-',
-  productInfo: productInfoText(row) || '-',
-  billMoney: moneyValue(row.billMoney ?? row.receivableMoney),
-  receivedMoney: moneyValue(row.receivedMoney ?? row.totalCollectionMoney),
-  remainMoney: moneyValue(row.remainMoney),
-  orderStatus: row.orderStatus || row.status,
-  money: row.money ?? '',
-  allowanceMoney: row.allowanceMoney ?? '',
-  checked: false
-})
+const normalizeReceiptOrder = (row = {}, options = {}) => {
+  const receiptAllowance = row.currentAllowanceMoney ?? row.receiptAllowanceMoney ?? row.thisAllowanceMoney
+  return {
+    ...row,
+    orderId: row.orderId || row.id,
+    orderNo: row.orderNo || row.orderId || '-',
+    orderTime: formatTime(row.orderTime || row.createTime),
+    fillUserName: row.fillUserName || row.filler || '-',
+    productInfo: productInfoText(row) || '-',
+    billMoney: moneyValue(row.billMoney ?? row.receivableMoney),
+    receivedMoney: moneyValue(row.receivedMoney ?? row.totalCollectionMoney),
+    receivedAllowanceMoney: moneyValue(row.receivedAllowanceMoney ?? row.totalAllowanceMoney ?? row.allowanceMoney),
+    remainMoney: moneyValue(row.remainMoney),
+    orderStatus: row.orderStatus || row.status,
+    money: row.money ?? '',
+    currentAllowanceMoney: options.useReceiptAllowance ? receiptAllowance ?? row.allowanceMoney ?? '' : receiptAllowance ?? '',
+    checked: false
+  }
+}
 const productInfoText = (row = {}) => {
   if (row.productInfo) return row.productInfo
   if (row.productName) return row.productName
@@ -147,7 +154,7 @@ const productInfoText = (row = {}) => {
   return products.map((item) => item.productInfo || item.productName || item.name).filter(Boolean).join('、') || '-'
 }
 const formMoneyTotal = computed(() => form.listOrder.reduce((sum, item) => sum + moneyValue(item.money), 0))
-const formAllowanceTotal = computed(() => form.listOrder.reduce((sum, item) => sum + moneyValue(item.allowanceMoney), 0))
+const formAllowanceTotal = computed(() => form.listOrder.reduce((sum, item) => sum + moneyValue(item.currentAllowanceMoney), 0))
 
 const queryPayload = () => {
   const [start, end] = Array.isArray(filters.createTime) ? filters.createTime : []
@@ -171,12 +178,48 @@ const loadAccounts = async (name = '') => {
   }
 }
 
-const searchClients = async (companyName = '') => {
-  if (!companyName) return
+const normalizeClientOptions = (data) =>
+  listRows(data)
+    .map((item) => ({
+      ...item,
+      id: item.id || item.cooperativeClientId || item.clientId || item.companyName,
+      companyName: item.companyName || item.name || '',
+      companyNamePinyin: item.companyNamePinyin || item.pinyin || ''
+    }))
+    .filter((item) => item.id && item.companyName)
+
+const clientMatchesKeyword = (client = {}, keyword = '') => {
+  const text = String(keyword || '').trim().toLowerCase()
+  if (!text) return true
+  return [client.companyName, client.companyNamePinyin]
+    .some((value) => String(value || '').toLowerCase().includes(text))
+}
+
+const filterClientOptions = (companyName = '') => {
+  clientOptions.value = allClientOptions.value
+    .filter((item) => clientMatchesKeyword(item, companyName))
+    .slice(0, 50)
+}
+
+const loadClients = async () => {
+  state.clientLoading = true
   try {
-    clientOptions.value = await searchTenantClients({ companyName })
+    const data = await searchTenantClients({ companyName: '' })
+    allClientOptions.value = normalizeClientOptions(data)
+    filterClientOptions()
   } catch (error) {
-    ElMessage.error(error?.message || '单位搜索失败')
+    ElMessage.error(error?.message || '单位列表加载失败')
+  } finally {
+    state.clientLoading = false
+  }
+}
+
+const handleClientDropdownVisible = (visible) => {
+  if (!visible) return
+  if (!allClientOptions.value.length) {
+    loadClients()
+  } else {
+    filterClientOptions()
   }
 }
 
@@ -189,8 +232,12 @@ const ensureAccountOption = (id, name) => {
 
 const ensureClientOption = (id, companyName) => {
   if (!id || !companyName) return
-  if (!clientOptions.value.some((item) => item.id === id)) {
-    clientOptions.value.push({ id, companyName })
+  const option = { id, companyName }
+  if (!allClientOptions.value.some((item) => String(item.id) === String(id))) {
+    allClientOptions.value.push(option)
+  }
+  if (!clientOptions.value.some((item) => String(item.id) === String(id))) {
+    clientOptions.value.push(option)
   }
 }
 
@@ -299,7 +346,7 @@ const openEdit = async (row) => {
     form.digest = data?.digest || ''
     form.proofImg = data?.proofImg || ''
     form.proofImgName = data?.proofImg ? '已上传凭证' : ''
-    form.listOrder = listRows(data?.listOrder).map(normalizeReceiptOrder)
+    form.listOrder = listRows(data?.listOrder).map((item) => normalizeReceiptOrder(item, { useReceiptAllowance: true }))
     ensureClientOption(form.cooperativeClientId, form.companyName)
     ensureAccountOption(form.accountId, form.accountName)
   } catch (error) {
@@ -311,7 +358,8 @@ const openEdit = async (row) => {
 }
 
 const handleClientChange = (id) => {
-  const client = clientOptions.value.find((item) => item.id === id)
+  const client = allClientOptions.value.find((item) => String(item.id) === String(id))
+    || clientOptions.value.find((item) => String(item.id) === String(id))
   form.companyName = client?.companyName || ''
   form.listOrder = []
 }
@@ -343,7 +391,7 @@ const receiptPayload = () => ({
   listOrder: form.listOrder.map((item) => ({
     orderId: item.orderId,
     money: moneyValue(item.money),
-    allowanceMoney: moneyValue(item.allowanceMoney)
+    allowanceMoney: moneyValue(item.currentAllowanceMoney)
   }))
 })
 
@@ -408,8 +456,9 @@ const loadSelectableOrders = async () => {
       const selected = selectedMap.get(row.orderId)
       if (selected) {
         row.checked = true
+        row.receivedAllowanceMoney = selected.receivedAllowanceMoney
         row.money = selected.money
-        row.allowanceMoney = selected.allowanceMoney
+        row.currentAllowanceMoney = selected.currentAllowanceMoney
       }
       return row
     })
@@ -492,7 +541,7 @@ const openDetail = async (row) => {
       accountName: data?.accountName || '-',
       createTenantUserName: data?.createTenantUserName || '-',
       proofImg: data?.proofImg || '',
-      listOrder: listRows(data?.listOrder).map(normalizeReceiptOrder)
+      listOrder: listRows(data?.listOrder).map((item) => normalizeReceiptOrder(item, { useReceiptAllowance: true }))
     }
   } catch (error) {
     ElMessage.error(error?.message || '详情加载失败')
@@ -503,6 +552,7 @@ const openDetail = async (row) => {
 
 onMounted(() => {
   loadAccounts()
+  loadClients()
   refreshAll()
   if (route.query.mode === 'create') {
     openCreate()
@@ -518,7 +568,24 @@ onMounted(() => {
           <el-input v-model="filters.orderId" clearable placeholder="请输入收款单号" @keyup.enter="searchData" />
         </el-form-item>
         <el-form-item label="单位名称">
-          <el-input v-model="filters.companyName" clearable placeholder="请输入单位名称" @keyup.enter="searchData" />
+          <el-select
+            v-model="filters.companyName"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            placeholder="请输入单位名称"
+            :remote-method="filterClientOptions"
+            :loading="state.clientLoading"
+            @visible-change="handleClientDropdownVisible"
+          >
+            <el-option
+              v-for="item in clientOptions"
+              :key="item.id"
+              :label="item.companyName"
+              :value="item.companyName"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="收款人">
           <el-input v-model="filters.collectionUserName" clearable placeholder="请输入收款人" @keyup.enter="searchData" />
@@ -619,7 +686,9 @@ onMounted(() => {
                 remote
                 reserve-keyword
                 placeholder="请输入单位名称"
-                :remote-method="searchClients"
+                :remote-method="filterClientOptions"
+                :loading="state.clientLoading"
+                @visible-change="handleClientDropdownVisible"
                 @change="handleClientChange"
               >
                 <el-option v-for="item in clientOptions" :key="item.id" :label="item.companyName" :value="item.id" />
@@ -682,6 +751,9 @@ onMounted(() => {
             <el-table-column label="已收金额" min-width="120">
               <template #default="{ row }">{{ formatMoney(row.receivedMoney) }}</template>
             </el-table-column>
+            <el-table-column label="已折让金额" min-width="120">
+              <template #default="{ row }">{{ formatMoney(row.receivedAllowanceMoney) }}</template>
+            </el-table-column>
             <el-table-column label="剩余尾款" min-width="120">
               <template #default="{ row }">{{ formatMoney(row.remainMoney) }}</template>
             </el-table-column>
@@ -695,7 +767,7 @@ onMounted(() => {
             </el-table-column>
             <el-table-column label="本次折让" min-width="150">
               <template #default="{ row }">
-                <el-input-number v-model="row.allowanceMoney" :min="0" :precision="2" controls-position="right" />
+                <el-input-number v-model="row.currentAllowanceMoney" :min="0" :precision="2" controls-position="right" />
               </template>
             </el-table-column>
             <el-table-column label="操作" width="90" fixed="right">
@@ -749,6 +821,9 @@ onMounted(() => {
         <el-table-column label="已收金额" min-width="120">
           <template #default="{ row }">{{ formatMoney(row.receivedMoney) }}</template>
         </el-table-column>
+        <el-table-column label="已折让金额" min-width="120">
+          <template #default="{ row }">{{ formatMoney(row.receivedAllowanceMoney) }}</template>
+        </el-table-column>
         <el-table-column label="剩余尾款" min-width="120">
           <template #default="{ row }">{{ formatMoney(row.remainMoney) }}</template>
         </el-table-column>
@@ -763,7 +838,7 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="本次折让" min-width="150">
           <template #default="{ row }">
-            <el-input-number v-if="row.checked" v-model="row.allowanceMoney" :min="0" :precision="2" controls-position="right" />
+            <el-input-number v-if="row.checked" v-model="row.currentAllowanceMoney" :min="0" :precision="2" controls-position="right" />
             <span v-else>-</span>
           </template>
         </el-table-column>
@@ -819,9 +894,10 @@ onMounted(() => {
           <el-table-column prop="productInfo" label="产品信息" min-width="180" show-overflow-tooltip />
           <el-table-column label="应收金额"><template #default="{ row }">{{ formatMoney(row.billMoney) }}</template></el-table-column>
           <el-table-column label="已收金额"><template #default="{ row }">{{ formatMoney(row.receivedMoney) }}</template></el-table-column>
+          <el-table-column label="已折让金额"><template #default="{ row }">{{ formatMoney(row.receivedAllowanceMoney) }}</template></el-table-column>
           <el-table-column label="剩余尾款"><template #default="{ row }">{{ formatMoney(row.remainMoney) }}</template></el-table-column>
           <el-table-column label="本次收款"><template #default="{ row }">{{ formatMoney(row.money) }}</template></el-table-column>
-          <el-table-column label="本次折让"><template #default="{ row }">{{ formatMoney(row.allowanceMoney) }}</template></el-table-column>
+          <el-table-column label="本次折让"><template #default="{ row }">{{ formatMoney(row.currentAllowanceMoney) }}</template></el-table-column>
         </el-table>
       </div>
     </el-dialog>

@@ -13,6 +13,7 @@ import {
   getTenantReimburseList,
   getTenantReimbursePrintUrl,
   getTenantReimburseTotal,
+  getTenantClientUsers,
   searchTenantAccounts,
   uploadTenantFile
 } from '../../api/tenant'
@@ -38,6 +39,7 @@ const state = reactive({
 
 const rows = ref([])
 const accountOptions = ref([])
+const userOptions = ref([])
 const formVisible = ref(false)
 const formMode = ref('create')
 const detailVisible = ref(false)
@@ -46,13 +48,14 @@ const detailData = ref(null)
 const form = reactive({
   id: '',
   collectionTime: '',
+  tenantUserId: '',
+  tenantUserName: '',
   accountId: '',
   accountName: '',
   money: '',
   allowanceMoney: '',
   digest: '',
-  proofImg: '',
-  proofImgName: ''
+  files: []
 })
 
 const totals = reactive({
@@ -88,13 +91,36 @@ const normalizeRow = (row = {}) => ({
   id: row.id || row.reimburseId,
   orderId: row.orderId || row.reimburseNo || row.reimbursementNo || '-',
   collectionTime: formatTime(row.collectionTime || row.createTime || row.reimburseTime),
-  collectionUserName: row.collectionUserName || row.createTenantUserName || '-',
+  tenantUserId: row.tenantUserId || '',
+  tenantUserName: row.tenantUserName || row.collectionUserName || row.createTenantUserName || '-',
+  collectionUserName: row.tenantUserName || row.collectionUserName || row.createTenantUserName || '-',
   accountId: row.accountId,
   accountName: row.accountName || '-',
   money: moneyValue(row.money),
   allowanceMoney: moneyValue(row.allowanceMoney),
   digest: row.digest || ''
 })
+
+const normalizeFiles = (row = {}) => {
+  const files = Array.isArray(row.files) ? row.files : []
+  if (files.length) {
+    return files
+      .map((item) => ({
+        fileId: item.fileId || item.id || '',
+        url: item.url || item.fileUrl || item.path || '',
+        name: item.name || item.fileName || '报销凭证'
+      }))
+      .filter((item) => item.fileId || item.url)
+  }
+  const legacyUrl = row.proofImgUrl || row.proofImg || ''
+  return legacyUrl
+    ? [{
+        fileId: row.proofImg || '',
+        url: legacyUrl,
+        name: '报销凭证'
+      }]
+    : []
+}
 
 const queryPayload = () => {
   const [start, end] = Array.isArray(filters.createTime) ? filters.createTime : []
@@ -117,10 +143,33 @@ const loadAccounts = async (name = '') => {
   }
 }
 
+const normalizeUserOption = (row = {}) => ({
+  id: row.id || row.userId || row.tenantUserId,
+  name: row.name || row.userName || row.nickName || '-',
+  phone: row.phone || row.mobile || ''
+})
+
+const loadUsers = async (name = '') => {
+  try {
+    const data = await getTenantClientUsers({ name })
+    userOptions.value = listRows(data).map(normalizeUserOption)
+  } catch (error) {
+    userOptions.value = []
+    ElMessage.error(error?.message || '人员列表加载失败')
+  }
+}
+
 const ensureAccountOption = (id, name) => {
   if (!id || !name) return
   if (!accountOptions.value.some((item) => item.id === id)) {
     accountOptions.value.push({ id, name })
+  }
+}
+
+const ensureUserOption = (id, name) => {
+  if (!id || !name) return
+  if (!userOptions.value.some((item) => String(item.id) === String(id))) {
+    userOptions.value.push({ id, name })
   }
 }
 
@@ -195,13 +244,14 @@ const exportData = async () => {
 const resetForm = () => {
   form.id = ''
   form.collectionTime = nowString()
+  form.tenantUserId = ''
+  form.tenantUserName = ''
   form.accountId = ''
   form.accountName = ''
   form.money = ''
   form.allowanceMoney = ''
   form.digest = ''
-  form.proofImg = ''
-  form.proofImgName = ''
+  form.files = []
 }
 
 const openCreate = () => {
@@ -219,13 +269,15 @@ const openEdit = async (row) => {
     const data = await getTenantReimburseDetail(row.id)
     form.id = data?.id || row.id
     form.collectionTime = formatTime(data?.collectionTime)
+    form.tenantUserId = data?.tenantUserId || ''
+    form.tenantUserName = data?.tenantUserName || data?.collectionUserName || ''
     form.accountId = data?.accountId || ''
     form.accountName = data?.accountName || ''
     form.money = data?.money ?? ''
     form.allowanceMoney = data?.allowanceMoney ?? ''
     form.digest = data?.digest || ''
-    form.proofImg = data?.proofImg || ''
-    form.proofImgName = data?.proofImg ? '已上传凭证' : ''
+    form.files = normalizeFiles(data)
+    ensureUserOption(form.tenantUserId, form.tenantUserName)
     ensureAccountOption(form.accountId, form.accountName)
   } catch (error) {
     ElMessage.error(error?.message || '编辑回显加载失败')
@@ -240,32 +292,51 @@ const handleAccountChange = (id) => {
   form.accountName = account?.name || ''
 }
 
+const handleUserChange = (id) => {
+  const user = userOptions.value.find((item) => String(item.id) === String(id))
+  form.tenantUserName = user?.name || ''
+}
+
 const uploadProof = async ({ file }) => {
   try {
     const data = await uploadTenantFile(file)
-    form.fileUrl = data?.url || data?.fileUrl || URL.createObjectURL(file)
-
-    form.proofImg = data?.url || data?.path || data?.fileUrl || data?.id || data || ''
-    form.proofImgName = file.name
+    const fileId = data?.fileId || data?.id || data
+    const url = data?.url || data?.fileUrl || data?.path || URL.createObjectURL(file)
+    form.files.push({
+      fileId,
+      url,
+      name: file.name
+    })
     ElMessage.success('上传成功')
   } catch (error) {
     ElMessage.error(error?.message || '上传失败')
   }
 }
 
+const removeProof = (index) => {
+  form.files.splice(index, 1)
+}
+
 const formPayload = () => ({
   id: formMode.value === 'edit' ? form.id : undefined,
+  tenantUserId: form.tenantUserId,
   accountId: form.accountId,
   allowanceMoney: moneyValue(form.allowanceMoney),
   collectionTime: form.collectionTime,
   digest: form.digest,
   money: moneyValue(form.money),
-  proofImg: form.proofImg
+  files: form.files
+    .map((item) => ({ fileId: item.fileId }))
+    .filter((item) => item.fileId)
 })
 
 const saveForm = async () => {
   if (!form.collectionTime) {
     ElMessage.warning('请选择报销时间')
+    return
+  }
+  if (!form.tenantUserId) {
+    ElMessage.warning('请选择报销人')
     return
   }
   if (!form.accountId) {
@@ -324,7 +395,10 @@ const openDetail = async (row) => {
   state.detailLoading = true
   try {
     const data = await getTenantReimburseDetail(row.id)
-    detailData.value = normalizeRow(data)
+    detailData.value = {
+      ...normalizeRow(data),
+      files: normalizeFiles(data)
+    }
   } catch (error) {
     ElMessage.error(error?.message || '详情加载失败')
   } finally {
@@ -334,6 +408,7 @@ const openDetail = async (row) => {
 
 onMounted(() => {
   loadAccounts()
+  loadUsers()
   refreshAll()
   if (route.query.mode === 'create') {
     openCreate()
@@ -437,6 +512,23 @@ onMounted(() => {
               placeholder="请选择报销时间"
             />
           </el-form-item>
+          <el-form-item label="报销人" required>
+            <el-select
+              v-model="form.tenantUserId"
+              clearable
+              filterable
+              remote
+              reserve-keyword
+              placeholder="请选择报销人"
+              :remote-method="loadUsers"
+              @change="handleUserChange"
+            >
+              <el-option v-for="item in userOptions" :key="item.id" :label="item.name" :value="item.id">
+                <span>{{ item.name }}</span>
+                <span v-if="item.phone" class="option-phone">{{ item.phone }}</span>
+              </el-option>
+            </el-select>
+          </el-form-item>
           <el-form-item label="报销账户" required>
             <el-select
               v-model="form.accountId"
@@ -461,11 +553,22 @@ onMounted(() => {
             <el-input v-model="form.digest" type="textarea" :rows="4" placeholder="请输入摘要" />
           </el-form-item>
           <el-form-item label="报销凭证" class="wide">
-            <el-upload action="#" accept="image/*" :show-file-list="false" :http-request="uploadProof">
+            <el-upload action="#" accept="image/*" multiple :show-file-list="false" :http-request="uploadProof">
               <el-button :icon="Upload">选择文件</el-button>
             </el-upload>
-            <span class="upload-tip">{{ form.proofImg ? `` : '未选择任何文件' }}</span>
-            <el-image v-if="form.fileUrl" :src="form.fileUrl" :preview-src-list="[form.fileUrl]" fit="cover" preview-teleported />
+            <span class="upload-tip">{{ form.files.length ? `已选择 ${form.files.length} 张` : '未选择任何文件' }}</span>
+            <div v-if="form.files.length" class="proof-list">
+              <div v-for="(file, index) in form.files" :key="file.fileId || index" class="proof-item">
+                <el-image
+                  class="proof-image"
+                  :src="file.url"
+                  :preview-src-list="form.files.map((item) => item.url).filter(Boolean)"
+                  fit="cover"
+                  preview-teleported
+                />
+                <el-button type="danger" link @click="removeProof(index)">删除</el-button>
+              </div>
+            </div>
           </el-form-item>
         </el-form>
       </div>
@@ -497,14 +600,15 @@ onMounted(() => {
             <span>报销凭证</span>
             <div class="detail-images">
               <el-image
-                  v-if="detailData?.proofImgUrl"
-                  class="detail-image"
-                  :src="detailData?.proofImgUrl"
-                  :preview-src-list="[detailData?.proofImgUrl]"
-                  fit="cover"
-                  preview-teleported
+                v-for="file in detailData.files"
+                :key="file.fileId || file.url"
+                class="detail-image"
+                :src="file.url"
+                :preview-src-list="detailData.files.map((item) => item.url).filter(Boolean)"
+                fit="cover"
+                preview-teleported
               />
-              <span v-else>-</span>
+              <span v-if="!detailData.files?.length">-</span>
             </div>
           </div>
         </dl>
@@ -594,6 +698,39 @@ onMounted(() => {
 .upload-name {
   margin-left: 12px;
   color: #606266;
+}
+
+.upload-tip {
+  margin-left: 12px;
+  color: #8a93a3;
+}
+
+.option-phone {
+  float: right;
+  color: #8a93a3;
+  font-size: 12px;
+}
+
+.proof-list,
+.detail-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.proof-item {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+
+.proof-image,
+.detail-image {
+  width: 72px;
+  height: 72px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
 }
 
 .detail-grid {

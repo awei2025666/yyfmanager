@@ -10,6 +10,7 @@ import {
   editTenantConsumableDetail,
   getTenantConsumableDetail,
   getTenantConsumableDetailList, getTenantOrderListAll,
+  getTenantClientUsers,
   searchTenantConsumables,
   uploadTenantFile
 } from '../../api/tenant'
@@ -56,6 +57,7 @@ const detailVisible = ref(false)
 const formVisible = ref(false)
 const orderPickerVisible = ref(false)
 const consumableOptions = ref([])
+const requisitionerOptions = ref([])
 
 const form = reactive({
   id: '',
@@ -64,6 +66,8 @@ const form = reactive({
   consumableUnit: '',
   consumableMoney: '',
   type: '1',
+  requisitioner: '',
+  requisitionerName: '',
   num: '',
   fileId: '',
   fileUrl: '',
@@ -118,12 +122,20 @@ const normalizeRow = (row = {}) => ({
   type: typeText(row.type),
   typeValue: String(row.type || ''),
   quantity: row.num ?? row.quantity ?? 0,
+  requisitioner: row.requisitioner || '',
+  requisitionerName: String(row.type) === '2' ? row.requisitionerName || '-' : '-',
   orderNo: row.orderId || row.order?.orderId || '-',
   operator: row.createUserName || row.operator || '-',
   updatedAt: row.createTime || row.updatedAt || '-',
   imageRemark: row.imgRemark || row.img || row.imageRemark || row.picture || row.fileId || '',
   imageUrl: row.imgRemarkUrl || row.fileUrl || row.imageUrl || row.imgUrl || '',
   remark: row.remark || row.detailNote || ''
+})
+
+const normalizeUserOption = (row = {}) => ({
+  id: row.id || row.userId || row.tenantUserId,
+  name: row.name || row.userName || row.nickName || '-',
+  phone: row.phone || row.mobile || ''
 })
 
 const normalizeOrderOption = (row = {}) => ({
@@ -160,6 +172,8 @@ const resetForm = () => {
     consumableUnit: '',
     consumableMoney: '',
     type: '1',
+    requisitioner: '',
+    requisitionerName: '',
     num: '',
     fileId: '',
     fileUrl: '',
@@ -184,6 +198,8 @@ const fillFormFromRecord = (record = {}) => {
     consumableUnit: record.consumableUnit || record.unit || '',
     consumableMoney: record.consumableMoney ?? record.money ?? '',
     type: String(record.type || '1'),
+    requisitioner: record.requisitioner || '',
+    requisitionerName: record.requisitionerName || '',
     num: record.num ?? '',
     fileId: record.fileId || '',
     fileUrl: record.fileUrl || '',
@@ -205,6 +221,12 @@ const fillFormFromRecord = (record = {}) => {
       money: form.consumableMoney
     })
   }
+  if (form.requisitioner && form.requisitionerName && !requisitionerOptions.value.some((item) => String(item.id) === String(form.requisitioner))) {
+    requisitionerOptions.value.push({
+      id: form.requisitioner,
+      name: form.requisitionerName
+    })
+  }
 }
 
 const queryPayload = () => ({
@@ -219,6 +241,7 @@ const savePayload = () => ({
   id: form.id || undefined,
   consumableId: form.consumableId || undefined,
   type: form.type ? Number(form.type) : undefined,
+  requisitioner: form.type === '2' ? form.requisitioner || undefined : undefined,
   num: form.num === '' ? undefined : Number(form.num),
   fileId: form.fileId || undefined,
   remark: form.remark || undefined,
@@ -263,6 +286,21 @@ const loadConsumables = async (name = '') => {
   } catch (error) {
     ElMessage.error(error?.message || '耗材列表加载失败')
   }
+}
+
+const loadRequisitioners = async (name = '') => {
+  try {
+    const data = await getTenantClientUsers({ name })
+    requisitionerOptions.value = listRows(data).map(normalizeUserOption)
+  } catch (error) {
+    requisitionerOptions.value = []
+    ElMessage.error(error?.message || '人员列表加载失败')
+  }
+}
+
+const handleRequisitionerChange = (id) => {
+  const user = requisitionerOptions.value.find((item) => String(item.id) === String(id))
+  form.requisitionerName = user?.name || ''
 }
 
 const handleConsumableChange = (id) => {
@@ -371,6 +409,7 @@ const closeDetail = () => {
 
 const submitForm = async () => {
   if (!form.consumableId) return ElMessage.warning('请选择耗材名称')
+  if (form.type === '2' && !form.requisitioner) return ElMessage.warning('请选择领料人')
   if (!form.num) return ElMessage.warning('请输入数量')
   state.saving = true
   const editId = form.id
@@ -441,6 +480,12 @@ watch(
         orderStatus: ''
       })
     }
+    if (String(type) !== '2') {
+      Object.assign(form, {
+        requisitioner: '',
+        requisitionerName: ''
+      })
+    }
   }
 )
 
@@ -457,6 +502,7 @@ watch(
 onMounted(() => {
   filters.name = String(route.query.name || '')
   loadConsumables()
+  loadRequisitioners()
   loadData()
 })
 </script>
@@ -493,6 +539,7 @@ onMounted(() => {
         <el-table-column prop="quantity" label="数量" min-width="90" />
         <el-table-column prop="remark" label="备注" min-width="180" show-overflow-tooltip />
         <el-table-column prop="orderNo" label="关联订单" min-width="150" />
+        <el-table-column prop="requisitionerName" label="领料人" min-width="110" />
         <el-table-column prop="operator" label="操作员" min-width="110" />
         <el-table-column prop="updatedAt" label="操作时间" min-width="170" />
         <el-table-column label="操作" width="110" fixed="right">
@@ -546,6 +593,23 @@ onMounted(() => {
             <el-radio-group v-model="form.type">
               <el-radio v-for="item in typeOptions" :key="item.value" :label="item.value">{{ item.label }}</el-radio>
             </el-radio-group>
+          </el-form-item>
+          <el-form-item v-if="form.type === '2'" label="领料人" required>
+            <el-select
+              v-model="form.requisitioner"
+              clearable
+              filterable
+              remote
+              reserve-keyword
+              placeholder="请选择领料人"
+              :remote-method="loadRequisitioners"
+              @change="handleRequisitionerChange"
+            >
+              <el-option v-for="item in requisitionerOptions" :key="item.id" :label="item.name" :value="item.id">
+                <span>{{ item.name }}</span>
+                <span v-if="item.phone" class="option-phone">{{ item.phone }}</span>
+              </el-option>
+            </el-select>
           </el-form-item>
           <el-form-item label="数量" required>
             <el-input v-model="form.num" placeholder="请输入数量" />
@@ -613,6 +677,10 @@ onMounted(() => {
               <div class="detail-field">
                 <span>明细类型：</span>
                 <strong>{{ currentRow?.type || '-' }}</strong>
+              </div>
+              <div class="detail-field">
+                <span>领料人：</span>
+                <strong>{{ currentRow?.requisitionerName || '-' }}</strong>
               </div>
               <div class="detail-field">
                 <span>数量：</span>
@@ -770,6 +838,12 @@ onMounted(() => {
 
 .upload-tip {
   color: #8a93a3;
+}
+
+.option-phone {
+  float: right;
+  color: #8a93a3;
+  font-size: 12px;
 }
 
 .preview-image {

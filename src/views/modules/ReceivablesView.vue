@@ -58,6 +58,7 @@ const state = reactive({
 const totals = reactive({
   billMoney: 0,
   receivedMoney: 0,
+  allowanceMoney: 0,
   remainMoney: 0
 })
 
@@ -163,6 +164,7 @@ const normalizeCraftDetailRows = (detail = {}) =>
 const normalizeOrderRow = (row = {}) => {
   const billMoney = pickNumber(row, ['billMoney', 'totalMoney', 'orderMoney', 'amount'])
   const receivedMoney = pickNumber(row, ['receivedMoney', 'receiveMoney', 'receiptMoney', 'received'])
+  const allowanceMoney = pickNumber(row, ['allowanceMoney', 'discountMoney', 'discountAmount'])
   const remainValue = row.remainMoney ?? row.arrearsMoney ?? row.tailMoney ?? row.surplusMoney ?? row.remainingMoney ?? row.unpaid
   return {
     ...row,
@@ -174,6 +176,7 @@ const normalizeOrderRow = (row = {}) => {
     productInfo: productText(row),
     billMoney,
     receivedMoney,
+    allowanceMoney,
     remainMoney: remainValue === undefined || remainValue === null || remainValue === '' ? Math.max(billMoney - receivedMoney, 0) : Number(remainValue) || 0,
     status: row.status ?? row.orderStatus,
     craftRows: normalizeCraftRows(row)
@@ -183,6 +186,7 @@ const normalizeOrderRow = (row = {}) => {
 const normalizeUnitRow = (row = {}) => {
   const billMoney = pickNumber(row, ['billMoney', 'totalMoney', 'orderMoney', 'amount'])
   const receivedMoney = pickNumber(row, ['receivedMoney', 'receiveMoney', 'receiptMoney', 'received'])
+  const allowanceMoney = pickNumber(row, ['allowanceMoney', 'discountMoney', 'discountAmount'])
   const remainValue = row.remainMoney ?? row.arrearsMoney ?? row.tailMoney ?? row.surplusMoney ?? row.remainingMoney ?? row.unpaid
   return {
     ...row,
@@ -190,6 +194,7 @@ const normalizeUnitRow = (row = {}) => {
     companyName: row.companyName || row.customerName || row.customer || '-',
     billMoney,
     receivedMoney,
+    allowanceMoney,
     remainMoney: remainValue === undefined || remainValue === null || remainValue === '' ? Math.max(billMoney - receivedMoney, 0) : Number(remainValue) || 0,
     linkman: row.linkman || row.contact || '-',
     phone: row.phone || row.linkPhone || '-',
@@ -228,6 +233,7 @@ const detailQuery = () => ({
 const applyTotals = (data = {}) => {
   totals.billMoney = pickNumber(data, ['billMoneyTotal', 'billMoney', 'totalMoney', 'orderMoneyTotal', 'amount'])
   totals.receivedMoney = pickNumber(data, ['receivedMoneyTotal', 'receivedMoney', 'receiveMoney', 'receiptMoneyTotal'])
+  totals.allowanceMoney = pickNumber(data, ['allowanceMoneyTotal', 'allowanceMoney', 'discountMoneyTotal', 'discountAmountTotal'])
   totals.remainMoney = pickNumber(data, ['remainMoneyTotal', 'remainMoney', 'arrearsMoneyTotal', 'tailMoneyTotal', 'surplusMoneyTotal'])
 }
 
@@ -450,6 +456,7 @@ onMounted(reloadPage)
         <div class="stats-bar" v-loading="state.totalLoading">
           <span class="stats-item">账单金额：<strong>{{ moneyText(totals.billMoney) }}</strong></span>
           <span class="stats-item">已收金额：<strong>{{ moneyText(totals.receivedMoney) }}</strong></span>
+          <span class="stats-item">折让金额：<strong>{{ moneyText(totals.allowanceMoney) }}</strong></span>
           <span class="stats-item">剩余尾款：<strong>{{ moneyText(totals.remainMoney) }}</strong></span>
         </div>
       </div>
@@ -465,6 +472,9 @@ onMounted(reloadPage)
         </el-table-column>
         <el-table-column label="已收金额" min-width="120">
           <template #default="{ row }">{{ moneyText(row.receivedMoney) }}</template>
+        </el-table-column>
+        <el-table-column label="折让金额" min-width="120">
+          <template #default="{ row }">{{ moneyText(row.allowanceMoney) }}</template>
         </el-table-column>
         <el-table-column label="剩余尾款" min-width="120">
           <template #default="{ row }">{{ moneyText(row.remainMoney) }}</template>
@@ -483,6 +493,9 @@ onMounted(reloadPage)
         </el-table-column>
         <el-table-column label="已收金额" min-width="130">
           <template #default="{ row }">{{ moneyText(row.receivedMoney) }}</template>
+        </el-table-column>
+        <el-table-column label="折让金额" min-width="130">
+          <template #default="{ row }">{{ moneyText(row.allowanceMoney) }}</template>
         </el-table-column>
         <el-table-column label="剩余尾款" min-width="130">
           <template #default="{ row }">{{ moneyText(row.remainMoney) }}</template>
@@ -561,6 +574,9 @@ onMounted(reloadPage)
         </el-table-column>
         <el-table-column label="已收金额" min-width="120">
           <template #default="{ row }">{{ moneyText(row.receivedMoney) }}</template>
+        </el-table-column>
+        <el-table-column label="折让金额" min-width="120">
+          <template #default="{ row }">{{ moneyText(row.allowanceMoney) }}</template>
         </el-table-column>
         <el-table-column label="剩余尾款" min-width="120">
           <template #default="{ row }">{{ moneyText(row.remainMoney) }}</template>

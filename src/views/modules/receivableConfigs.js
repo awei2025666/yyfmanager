@@ -53,6 +53,7 @@ export const receivableOrdersConfig = {
     { prop: 'productInfo', label: '产品信息', minWidth: 180 },
     { prop: 'amount', label: '账单金额' },
     { prop: 'received', label: '已收金额' },
+    { prop: 'allowance', label: '折让金额' },
     { prop: 'unpaid', label: '剩余尾款' },
     { prop: 'status', label: '订单状态' }
   ],
@@ -72,6 +73,7 @@ export const receivableOrdersConfig = {
   normalize: (row = {}) => {
     const amount = pickMoney(row, ['billMoney', 'totalMoney', 'orderMoney', 'amount'])
     const received = pickMoney(row, ['receivedMoney', 'receiveMoney', 'receiptMoney', 'received'])
+    const allowance = pickMoney(row, ['allowanceMoney', 'discountMoney', 'discountAmount'])
     const unpaidValue = row.unpaid ?? row.remainMoney ?? row.arrearsMoney ?? row.tailMoney ?? row.surplusMoney ?? row.remainingMoney
     const productInfo = Array.isArray(row.products)
       ? row.products.map((item) => item.name || item.productName).filter(Boolean).join('、')
@@ -85,6 +87,7 @@ export const receivableOrdersConfig = {
       productInfo: row.productInfo || productInfo || row.productName || '-',
       amount,
       received,
+      allowance,
       unpaid: unpaidValue === undefined || unpaidValue === null || unpaidValue === ''
         ? Math.max(amount - received, 0)
         : Number(unpaidValue) || 0,
@@ -104,6 +107,7 @@ export const receivableUnitsConfig = {
     { prop: 'customer', label: '单位名称', minWidth: 160 },
     { prop: 'amount', label: '账单金额' },
     { prop: 'received', label: '已收金额' },
+    { prop: 'allowance', label: '折让金额' },
     { prop: 'unpaid', label: '剩余尾款' },
     { prop: 'contact', label: '联系人' },
     { prop: 'phone', label: '联系方式', minWidth: 140 },
@@ -120,6 +124,7 @@ export const receivableUnitsConfig = {
   normalize: (row = {}) => {
     const amount = pickMoney(row, ['billMoney', 'totalMoney', 'orderMoney', 'amount'])
     const received = pickMoney(row, ['receivedMoney', 'receiveMoney', 'receiptMoney', 'received'])
+    const allowance = pickMoney(row, ['allowanceMoney', 'discountMoney', 'discountAmount'])
     const unpaidValue = row.unpaid ?? row.remainMoney ?? row.arrearsMoney ?? row.tailMoney ?? row.surplusMoney ?? row.remainingMoney
     return {
       ...row,
@@ -130,6 +135,7 @@ export const receivableUnitsConfig = {
       sales: row.salesmanName || row.salesman || row.fillUserName || row.userName || row.sales || '-',
       amount,
       received,
+      allowance,
       unpaid: unpaidValue === undefined || unpaidValue === null || unpaidValue === ''
         ? Math.max(amount - received, 0)
         : Number(unpaidValue) || 0

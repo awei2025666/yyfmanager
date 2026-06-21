@@ -8,7 +8,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api-proxy': {
-        target: 'http://hunike.nat100.top/7888',
+        target: 'https://fashioncat.top/',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api-proxy/, '')
       }

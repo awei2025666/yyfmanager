@@ -6,7 +6,8 @@ import PageBlock from '../../components/PageBlock.vue'
 import {
   getTenantProductCraftDetail,
   getTenantProductCraftList,
-  getTenantProductCraftStatistics
+  getTenantProductCraftStatistics,
+  searchTenantClients
 } from '../../api/tenant'
 
 const filters = reactive({
@@ -22,10 +23,13 @@ const filters = reactive({
 const state = reactive({
   loading: false,
   detailLoading: false,
+  clientLoading: false,
   total: 0
 })
 
 const rows = ref([])
+const allClientOptions = ref([])
+const clientOptions = ref([])
 const currentRow = ref(null)
 const detailVisible = ref(false)
 const activeDetailTab = ref('crafts')
@@ -40,9 +44,12 @@ const statusText = (value) => {
   return Number(value) === 2 ? '已生产' : '待生产'
 }
 
+const statusClass = (value) => (statusText(value) === '已生产' ? 'status-success' : 'status-warning')
+
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
-  return payload?.records || payload?.list || payload?.rows || []
+  if (Array.isArray(payload?.data)) return payload.data
+  return payload?.records || payload?.list || payload?.rows || payload?.data?.records || payload?.data?.list || []
 }
 
 const listTotal = (payload, normalizedRows) => {
@@ -55,6 +62,51 @@ const moneyText = (value) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   })}`
+
+const normalizeClientOptions = (data) =>
+  listRows(data)
+    .map((item) => ({
+      ...item,
+      id: item.id || item.cooperativeClientId || item.clientId || item.companyName,
+      companyName: item.companyName || item.name || '',
+      companyNamePinyin: item.companyNamePinyin || item.pinyin || ''
+    }))
+    .filter((item) => item.id && item.companyName)
+
+const clientMatchesKeyword = (client = {}, keyword = '') => {
+  const text = String(keyword || '').trim().toLowerCase()
+  if (!text) return true
+  return [client.companyName, client.companyNamePinyin]
+    .some((value) => String(value || '').toLowerCase().includes(text))
+}
+
+const filterClientOptions = (keyword = '') => {
+  clientOptions.value = allClientOptions.value
+    .filter((item) => clientMatchesKeyword(item, keyword))
+    .slice(0, 50)
+}
+
+const loadClientOptions = async () => {
+  state.clientLoading = true
+  try {
+    const data = await searchTenantClients({ companyName: '' })
+    allClientOptions.value = normalizeClientOptions(data)
+    filterClientOptions(filters.customer)
+  } catch (error) {
+    ElMessage.error(error?.message || '单位列表加载失败')
+  } finally {
+    state.clientLoading = false
+  }
+}
+
+const handleClientDropdownVisible = (visible) => {
+  if (!visible) return
+  if (!allClientOptions.value.length) {
+    loadClientOptions()
+  } else {
+    filterClientOptions('')
+  }
+}
 
 const normalizeRow = (row = {}) => ({
   ...row,
@@ -210,6 +262,7 @@ const deliveryTypeOptions = [
 const deliveryTypeText = (value) =>
     deliveryTypeOptions.find((item) => String(item.value) === String(value))?.label || value || '-'
 onMounted(() => {
+  loadClientOptions()
   loadStatistics()
   loadData()
 })
@@ -220,7 +273,24 @@ onMounted(() => {
     <PageBlock class="search-card">
       <el-form class="search-form" :model="filters" label-width="96px">
         <el-form-item label="单位名称">
-          <el-input v-model="filters.customer" clearable placeholder="请输入单位名称" @keyup.enter="searchData" />
+          <el-select
+            v-model="filters.customer"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            placeholder="请输入单位名称"
+            :remote-method="filterClientOptions"
+            :loading="state.clientLoading"
+            @visible-change="handleClientDropdownVisible"
+          >
+            <el-option
+              v-for="item in clientOptions"
+              :key="item.id"
+              :label="item.companyName"
+              :value="item.companyName"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="产品名称">
           <el-input v-model="filters.productName" clearable placeholder="请输入产品名称" @keyup.enter="searchData" />
@@ -263,7 +333,11 @@ onMounted(() => {
         <el-table-column label="客户金额" min-width="120">
           <template #default="{ row }">{{ moneyText(row.amount) }}</template>
         </el-table-column>
-        <el-table-column prop="status" label="工艺状态" min-width="110" />
+        <el-table-column label="工艺状态" min-width="110">
+          <template #default="{ row }">
+            <span :class="statusClass(row.status)">{{ row.status }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="operator" label="操作员" min-width="100" />
         <el-table-column label="操作" width="90" fixed="right">
           <template #default="{ row }">
@@ -422,5 +496,15 @@ onMounted(() => {
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.status-warning {
+  color: #ff9f1a;
+  font-weight: 700;
+}
+
+.status-success {
+  color: #22c55e;
+  font-weight: 700;
 }
 </style>

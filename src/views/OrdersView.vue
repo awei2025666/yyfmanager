@@ -43,6 +43,7 @@ const loading = ref(false)
 const saving = ref(false)
 const detailLoading = ref(false)
 const clientSearching = ref(false)
+const allClientOptions = ref([])
 const clientOptions = ref([])
 const lastClientKeyword = ref(null)
 let clientSearchPromise = null
@@ -118,6 +119,10 @@ const deliveryTypeOptions = [
 const deliveryTypeText = (value) =>
   deliveryTypeOptions.find((item) => String(item.value) === String(value))?.label || value || '-'
 const statusToneClass = (status) => `order-status--${statusMap[status]?.tone || 'outsourced'}`
+const craftStatusText = (value) => (Number(value) === 2 ? '已完成' : '待生产')
+const craftStatusClass = (value) => (Number(value) === 2 ? 'craft-status-success' : 'craft-status-warning')
+const orderSourceText = (value) => (Number(value) === 2 ? '外协' : '本厂')
+const orderSourceClass = (value) => (Number(value) === 2 ? 'order-source-outsourced' : 'order-source-local')
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
   return payload?.records || payload?.list || payload?.rows || []
@@ -126,15 +131,35 @@ const listRows = (payload) => {
 const boolFromApi = (value) => value === true || value === 1 || value === '1' || value === '启用'
 
 const productInfoText = (item = {}) => {
-  if (item.productInfo) return item.productInfo
   const products = item.products || item.productList || []
   if (Array.isArray(products) && products.length) {
-    return products
-      .map((product) => product.productName || product.name || product.productInfo)
-      .filter(Boolean)
-      .join('、') || '--'
+    return productInfoLines(item).join('\n') || '--'
   }
+  if (item.productInfo) return item.productInfo
   return item.productName || item.vipName || '--'
+}
+
+const productLineText = (product = {}) => {
+  const name = product.productName || product.name || product.productInfo || ''
+  const spec = product.trimmedSize || product.finishedSpec || product.specification || ''
+  const quantity = product.orderQuantity ?? product.quantity ?? product.num ?? ''
+  const unit = product.unit || ''
+  const money = product.money ?? product.amount ?? product.totalMoney ?? ''
+  const specText = spec ? `${spec}-` : ''
+  const quantityText = quantity !== '' ? `${quantity}${unit}` : ''
+  const moneyText = money !== '' && money !== null && money !== undefined ? `，${Number(money || 0).toLocaleString('zh-CN')}元` : ''
+  return `${name}${specText}${quantityText}${moneyText}` || '--'
+}
+
+const productInfoLines = (item = {}) => {
+  const products = item.products || item.productList || []
+  if (Array.isArray(products) && products.length) {
+    const lines = products
+      .map(productLineText)
+      .filter(Boolean)
+    if (lines.length) return lines
+  }
+  return [item.productInfo || item.productName || item.vipName || '--']
 }
 
 const fillClientInfo = (client = {}) => {
@@ -146,29 +171,58 @@ const fillClientInfo = (client = {}) => {
 }
 
 const normalizeClientOptions = (data) => {
-  const list = Array.isArray(data) ? data : data?.records || data?.list || []
+  const list = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.data)
+      ? data.data
+      : data?.records || data?.list || data?.data?.records || data?.data?.list || []
+  const normalizedList = list
+    .map((item) => ({
+      ...item,
+      id: item.id || item.cooperativeClientId || item.clientId || item.companyName,
+      companyName: item.companyName || item.name || '',
+      companyNamePinyin: item.companyNamePinyin || item.pinyin || ''
+    }))
+    .filter((item) => item.companyName)
   const selected = formState.cooperativeClientId
-    ? list.find((item) => String(item.id) === String(formState.cooperativeClientId))
-      || clientOptions.value.find((item) => String(item.id) === String(formState.cooperativeClientId))
+    ? normalizedList.find((item) => String(item.id) === String(formState.cooperativeClientId))
+      || allClientOptions.value.find((item) => String(item.id) === String(formState.cooperativeClientId))
     : null
-  const next = selected ? [selected, ...list.filter((item) => String(item.id) !== String(selected.id))] : list
-  return next.slice(0, 20)
+  return selected
+    ? [selected, ...normalizedList.filter((item) => String(item.id) !== String(selected.id))]
+    : normalizedList
 }
 
-const searchClients = async (keyword = '') => {
+const clientMatchesKeyword = (client = {}, keyword = '') => {
   const companyName = String(keyword || '').trim()
-  if (clientSearching.value && lastClientKeyword.value === companyName) return clientSearchPromise
-  if (!companyName && lastClientKeyword.value === '' && clientOptions.value.length) return
+  if (!companyName) return true
+  const lowerKeyword = companyName.toLowerCase()
+  return [client.companyName, client.companyNamePinyin]
+    .some((value) => String(value || '').toLowerCase().includes(lowerKeyword))
+}
+
+const filterClientOptions = (keyword = '') =>
+  allClientOptions.value
+    .filter((item) => clientMatchesKeyword(item, keyword))
+    .slice(0, 50)
+
+const searchClients = (keyword = '') => {
+  const companyName = String(keyword || '').trim()
   lastClientKeyword.value = companyName
+  clientOptions.value = filterClientOptions(companyName)
+}
+
+const loadClientOptions = async () => {
+  if (clientSearching.value) return clientSearchPromise
   clientSearching.value = true
-  const request = searchTenantClients({ companyName })
+  const request = searchTenantClients({ companyName: '' })
   clientSearchPromise = request
   try {
     const data = await request
-    clientOptions.value = normalizeClientOptions(data)
+    allClientOptions.value = normalizeClientOptions(data)
+    searchClients(lastClientKeyword.value || '')
   } catch (error) {
-    lastClientKeyword.value = null
-    ElMessage.error(error?.message || '单位搜索失败')
+    ElMessage.error(error?.message || '单位列表加载失败')
   } finally {
     if (clientSearchPromise === request) {
       clientSearching.value = false
@@ -178,7 +232,8 @@ const searchClients = async (keyword = '') => {
 }
 
 const selectClient = (id) => {
-  const client = clientOptions.value.find((item) => String(item.id) === String(id))
+  const client = allClientOptions.value.find((item) => String(item.id) === String(id))
+    || clientOptions.value.find((item) => String(item.id) === String(id))
   if (client) fillClientInfo(client)
 }
 
@@ -191,17 +246,29 @@ const seedClientOption = (record = {}) => {
   formState.linkman = record.linkman || ''
   formState.phone = record.phone || ''
   formState.companyAddress = record.companyAddress || '--'
-  clientOptions.value = [{
+  const option = {
     id,
     companyName,
+    companyNamePinyin: record.companyNamePinyin || '',
     linkman: formState.linkman,
     phone: formState.phone,
     companyAddress: formState.companyAddress
-  }]
+  }
+  if (!allClientOptions.value.some((item) => String(item.id) === String(id))) {
+    allClientOptions.value.push(option)
+  }
+  if (!clientOptions.value.some((item) => String(item.id) === String(id))) {
+    clientOptions.value.unshift(option)
+  }
 }
 
 const handleClientDropdownVisible = (visible) => {
-  if (visible) searchClients('')
+  if (!visible) return
+  if (!allClientOptions.value.length) {
+    loadClientOptions()
+  } else {
+    searchClients('')
+  }
 }
 
 const normalizeOutsourceOptions = (data) => {
@@ -312,6 +379,7 @@ const enrichOrderRow = (item = {}) => {
     orderTime: item.orderTime || item.createTime || '--',
     totalMoney: item.totalMoney ?? item.payMoney ?? 0,
     payMoney: item.totalMoney ?? item.payMoney ?? 0,
+    orderSource: item.orderSource ?? 1,
     printCode: item.printCode || '--',
     remark: item.remark || '',
     products,
@@ -341,7 +409,9 @@ const normalizeCraftRow = (item = {}, product = {}) => ({
     unit: item.unit || '-',
     price: item.price ?? item.unitPrice ?? 0,
     customerAmount: item.customerAmount ?? item.customerMoney ?? 0,
-    remark: item.remark || ''
+    remark: item.remark || '',
+    craftStatus: item.craftStatus ?? item.status ?? 1,
+    operator: item.operator || item.createUserName || item.tenantUserName || '-'
 })
 
 const nestedCraftRows = (products = []) =>
@@ -827,8 +897,8 @@ const openAdd = () => {
     printCode: '--',
     remark: ''
   })
-  clientOptions.value = []
   lastClientKeyword.value = null
+  searchClients('')
   craftOptions.value = []
   lastCraftKeyword.value = null
   currentStep.value = 1
@@ -1104,6 +1174,7 @@ const handleAction = (row, action) => {
 }
 
 onMounted(() => {
+  loadClientOptions()
   loadData()
   loadAutoApprove()
 })
@@ -1141,7 +1212,24 @@ watch(
       <div class="filter-grid">
         <label>
           <span>单位名称</span>
-          <el-input v-model="filters.companyName" placeholder="请输入单位名称" />
+          <el-select
+            v-model="filters.companyName"
+            filterable
+            remote
+            clearable
+            reserve-keyword
+            placeholder="请输入单位名称"
+            :remote-method="searchClients"
+            :loading="clientSearching"
+            @visible-change="handleClientDropdownVisible"
+          >
+            <el-option
+              v-for="item in clientOptions"
+              :key="item.id"
+              :label="item.companyName"
+              :value="item.companyName"
+            />
+          </el-select>
         </label>
         <label>
           <span>业务员</span>
@@ -1215,9 +1303,24 @@ watch(
         <el-table-column prop="companyName" label="单位名称" min-width="180" />
         <el-table-column prop="orderTime" label="订单时间" min-width="160" />
         <el-table-column prop="fillUserName" label="业务员" min-width="100" />
-        <el-table-column prop="productInfo" label="产品信息" min-width="220" show-overflow-tooltip />
+        <el-table-column label="产品信息" min-width="220">
+          <template #default="{ row }">
+            <div class="product-info-lines">
+              <span v-for="(item, index) in productInfoLines(row)" :key="`${row.id || row.orderId}-${index}`">
+                {{ item }}
+              </span>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="totalMoney" label="订单金额" min-width="130">
           <template #default="{ row }">{{ formatMoney(row.totalMoney) }}</template>
+        </el-table-column>
+        <el-table-column label="订单来源" min-width="110">
+          <template #default="{ row }">
+            <el-tag class="order-source-tag" :class="orderSourceClass(row.orderSource)" effect="plain">
+              {{ orderSourceText(row.orderSource) }}
+            </el-tag>
+          </template>
         </el-table-column>
         <el-table-column prop="status" label="订单状态" min-width="110">
           <template #default="{ row }">
@@ -1344,15 +1447,15 @@ watch(
             </label>
             <label>
               <span><em>*</em>联系人</span>
-              <el-input v-model="formState.linkman" disabled placeholder="请输入联系人" />
+              <el-input v-model="formState.linkman" placeholder="请输入联系人" />
             </label>
             <label>
               <span><em>*</em>联系方式</span>
-              <el-input v-model="formState.phone" disabled placeholder="请输入联系方式" />
+              <el-input v-model="formState.phone" placeholder="请输入联系方式" />
             </label>
             <label class="full-span">
               <span><em>*</em>送货地址</span>
-              <el-input v-model="formState.companyAddress" disabled placeholder="请输入送货地址" />
+              <el-input v-model="formState.companyAddress" placeholder="请输入送货地址" />
             </label>
             <label>
               <span><em>*</em>交货日期</span>
@@ -1593,6 +1696,12 @@ watch(
               <template #default="{ row }">{{ formatMoney4(computedCraftCustomerAmount(row)) }}</template>
             </el-table-column>
             <el-table-column prop="remark" label="备注" min-width="120" />
+            <el-table-column label="工艺状态" min-width="110">
+              <template #default="{ row }">
+                <span :class="craftStatusClass(row.craftStatus)">{{ craftStatusText(row.craftStatus) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="operator" label="操作人" min-width="120" />
           </el-table>
         </PageBlock>
 
@@ -1713,6 +1822,16 @@ watch(
   font-weight: 600;
 }
 
+.product-info-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-word;
+}
+
 .filter-grid,
 .form-grid,
 .detail-grid {
@@ -1823,6 +1942,22 @@ watch(
   font-weight: 600;
 }
 
+.order-source-tag {
+  font-weight: 600;
+}
+
+.order-source-local {
+  color: #1677ff !important;
+  border-color: #bae0ff !important;
+  background: #e6f4ff !important;
+}
+
+.order-source-outsourced {
+  color: #722ed1 !important;
+  border-color: #d3adf7 !important;
+  background: #f9f0ff !important;
+}
+
 .order-status--pending-approval {
   color: #ff4d4f !important;
   border-color: #ffd6d9 !important;
@@ -1871,6 +2006,16 @@ watch(
   background: #fafafa !important;
 }
 
+.craft-status-warning {
+  color: #fa8c16;
+  font-weight: 700;
+}
+
+.craft-status-success {
+  color: #52c41a;
+  font-weight: 700;
+}
+
 .form-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-bottom: 16px;
@@ -1888,6 +2033,15 @@ watch(
   width: min(1280px, calc(100vw - 88px)) !important;
   border-radius: 4px;
   overflow: hidden;
+}
+
+:deep(.order-form-dialog.el-dialog) {
+  width: calc(100vw - 48px) !important;
+  max-width: calc(100vw - 48px) !important;
+  height: calc(100vh - 48px);
+  max-height: calc(100vh - 48px) !important;
+  display: flex;
+  flex-direction: column;
 }
 
 :deep(.order-form-dialog .el-dialog__header),
@@ -1912,9 +2066,20 @@ watch(
   background: #f5f7fa;
 }
 
+:deep(.order-form-dialog .el-dialog__body) {
+  flex: 1;
+  max-height: none;
+  min-height: 0;
+  padding: 16px 20px 0;
+}
+
 :deep(.order-form-dialog) .order-flow,
 :deep(.order-detail-dialog) .order-detail-page {
   gap: 16px;
+}
+
+:deep(.order-form-dialog) .order-flow {
+  min-height: 100%;
 }
 
 .step-card :deep(.page-block__body) {
@@ -1922,7 +2087,7 @@ watch(
 }
 
 :deep(.order-form-dialog) .step-card :deep(.page-block__body) {
-  padding: 24px 64px;
+  padding: 20px 72px;
 }
 
 .steps-line {
@@ -1999,7 +2164,12 @@ watch(
 }
 
 .form-panel {
-  min-height: 420px;
+  flex: 1;
+  min-height: 560px;
+}
+
+:deep(.order-form-dialog) .form-panel {
+  min-height: calc(100vh - 300px);
 }
 
 .form-panel h3 {

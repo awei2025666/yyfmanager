@@ -113,7 +113,10 @@ export const getTenantDeliveryOrderOptions = (payload = {}) => tenantHttp.post('
 export const getTenantDeliveryUserOptions = (payload = {}) => tenantHttp.post('/api/tenant/user/driver', payload)
 export const addTenantDelivery = (payload = {}) => tenantHttp.post('/api/tenant/delivery/add', payload)
 export const editTenantDelivery = (payload = {}) => tenantHttp.post('/api/tenant/delivery/edit', payload)
+export const editTenantDeliveryShippingInformation = (payload = {}) =>
+  tenantHttp.post('/api/tenant/delivery/editShippingInformation', payload)
 export const delTenantDelivery = (id) => tenantHttp.get('/api/tenant/delivery/del', {params:{id}})
+export const getTenantDeliveryPrintUrl = (id) => tenantHttp.get('/api/tenant/delivery/printUrl', { params: { id } })
 export const getTenantDeliveryTotal = () => tenantHttp.get('/api/tenant/delivery/total')
 export const getTenantReceivableOrderList = (payload = {}) => tenantHttp.post('/api/tenant/receivable/orderList', payload)
 export const getTenantOrderListAll = (payload = {}) => tenantHttp.post('/api/tenant/order/all', payload)
@@ -207,3 +210,9 @@ export const deleteTenantDepartment = (id) =>
   tenantHttp.get('/api/tenant/dept/del', { params: { id } })
 export const changeTenantDepartmentStatus = (payload = {}) =>
   tenantHttp.post('/api/tenant/dept/status', payload)
+
+export const getTenantMachineList = (payload = {}) => tenantHttp.post('/api/tenant/machine/list', payload)
+export const getTenantMachineOptions = (payload = {}) => tenantHttp.post('/api/tenant/machine/all', payload)
+export const addTenantMachine = (payload = {}) => tenantHttp.post('/api/tenant/machine/add', payload)
+export const editTenantMachine = (payload = {}) => tenantHttp.post('/api/tenant/machine/edit', payload)
+export const deleteTenantMachine = (id) => tenantHttp.get('/api/tenant/machine/del', { params: { id } })

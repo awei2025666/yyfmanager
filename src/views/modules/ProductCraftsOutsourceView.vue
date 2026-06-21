@@ -41,6 +41,8 @@ const statusText = (value) => {
   return Number(value) === 2 ? '已生产' : '待生产'
 }
 
+const statusClass = (value) => (statusText(value) === '已生产' ? 'status-success' : 'status-warning')
+
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
   return payload?.records || payload?.list || payload?.rows || []
@@ -265,7 +267,11 @@ onMounted(() => {
         <el-table-column label="客户金额" min-width="120">
           <template #default="{ row }">{{ moneyText(row.amount) }}</template>
         </el-table-column>
-        <el-table-column prop="status" label="工艺状态" min-width="110" />
+        <el-table-column label="工艺状态" min-width="110">
+          <template #default="{ row }">
+            <span :class="statusClass(row.status)">{{ row.status }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="operator" label="操作员" min-width="100" />
         <el-table-column label="操作" width="90" fixed="right">
           <template #default="{ row }">
@@ -416,5 +422,15 @@ onMounted(() => {
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.status-warning {
+  color: #ff9f1a;
+  font-weight: 700;
+}
+
+.status-success {
+  color: #22c55e;
+  font-weight: 700;
 }
 </style>
