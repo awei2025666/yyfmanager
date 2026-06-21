@@ -10,18 +10,18 @@
 		</view>
 
 		<view class="form-section">
-			<view class="machine-row">
+			<view class="machine-row" @click="openMachinePopup">
 				<text class="label">机器类型</text>
-				<view class="radio-group">
-					<view class="radio-item" @click="form.machineType = 1">
-						<view :class="['radio', form.machineType === 1 ? 'active' : '']"></view>
-						<text>大机器</text>
-					</view>
-					<view class="radio-item" @click="form.machineType = 2">
-						<view :class="['radio', form.machineType === 2 ? 'active' : '']"></view>
-						<text>小机器</text>
-					</view>
+				<view class="right-value">
+					<text :class="form.machineName ? 'value' : 'placeholder'">{{ form.machineName || '请选择机器' }}</text>
+					<text class="arrow">›</text>
 				</view>
+			</view>
+			<view class="divider-line"></view>
+
+			<view class="form-row">
+				<text class="label">完成数量</text>
+				<input v-model="form.num" class="num-field" type="number" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
 			<view class="divider-line"></view>
 
@@ -92,6 +92,19 @@
 				<button class="popup-confirm" @click="confirmPartner">确认添加</button>
 			</view>
 		</view>
+
+		<view v-if="showMachinePopup" class="popup-mask" @click="closeMachinePopup">
+			<view class="machine-popup" @click.stop>
+				<view class="section-title popup-title">
+					<view class="title-left"><view class="mark"></view><text>选择机器</text></view>
+				</view>
+				<view class="machine-option" v-for="item in machineOptions" :key="item.id" @click="selectMachine(item)">
+					<text>{{ item.name || '-' }}</text>
+					<text v-if="String(form.machineId) === String(item.id)" class="check">✓</text>
+				</view>
+				<view v-if="!machineOptions.length" class="empty-state">暂无机器</view>
+			</view>
+		</view>
 	</view>
 </template>
 
@@ -102,13 +115,17 @@ import { computed, ref } from 'vue'
 const craftId = ref('')
 const orderId = ref('')
 const form = ref({
-	machineType: 1,
+	machineId: '',
+	machineName: '',
+	num: '',
 	completeRemark: '',
 	completeImgRemark: ''
 })
 const images = ref([])
 const maxImages = 1
 const partners = ref([])
+const machineOptions = ref([])
+const showMachinePopup = ref(false)
 const showPartnerPopup = ref(false)
 const userOptions = ref([])
 const selectedUserId = ref('')
@@ -140,6 +157,36 @@ const uploadImage = async () => {
 	if (!images.value.length) return ''
 	const result = await uni.$api.uploadFile(images.value[0])
 	return getUploadFileId(result)
+}
+
+const loadMachines = async () => {
+	try {
+		const data = await uni.$api.selfMachine()
+		const records = data?.records || data
+		machineOptions.value = Array.isArray(records) ? records : []
+		if (!form.value.machineId && machineOptions.value.length === 1) {
+			selectMachine(machineOptions.value[0], false)
+		}
+	} catch (e) {
+		machineOptions.value = []
+	}
+}
+
+const openMachinePopup = async () => {
+	showMachinePopup.value = true
+	if (!machineOptions.value.length) {
+		loadMachines()
+	}
+}
+
+const closeMachinePopup = () => {
+	showMachinePopup.value = false
+}
+
+const selectMachine = (item, close = true) => {
+	form.value.machineId = item.id
+	form.value.machineName = item.name || ''
+	if (close) closeMachinePopup()
 }
 
 const openPartnerPopup = async () => {
@@ -188,12 +235,21 @@ const deletePartner = id => {
 }
 
 const submit = async () => {
+	if (!form.value.machineId) {
+		uni.showToast({ title: '请选择机器', icon: 'none' })
+		return
+	}
+	if (!form.value.num) {
+		uni.showToast({ title: '请输入完成数量', icon: 'none' })
+		return
+	}
 	try {
 		const fileId = await uploadImage()
 		await uni.$api.completeProduction({
 			id: craftId.value,
 			orderId: orderId.value,
-			machineType: form.value.machineType,
+			machineId: form.value.machineId,
+			num: Number(form.value.num),
 			completeRemark: form.value.completeRemark,
 			completeImgRemark: fileId || form.value.completeImgRemark,
 			fileId,
@@ -247,6 +303,7 @@ const goBack = () => {
 onLoad(options => {
 	craftId.value = options.id || ''
 	orderId.value = options.orderId || ''
+	loadMachines()
 })
 </script>
 
@@ -321,43 +378,40 @@ onLoad(options => {
 	justify-content: space-between;
 	min-height: 76rpx;
 }
+.form-row{
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 76rpx;
+}
 .label{
 	color: #333;
 	font-size: 30rpx;
 	line-height: 42rpx;
 }
-.radio-group{
-	display: flex;
-	align-items: center;
-	gap: 34rpx;
-}
-.radio-item{
+.right-value{
 	display: flex;
 	align-items: center;
 	gap: 10rpx;
+	min-width: 0;
+	color: #c9c9c9;
+	font-size: 28rpx;
+	.value{
+		color: #333;
+	}
+	.arrow{
+		color: #333;
+		font-size: 42rpx;
+		font-weight: 300;
+		line-height: 1;
+	}
+}
+.num-field{
+	flex: 1;
+	height: 76rpx;
 	color: #333;
-	font-size: 30rpx;
-}
-.radio{
-	position: relative;
-	width: 32rpx;
-	height: 32rpx;
-	border: 3rpx solid #e6e6e6;
-	border-radius: 50%;
-	box-sizing: border-box;
-}
-.radio.active{
-	border-color: #1f7cff;
-}
-.radio.active::after{
-	content: '';
-	position: absolute;
-	left: 6rpx;
-	top: 6rpx;
-	width: 14rpx;
-	height: 14rpx;
-	border-radius: 50%;
-	background: #1f7cff;
+	font-size: 28rpx;
+	text-align: right;
 }
 .divider-line{
 	height: 1rpx;
@@ -506,6 +560,31 @@ onLoad(options => {
 	top: 28rpx;
 	color: #ff3347;
 	font-size: 26rpx;
+}
+.machine-popup{
+	width: 100%;
+	max-height: 72vh;
+	padding: 34rpx 34rpx calc(34rpx + env(safe-area-inset-bottom));
+	border-radius: 24rpx 24rpx 0 0;
+	background: #fff;
+	box-sizing: border-box;
+	overflow-y: auto;
+}
+.machine-option{
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	min-height: 92rpx;
+	border-bottom: 1rpx solid #eeeeee;
+	color: #333;
+	font-size: 29rpx;
+	line-height: 42rpx;
+}
+.empty-state{
+	padding: 50rpx 0;
+	color: #b8b8b8;
+	font-size: 28rpx;
+	text-align: center;
 }
 .bottom-bar{
 	position: fixed;

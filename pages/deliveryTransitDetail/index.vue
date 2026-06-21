@@ -17,6 +17,12 @@
 					<text>{{ order.orderNum || '-' }}（订单号）</text>
 				</view>
 				<view class="product">{{ getOrderProducts(order) || '-' }}</view>
+				<view class="shipping-info">
+					<view class="shipping-row"><text>联系人</text><text>{{ getShippingInfo(order).linkman || '-' }}</text></view>
+					<view class="shipping-row"><text>联系电话</text><text>{{ getShippingInfo(order).phone || '-' }}</text></view>
+					<view class="shipping-row"><text>配送地址</text><text>{{ getShippingInfo(order).companyAddress || '-' }}</text></view>
+					<view class="shipping-edit" @click.stop="openShippingEditor(order)">编辑配送信息</view>
+				</view>
 			</view>
 		</view>
 
@@ -33,8 +39,57 @@
 			</view>
 		</view>
 
+		<view class="gap"></view>
+
+		<view class="section record-section">
+			<view class="section-title"><view class="mark"></view><text>配送记录</text></view>
+			<view class="timeline">
+				<view class="record-item" v-for="(item,index) in processList" :key="item.id || index">
+					<view class="dot"></view>
+					<view class="record-card">
+						<view class="record-time">{{ formatTime(item.createTime) }}</view>
+						<view class="record-content">{{ item.content || '-' }}</view>
+						<view v-if="getRecordRemark(item)" class="record-remark">{{ getRecordRemark(item) }}</view>
+						<view v-if="getImages(item).length" class="thumbs">
+							<image v-for="(image, imageIndex) in getImages(item)" :key="imageIndex" :src="image" mode="aspectFill"></image>
+						</view>
+						<view v-if="getVideos(item).length" class="videos">
+							<video v-for="(video, videoIndex) in getVideos(item)" :key="videoIndex" :src="video" controls></video>
+						</view>
+						<view class="record-user">
+							<text>{{ item.tenantUserName || driverName || '-' }}</text>
+							<text>{{ maskPhone(item.tenantUserPhone || item.phone || driverPhone) || '-' }}</text>
+						</view>
+					</view>
+				</view>
+				<view v-if="!processList.length" class="empty-state">暂无数据</view>
+			</view>
+		</view>
+
 		<view class="bottom-bar" v-if="deliveryStatus === 1">
 			<button class="complete-btn" @click="toComplete">已完成配送</button>
+		</view>
+
+		<view v-if="showShippingEditor" class="popup-mask" @click="closeShippingEditor">
+			<view class="shipping-popup" @click.stop>
+				<view class="popup-title">编辑配送信息</view>
+				<view class="popup-row">
+					<text>联系人</text>
+					<input v-model="shippingForm.linkman" placeholder="请输入联系人" placeholder-class="placeholder" />
+				</view>
+				<view class="popup-row">
+					<text>联系电话</text>
+					<input v-model="shippingForm.phone" type="number" placeholder="请输入联系电话" placeholder-class="placeholder" />
+				</view>
+				<view class="popup-block">
+					<text>配送地址</text>
+					<textarea v-model="shippingForm.companyAddress" placeholder="请输入配送地址" placeholder-class="placeholder" />
+				</view>
+				<view class="popup-actions">
+					<button class="cancel-btn" @click="closeShippingEditor">取消</button>
+					<button class="save-btn" @click="saveShippingInfo">保存</button>
+				</view>
+			</view>
 		</view>
 	</view>
 </template>
@@ -46,6 +101,13 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 const deliveryId = ref('')
 const detail = ref({})
 const processList = ref([])
+const showShippingEditor = ref(false)
+const shippingForm = ref({
+	orderId: '',
+	linkman: '',
+	phone: '',
+	companyAddress: ''
+})
 
 const asArray = value => Array.isArray(value) ? value : []
 const firstOrder = computed(() => orderList.value[0] || {})
@@ -74,6 +136,13 @@ const driverPhone = computed(() => detail.value.driverPhone || detail.value.deli
 const deliveryStatus = computed(() => Number(detail.value.deliveryStatus ?? detail.value.status ?? 1))
 const deliveryStatusText = computed(() => deliveryStatus.value === 2 ? '已完成' : '配送中')
 
+const getOrderId = order => order.orderId || order.id || ''
+const getShippingInfo = order => ({
+	linkman: order.linkman || order.contactName || '',
+	phone: order.phone || order.contactPhone || '',
+	companyAddress: order.companyAddress || order.deliveryAddress || order.address || ''
+})
+
 const formatProduct = product => {
 	const name = product.name || product.productName || product.productInfo || ''
 	const quantity = product.orderQuantity || product.quantity || product.num
@@ -99,6 +168,7 @@ const normalizeImages = value => {
 }
 
 const getImages = item => normalizeImages(item.img || item.images || item.imageList || item.imgList || item.pictureList || item.imgRemark || item.completeImgRemark)
+const getVideos = item => normalizeImages(item.video || item.videos || item.videoUrl || item.videoRemark)
 const maskPhone = phone => String(phone || '').replace(/^(\d{3})\d{4}(\d+)/, '$1****$2')
 const getRecordRemark = item => item.remark || item.completeRemark || ''
 
@@ -121,6 +191,39 @@ const loadDetail = async () => {
 		detail.value = {}
 		processList.value = []
 	}
+}
+
+const openShippingEditor = order => {
+	const shippingInfo = getShippingInfo(order)
+	shippingForm.value = {
+		orderId: getOrderId(order),
+		linkman: shippingInfo.linkman,
+		phone: shippingInfo.phone,
+		companyAddress: shippingInfo.companyAddress
+	}
+	showShippingEditor.value = true
+}
+
+const closeShippingEditor = () => {
+	showShippingEditor.value = false
+}
+
+const saveShippingInfo = async () => {
+	if (!shippingForm.value.orderId) {
+		uni.showToast({ title: '缺少订单信息', icon: 'none' })
+		return
+	}
+	try {
+		await uni.$api.editShippingInformation({
+			orderId: shippingForm.value.orderId,
+			linkman: shippingForm.value.linkman,
+			phone: shippingForm.value.phone,
+			companyAddress: shippingForm.value.companyAddress
+		})
+		uni.showToast({ title: '已保存', icon: 'none' })
+		showShippingEditor.value = false
+		loadDetail()
+	} catch (e) {}
 }
 
 const toComplete = () => {
@@ -222,6 +325,37 @@ onShow(loadDetail)
 	white-space: pre-line;
 	word-break: break-all;
 }
+.shipping-info{
+	margin-top: 14rpx;
+	padding-top: 12rpx;
+	border-top: 1rpx solid #eeeeee;
+}
+.shipping-row{
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 18rpx;
+	margin-top: 8rpx;
+	color: #999;
+	font-size: 23rpx;
+	line-height: 32rpx;
+	text:first-child{
+		flex: 0 0 112rpx;
+	}
+	text:last-child{
+		flex: 1;
+		color: #666;
+		text-align: right;
+		word-break: break-all;
+	}
+}
+.shipping-edit{
+	margin-top: 12rpx;
+	color: #1f7cff;
+	font-size: 23rpx;
+	line-height: 32rpx;
+	text-align: right;
+}
 .time{
 	margin-top: 8rpx;
 	color: #c8c8c8;
@@ -302,6 +436,19 @@ onShow(loadDetail)
 	margin-top: 12rpx;
 	image{ width: 78rpx; height: 78rpx; border-radius: 8rpx; background: #d9d9d9; }
 }
+.videos{
+	display: flex;
+	flex-direction: column;
+	gap: 10rpx;
+	margin-top: 12rpx;
+	video{
+		width: 260rpx;
+		height: 146rpx;
+		border-radius: 8rpx;
+		background: #d9d9d9;
+		overflow: hidden;
+	}
+}
 .record-user{
 	display: flex;
 	justify-content: space-between;
@@ -337,5 +484,90 @@ onShow(loadDetail)
 	font-size: 29rpx;
 	line-height: 78rpx;
 	&::after{ border: 0; }
+}
+.popup-mask{
+	position: fixed;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	z-index: 99;
+	display: flex;
+	align-items: flex-end;
+	background: rgba(0, 0, 0, .45);
+}
+.shipping-popup{
+	width: 100%;
+	padding: 34rpx 34rpx calc(34rpx + env(safe-area-inset-bottom));
+	border-radius: 24rpx 24rpx 0 0;
+	background: #fff;
+	box-sizing: border-box;
+}
+.popup-title{
+	margin-bottom: 24rpx;
+	color: #222;
+	font-size: 32rpx;
+	font-weight: 600;
+	line-height: 44rpx;
+}
+.popup-row{
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 92rpx;
+	border-bottom: 1rpx solid #eeeeee;
+	text{
+		color: #333;
+		font-size: 28rpx;
+	}
+	input{
+		flex: 1;
+		height: 100%;
+		color: #333;
+		font-size: 28rpx;
+		text-align: right;
+	}
+}
+.popup-block{
+	padding: 24rpx 0;
+	border-bottom: 1rpx solid #eeeeee;
+	text{
+		color: #333;
+		font-size: 28rpx;
+		line-height: 40rpx;
+	}
+	textarea{
+		width: 100%;
+		height: 120rpx;
+		margin-top: 18rpx;
+		color: #333;
+		font-size: 28rpx;
+		line-height: 40rpx;
+	}
+}
+.placeholder{
+	color: #c8c8c8;
+}
+.popup-actions{
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 20rpx;
+	margin-top: 30rpx;
+	button{
+		height: 78rpx;
+		border: 0;
+		border-radius: 10rpx;
+		font-size: 28rpx;
+		line-height: 78rpx;
+		&::after{ border: 0; }
+	}
+	.cancel-btn{
+		background: #eeeeee;
+		color: #555;
+	}
+	.save-btn{
+		background: #1f7cff;
+		color: #fff;
+	}
 }
 </style>

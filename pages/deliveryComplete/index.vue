@@ -24,6 +24,17 @@
 					<view class="image-placeholder" v-for="item in imageSlots" :key="item"></view>
 				</view>
 			</view>
+
+			<view class="field-block video-block">
+				<text class="label">视频备注</text>
+				<view class="video-row">
+					<view v-if="!videoPath" class="video-upload" @click="chooseVideo">+</view>
+					<view v-else class="video-item">
+						<video :src="videoPath" controls></video>
+						<view class="remove-video" @click.stop="removeVideo">×</view>
+					</view>
+				</view>
+			</view>
 		</view>
 
 		<view class="bottom-bar">
@@ -39,6 +50,7 @@ import { computed, ref } from 'vue'
 const deliveryId = ref('')
 const remark = ref('')
 const images = ref([])
+const videoPath = ref('')
 const submitting = ref(false)
 const maxImages = 1
 
@@ -58,16 +70,41 @@ const removeImage = index => {
 	images.value.splice(index, 1)
 }
 
+const chooseVideo = () => {
+	uni.chooseVideo({
+		count: 1,
+		sourceType: ['album', 'camera'],
+		success: res => {
+			videoPath.value = res.tempFilePath || ''
+		}
+	})
+}
+
+const removeVideo = () => {
+	videoPath.value = ''
+}
+
+const getUploadFileValue = result => {
+	if (typeof result === 'string' || typeof result === 'number') return String(result)
+	return result?.url || result?.fileUrl || result?.path || result?.fileId || result?.id || result?.fileID || result?.file?.id || ''
+}
+
 const uploadImages = async () => {
 	if (!images.value.length) return ''
 	const urls = []
 	for (const filePath of images.value) {
 		try {
 			const result = await uni.$api.uploadFile(filePath)
-			urls.push(typeof result === 'string' ? result : (result?.url || result?.fileUrl || result?.path || ''))
+			urls.push(getUploadFileValue(result))
 		} catch (e) {}
 	}
 	return urls.filter(Boolean).join(',')
+}
+
+const uploadVideo = async () => {
+	if (!videoPath.value) return ''
+	const result = await uni.$api.uploadFile(videoPath.value)
+	return getUploadFileValue(result)
 }
 
 const submit = async () => {
@@ -75,10 +112,12 @@ const submit = async () => {
 	submitting.value = true
 	try {
 		const imgRemark = await uploadImages()
+		const video = await uploadVideo()
 		await uni.$api.completeDelivery({
 			id: deliveryId.value,
 			remark: remark.value,
 			img: imgRemark,
+			video,
 			completeRemark: remark.value,
 			completeImgRemark: imgRemark
 		})
@@ -175,7 +214,8 @@ onLoad(options => {
 .placeholder{
 	color: #c9c9c9;
 }
-.image-block{
+.image-block,
+.video-block{
 	margin-bottom: 0;
 }
 .image-row{
@@ -226,6 +266,52 @@ onLoad(options => {
 	color: #fff;
 	font-size: 26rpx;
 	line-height: 30rpx;
+}
+.video-block{
+	margin-top: 40rpx;
+}
+.video-row{
+	margin-top: 18rpx;
+}
+.video-upload{
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 156rpx;
+	height: 108rpx;
+	border-radius: 8rpx;
+	background: #f7f7f7;
+	color: #222;
+	font-size: 42rpx;
+	font-weight: 300;
+}
+.video-item{
+	position: relative;
+	width: 260rpx;
+	height: 146rpx;
+	border-radius: 8rpx;
+	overflow: hidden;
+	background: #d8d8d8;
+	video{
+		width: 100%;
+		height: 100%;
+	}
+}
+.remove-video{
+	position: absolute;
+	right: 4rpx;
+	top: 4rpx;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 32rpx;
+	height: 32rpx;
+	border-radius: 50%;
+	background: rgba(0, 0, 0, 0.55);
+	color: #fff;
+	font-size: 26rpx;
+	line-height: 32rpx;
 }
 .bottom-bar{
 	position: fixed;

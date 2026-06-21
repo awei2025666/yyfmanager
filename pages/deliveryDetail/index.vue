@@ -23,6 +23,12 @@
 				</view>
 				<view class="product">{{ getOrderProducts(order) || '-' }}</view>
 				<view class="time">{{ order.orderTime || order.createTime || '-' }}</view>
+				<view class="shipping-info">
+					<view class="shipping-row"><text>联系人</text><text>{{ getShippingInfo(order).linkman || '-' }}</text></view>
+					<view class="shipping-row"><text>联系电话</text><text>{{ getShippingInfo(order).phone || '-' }}</text></view>
+					<view class="shipping-row"><text>配送地址</text><text>{{ getShippingInfo(order).companyAddress || '-' }}</text></view>
+					<view class="shipping-edit" @click.stop="openShippingEditor(order)">编辑配送信息</view>
+				</view>
 				<button v-if="canCompleteOrder(order)" class="card-complete-btn" @click.stop="toCompleteDelivery(order.id)">已完成配送</button>
 			</view>
 			<view v-if="!orderList.length" class="empty-state">暂无数据</view>
@@ -53,9 +59,34 @@
 					<view v-if="hasImages(item)" class="thumbs">
 						<image v-for="(image, imageIndex) in getImages(item)" :key="imageIndex" :src="image" mode="aspectFill"></image>
 					</view>
+					<view v-if="hasVideos(item)" class="videos">
+						<video v-for="(video, videoIndex) in getVideos(item)" :key="videoIndex" :src="video" controls></video>
+					</view>
 					<view class="record-content">{{ item.content || '-' }}</view>
 				</view>
 				<view v-if="!processList.length" class="empty-state">暂无数据</view>
+			</view>
+		</view>
+
+		<view v-if="showShippingEditor" class="popup-mask" @click="closeShippingEditor">
+			<view class="shipping-popup" @click.stop>
+				<view class="popup-title">编辑配送信息</view>
+				<view class="popup-row">
+					<text>联系人</text>
+					<input v-model="shippingForm.linkman" placeholder="请输入联系人" placeholder-class="placeholder" />
+				</view>
+				<view class="popup-row">
+					<text>联系电话</text>
+					<input v-model="shippingForm.phone" type="number" placeholder="请输入联系电话" placeholder-class="placeholder" />
+				</view>
+				<view class="popup-block">
+					<text>配送地址</text>
+					<textarea v-model="shippingForm.companyAddress" placeholder="请输入配送地址" placeholder-class="placeholder" />
+				</view>
+				<view class="popup-actions">
+					<button class="cancel-btn" @click="closeShippingEditor">取消</button>
+					<button class="save-btn" @click="saveShippingInfo">保存</button>
+				</view>
 			</view>
 		</view>
 	</view>
@@ -69,6 +100,13 @@ const deliveryId = ref('')
 const fromPage = ref('')
 const detail = ref({})
 const processList = ref([])
+const showShippingEditor = ref(false)
+const shippingForm = ref({
+	orderId: '',
+	linkman: '',
+	phone: '',
+	companyAddress: ''
+})
 const hasDetail = computed(() => Object.keys(detail.value || {}).length > 0)
 
 const deliveryStatus = computed(() => Number(detail.value.status || detail.value.deliveryStatus || 2))
@@ -96,6 +134,12 @@ const isOrderDone = order => {
 	return status === 2 || status === 3 || order.statusName === '已完成'
 }
 const canCompleteOrder = order => deliveryId.value && hasDetail.value && !isDeliveryDone.value && !isOrderDone(order)
+const getOrderId = order => order.orderId || order.id || ''
+const getShippingInfo = order => ({
+	linkman: order.linkman || order.contactName || '',
+	phone: order.phone || order.contactPhone || '',
+	companyAddress: order.companyAddress || order.deliveryAddress || order.address || ''
+})
 const getOrderProducts = order => {
 	if (Array.isArray(order.products) && order.products.length) {
 		return order.products
@@ -116,6 +160,8 @@ const normalizeImages = value => {
 }
 const getImages = item => normalizeImages(item.img || item.images || item.imageList || item.imgList || item.pictureList || item.imgRemark || item.completeImgRemark)
 const hasImages = item => getImages(item).length > 0
+const getVideos = item => normalizeImages(item.video || item.videos || item.videoUrl || item.videoRemark)
+const hasVideos = item => getVideos(item).length > 0
 const getRecordRemark = item => item.remark || item.completeRemark || ''
 
 const loadDetail = async () => {
@@ -132,6 +178,39 @@ const loadDetail = async () => {
 		detail.value = {}
 		processList.value = []
 	}
+}
+
+const openShippingEditor = order => {
+	const shippingInfo = getShippingInfo(order)
+	shippingForm.value = {
+		orderId: getOrderId(order),
+		linkman: shippingInfo.linkman,
+		phone: shippingInfo.phone,
+		companyAddress: shippingInfo.companyAddress
+	}
+	showShippingEditor.value = true
+}
+
+const closeShippingEditor = () => {
+	showShippingEditor.value = false
+}
+
+const saveShippingInfo = async () => {
+	if (!shippingForm.value.orderId) {
+		uni.showToast({ title: '缺少订单信息', icon: 'none' })
+		return
+	}
+	try {
+		await uni.$api.editShippingInformation({
+			orderId: shippingForm.value.orderId,
+			linkman: shippingForm.value.linkman,
+			phone: shippingForm.value.phone,
+			companyAddress: shippingForm.value.companyAddress
+		})
+		uni.showToast({ title: '已保存', icon: 'none' })
+		showShippingEditor.value = false
+		loadDetail()
+	} catch (e) {}
 }
 
 const toCompleteDelivery = (id) => {
@@ -327,6 +406,37 @@ onShow(loadDetail)
 	font-size: 24rpx;
 	line-height: 34rpx;
 }
+.shipping-info{
+	margin-top: 16rpx;
+	padding-top: 14rpx;
+	border-top: 1rpx solid #eeeeee;
+}
+.shipping-row{
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 18rpx;
+	margin-top: 8rpx;
+	color: #999;
+	font-size: 24rpx;
+	line-height: 34rpx;
+	text:first-child{
+		flex: 0 0 118rpx;
+	}
+	text:last-child{
+		flex: 1;
+		color: #666;
+		text-align: right;
+		word-break: break-all;
+	}
+}
+.shipping-edit{
+	margin-top: 12rpx;
+	color: #1f7cff;
+	font-size: 24rpx;
+	line-height: 34rpx;
+	text-align: right;
+}
 .card-complete-btn{
 	width: 100%;
 	height: 48rpx;
@@ -373,6 +483,19 @@ onShow(loadDetail)
 	margin-top: 16rpx;
 	image{ width: 96rpx; height: 96rpx; border-radius: 14rpx; background: #d9d9d9; }
 }
+.videos{
+	display: flex;
+	flex-direction: column;
+	gap: 12rpx;
+	margin-top: 16rpx;
+	video{
+		width: 280rpx;
+		height: 158rpx;
+		border-radius: 14rpx;
+		background: #d9d9d9;
+		overflow: hidden;
+	}
+}
 .record-user{
 	display: flex;
 	align-items: center;
@@ -381,5 +504,90 @@ onShow(loadDetail)
 	color: #999;
 	font-size: 25rpx;
 	line-height: 36rpx;
+}
+.popup-mask{
+	position: fixed;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	z-index: 99;
+	display: flex;
+	align-items: flex-end;
+	background: rgba(0, 0, 0, .45);
+}
+.shipping-popup{
+	width: 100%;
+	padding: 34rpx 34rpx calc(34rpx + env(safe-area-inset-bottom));
+	border-radius: 24rpx 24rpx 0 0;
+	background: #fff;
+	box-sizing: border-box;
+}
+.popup-title{
+	margin-bottom: 24rpx;
+	color: #222;
+	font-size: 32rpx;
+	font-weight: 600;
+	line-height: 44rpx;
+}
+.popup-row{
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 92rpx;
+	border-bottom: 1rpx solid #eeeeee;
+	text{
+		color: #333;
+		font-size: 28rpx;
+	}
+	input{
+		flex: 1;
+		height: 100%;
+		color: #333;
+		font-size: 28rpx;
+		text-align: right;
+	}
+}
+.popup-block{
+	padding: 24rpx 0;
+	border-bottom: 1rpx solid #eeeeee;
+	text{
+		color: #333;
+		font-size: 28rpx;
+		line-height: 40rpx;
+	}
+	textarea{
+		width: 100%;
+		height: 120rpx;
+		margin-top: 18rpx;
+		color: #333;
+		font-size: 28rpx;
+		line-height: 40rpx;
+	}
+}
+.placeholder{
+	color: #c8c8c8;
+}
+.popup-actions{
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 20rpx;
+	margin-top: 30rpx;
+	button{
+		height: 78rpx;
+		border: 0;
+		border-radius: 10rpx;
+		font-size: 28rpx;
+		line-height: 78rpx;
+		&::after{ border: 0; }
+	}
+	.cancel-btn{
+		background: #eeeeee;
+		color: #555;
+	}
+	.save-btn{
+		background: #1f7cff;
+		color: #fff;
+	}
 }
 </style>

@@ -18,6 +18,7 @@ const api = {
 	orderInfo: (params) => http('/api/user/order/info', 'GET', params),
 	orderProcessInfo: (params) => http('/api/user/order/processInfo', 'GET', params),
 	productsCraftInfo: (params) => http('/api/user/order/productsCraftInfo', 'GET', params),
+	selfMachine: () => http('/api/user/order/selfMachine', 'GET'),
 	completeProduction: (params) => http('/api/user/order/completeProduction', 'POST', params),
 	consumableInfo: (params) => http('/api/user/order/consumableInfo', 'GET', params),
 	consumableAll: (params) => http('/api/user/order/all', 'POST', params),
@@ -33,6 +34,7 @@ const api = {
 	deliveryInTransitList: (params) => http('/api/user/delivery/orderList', 'POST', params),
 	deliveryOrderDetail: (params) => http('/api/user/delivery/orderDetail', 'GET', params),
 	completeDelivery: (params) => http('/api/user/delivery/completeDelivery', 'POST', params),
+	editShippingInformation: (params) => http('/api/user/delivery/editShippingInformation', 'POST', params),
 	deliveryDetail: (params) => http('/api/user/delivery/detail', 'GET', params),
 	deliveryProcessInfo: (params) => http('/api/user/delivery/processInfo', 'GET', params)
 }
