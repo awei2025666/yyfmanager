@@ -211,6 +211,7 @@ const submitForm = async () => {
   if (!form.name) return ElMessage.warning('请输入单位名称')
   if (!form.contact) return ElMessage.warning('请输入联系人')
   if (!form.phone) return ElMessage.warning('请输入联系方式')
+  if (!form.address) return ElMessage.warning('请输入单位地址')
   state.saving = true
   try {
     const payload = {
@@ -428,6 +429,9 @@ onMounted(async () => {
         <el-form-item label="联系方式" required>
           <el-input v-model="form.phone" placeholder="请输入联系方式" />
         </el-form-item>
+        <el-form-item label="单位地址" required>
+          <el-input v-model="form.address" placeholder="请输入单位地址" />
+        </el-form-item>
         <el-form-item label="客户类型">
           <el-select v-model="form.customerType" placeholder="请选择客户类型">
             <el-option v-for="item in customerTypes" :key="item.value" :label="item.label" :value="item.value" />
@@ -437,9 +441,6 @@ onMounted(async () => {
           <el-select v-model="form.sales" filterable clearable placeholder="请选择业务员">
             <el-option v-for="item in salesOptions" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
-        </el-form-item>
-        <el-form-item label="单位地址">
-          <el-input v-model="form.address" placeholder="请输入单位地址" />
         </el-form-item>
         <el-form-item label="备注" class="full">
           <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注" />

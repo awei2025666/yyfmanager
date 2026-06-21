@@ -111,17 +111,17 @@ const handleClientDropdownVisible = (visible) => {
 const normalizeRow = (row = {}) => ({
   ...row,
   id: row.id || row.productsCraftId,
-  orderNo: row.orderId || row.orderNo || '-',
-  customer: row.companyName || row.customer || '-',
-  orderTime: row.orderTime || row.createTime || '-',
-  productInfo: row.productInfo || row.productName || '-',
-  quantity: row.orderQuantity ?? row.quantity ?? '-',
-  craftName: row.craftName || row.name || '-',
+  orderNo: row.orderId || row.orderNo || '',
+  customer: row.companyName || row.customer || '',
+  orderTime: row.orderTime || row.createTime || '',
+  productInfo: row.productInfo || row.productName || '',
+  quantity: row.orderQuantity ?? row.quantity ?? '',
+  craftName: row.craftName || row.name || '',
   remark: row.remark || '',
   unitPrice: row.unitPrice ?? 0,
   amount: row.customerMoney ?? row.amount ?? 0,
   status: statusText(row.craftStatus ?? row.status),
-  operator: row.operator || row.createTenantUserName || '-'
+  operator: row.operator || row.createTenantUserName || ''
 })
 
 const queryPayload = () => {
@@ -202,39 +202,39 @@ const normalizeDetail = (payload = {}, fallback = {}) => {
     ...payload,
     orderNo: order.orderId || fallback.orderNo,
     customer: order.companyName || fallback.customer,
-    contact: order.linkman || '-',
-    phone: order.phone || '-',
-    deliveryAddress: order.companyAddress || '-',
-    deliveryDate: order.deliveryDate || '-',
-    deliveryType: order.deliveryType || '-',
-    printRequirement: order.printingRequirements || '-',
-    remark: order.remark || craft.remark || fallback.remark || '-',
-    operator: craft.operator || fallback.operator || '-',
+    contact: order.linkman || '',
+    phone: order.phone || '',
+    deliveryAddress: order.companyAddress || '',
+    deliveryDate: order.deliveryDate || '',
+    deliveryType: order.deliveryType || '',
+    printRequirement: order.printingRequirements || '',
+    remark: order.remark || craft.remark || fallback.remark || '',
+    operator: craft.operator || fallback.operator || '',
     productRows: [
       {
-        productName: product.name || fallback.productInfo || '-',
-        finishedSpec: product.trimmedSize || product.finishedSpec || '-',
-        orderQuantity: product.orderQuantity ?? fallback.quantity ?? '-',
-        unit: product.unit || '-',
+        productName: product.name || fallback.productInfo || '',
+        finishedSpec: product.trimmedSize || product.finishedSpec || '',
+        orderQuantity: product.orderQuantity ?? fallback.quantity ?? '',
+        unit: product.unit || '',
         amount: product.money ?? fallback.amount ?? 0
       }
     ],
     craftRows: [
       {
-        craftName: craft.name || fallback.craftName || '-',
-        specification: craft.specification || '-',
-        openCount: craft.formatSize ?? '-',
-        basePrice: craft.priceBase ?? '-',
-        finishedCount: craft.orderQuantity ?? fallback.quantity ?? '-',
-        unit: craft.unit || '-',
+        craftName: craft.name || fallback.craftName || '',
+        specification: craft.specification || '',
+        openCount: craft.formatSize ?? '',
+        basePrice: craft.priceBase ?? '',
+        finishedCount: craft.orderQuantity ?? fallback.quantity ?? '',
+        unit: craft.unit || '',
         unitPrice: craft.unitPrice ?? fallback.unitPrice ?? 0,
         amount: craft.customerMoney ?? fallback.amount ?? 0,
-        remark: craft.remark || fallback.remark || '-'
+        remark: craft.remark || fallback.remark || ''
       }
     ],
-    productionTime: craft.updateTime || craft.createTime || '-',
-    productionRemark: craft.remark || '-',
-    imageNote: craft.imageRemark || '-'
+    productionTime: craft.updateTime || craft.createTime || '',
+    productionRemark: craft.remark || '',
+    imageNote: craft.imageRemark || ''
   }
 }
 
@@ -260,7 +260,7 @@ const deliveryTypeOptions = [
   { label: '客运', value: 4 }
 ]
 const deliveryTypeText = (value) =>
-    deliveryTypeOptions.find((item) => String(item.value) === String(value))?.label || value || '-'
+    deliveryTypeOptions.find((item) => String(item.value) === String(value))?.label || value || ''
 onMounted(() => {
   loadClientOptions()
   loadStatistics()
@@ -364,13 +364,13 @@ onMounted(() => {
         <dl v-if="currentRow" class="detail-grid">
           <div><dt>订单号</dt><dd>{{ currentRow.orderNo }}</dd></div>
           <div><dt>单位名称</dt><dd>{{ currentRow.customer }}</dd></div>
-          <div><dt>联系人</dt><dd>{{ currentRow.contact || '-' }}</dd></div>
-          <div><dt>联系方式</dt><dd>{{ currentRow.phone || '-' }}</dd></div>
-          <div><dt>送货地址</dt><dd>{{ currentRow.deliveryAddress || '-' }}</dd></div>
-          <div><dt>交货日期</dt><dd>{{ currentRow.deliveryDate || '-' }}</dd></div>
-          <div><dt>交货方式</dt><dd>{{ deliveryTypeText(currentRow.deliveryType) || '-' }}</dd></div>
-          <div><dt>印刷要求</dt><dd>{{ currentRow.printRequirement || '-' }}</dd></div>
-          <div><dt>备注</dt><dd>{{ currentRow.remark || '-' }}</dd></div>
+          <div><dt>联系人</dt><dd>{{ currentRow.contact || '' }}</dd></div>
+          <div><dt>联系方式</dt><dd>{{ currentRow.phone || '' }}</dd></div>
+          <div><dt>送货地址</dt><dd>{{ currentRow.deliveryAddress || '' }}</dd></div>
+          <div><dt>交货日期</dt><dd>{{ currentRow.deliveryDate || '' }}</dd></div>
+          <div><dt>交货方式</dt><dd>{{ deliveryTypeText(currentRow.deliveryType) || '' }}</dd></div>
+          <div><dt>印刷要求</dt><dd>{{ currentRow.printRequirement || '' }}</dd></div>
+          <div><dt>备注</dt><dd>{{ currentRow.remark || '' }}</dd></div>
         </dl>
         <el-tabs v-model="activeDetailTab">
           <el-tab-pane label="工艺信息" name="crafts">
@@ -397,9 +397,9 @@ onMounted(() => {
           </el-tab-pane>
           <el-tab-pane label="生产记录" name="production">
             <dl class="detail-grid detail-grid--small">
-              <div><dt>操作员</dt><dd>{{ currentRow?.operator || '-' }}</dd></div>
-              <div><dt>操作时间</dt><dd>{{ currentRow?.completedTime || '-' }}</dd></div>
-              <div><dt>备注</dt><dd>{{ currentRow?.completeRemark || '-' }}</dd></div>
+              <div><dt>操作员</dt><dd>{{ currentRow?.operator || '' }}</dd></div>
+              <div><dt>操作时间</dt><dd>{{ currentRow?.completedTime || '' }}</dd></div>
+              <div><dt>备注</dt><dd>{{ currentRow?.completeRemark || '' }}</dd></div>
               <div><dt>图片备注</dt><dd>
                 <el-image
                     v-if="currentRow?.completeImgRemarkUrl"
