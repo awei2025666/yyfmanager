@@ -8,8 +8,13 @@ import {
   addTenantOrder,
   approveTenantOrder,
   changeTenantOrderAutoApprove,
+  completeTenantOrderProduction,
   deleteTenantOrder,
   editTenantOrder,
+  addTenantExternalTenant,
+  deleteTenantExternalTenant,
+  editTenantExternalTenant,
+  getTenantExternalTenantList,
   getTenantOrderAutoApprove,
   getTenantCraftList,
   getTenantOrderConsumables,
@@ -21,7 +26,10 @@ import {
   getTenantOrderProcess,
   outsourceTenantOrder,
   returnTenantOrder,
-  searchTenantClients, getTenantOutsourceTenants, searchTenantCrafts
+  searchTenantClients,
+  getTenantOutsourceTenants,
+  searchTenantCrafts,
+  uploadTenantFile
 } from '../api/tenant'
 
 const route = useRoute()
@@ -49,6 +57,12 @@ const lastClientKeyword = ref(null)
 let clientSearchPromise = null
 const outsourceLoading = ref(false)
 const outsourceOptions = ref([])
+const externalTenantVisible = ref(false)
+const externalTenantFormVisible = ref(false)
+const externalTenantLoading = ref(false)
+const externalTenantSaving = ref(false)
+const externalTenantRows = ref([])
+const externalTenantTotal = ref(0)
 const craftSearching = ref(false)
 const craftOptions = ref([])
 const lastCraftKeyword = ref(null)
@@ -58,9 +72,12 @@ const routeDetailToken = ref('')
 const orderFormVisible = ref(false)
 const approveVisible = ref(false)
 const rejectVisible = ref(false)
+const manualCompleteVisible = ref(false)
+const manualCompleteSaving = ref(false)
 const currentRecord = ref(null)
 const approvalRemark = ref('')
 const rejectRemark = ref('')
+const manualCompleteTarget = ref(null)
 const viewMode = ref(route.query.mode === 'detail' ? 'detail' : 'list')
 const currentStep = ref(1)
 const formMode = ref('create')
@@ -68,6 +85,21 @@ const sourceOrderId = ref(null)
 const outsourceFilters = reactive({
   memberId: '',
   memberName: ''
+})
+const externalTenantFilters = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  tenantName: ''
+})
+const externalTenantForm = reactive({
+  id: '',
+  tenantName: '',
+  userName: ''
+})
+const manualCompleteForm = reactive({
+  completeRemark: '',
+  completeImgRemark: '',
+  completeImgRemarkUrl: ''
 })
 
 const formState = reactive({
@@ -116,13 +148,22 @@ const deliveryTypeOptions = [
   { label: '送货', value: 3 },
   { label: '客运', value: 4 }
 ]
+const singleDoubleOptions = [
+  { label: '单面', value: 1 },
+  { label: '双面自翻', value: 2 },
+  { label: '双面天地翻', value: 3 },
+  { label: '双面扣板', value: 4 }
+]
 const deliveryTypeText = (value) =>
   deliveryTypeOptions.find((item) => String(item.value) === String(value))?.label || value || ''
+const singleDoubleText = (value) =>
+  singleDoubleOptions.find((item) => String(item.value) === String(value))?.label || ''
 const statusToneClass = (status) => `order-status--${statusMap[status]?.tone || 'outsourced'}`
 const craftStatusText = (value) => (Number(value) === 2 ? '已完成' : '待生产')
 const craftStatusClass = (value) => (Number(value) === 2 ? 'craft-status-success' : 'craft-status-warning')
 const orderSourceText = (value) => (Number(value) === 2 ? '外协' : '本厂')
 const orderSourceClass = (value) => (Number(value) === 2 ? 'order-source-outsourced' : 'order-source-local')
+const shouldShowManualComplete = (row = {}) => Number(row.manual) === 1 && Number(row.craftStatus) === 2
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
   return payload?.records || payload?.list || payload?.rows || []
@@ -283,6 +324,25 @@ const normalizeOutsourceOptions = (data) => {
     }))
 }
 
+const normalizeExternalTenantRows = (data = {}) => {
+  const list = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.data)
+      ? data.data
+      : data.records || data.list || data.rows || data.data?.records || data.data?.list || []
+  return list.map((item) => ({
+    ...item,
+    id: item.id || item.tenantId || item.memberId,
+    tenantName: item.tenantName || item.memberName || item.companyName || item.name || '',
+    userName: item.userName || item.linkman || item.contact || ''
+  }))
+}
+
+const externalTenantListTotal = (data = {}, rows = []) => {
+  if (Array.isArray(data)) return rows.length
+  return Number(data.total ?? data.data?.total ?? rows.length) || 0
+}
+
 const loadOutsourceUnits = async () => {
   outsourceLoading.value = true
   try {
@@ -297,6 +357,101 @@ const loadOutsourceUnits = async () => {
   }
 }
 
+const loadExternalTenants = async () => {
+  externalTenantLoading.value = true
+  try {
+    const data = await getTenantExternalTenantList({
+      pageNum: externalTenantFilters.pageNum,
+      pageSize: externalTenantFilters.pageSize,
+      tenantName: externalTenantFilters.tenantName || undefined
+    })
+    const rows = normalizeExternalTenantRows(data)
+    externalTenantRows.value = rows
+    externalTenantTotal.value = externalTenantListTotal(data, rows)
+  } catch (error) {
+    externalTenantRows.value = []
+    externalTenantTotal.value = 0
+    ElMessage.error(error?.message || '非本系统会员加载失败')
+  } finally {
+    externalTenantLoading.value = false
+  }
+}
+
+const openExternalTenantDialog = () => {
+  externalTenantVisible.value = true
+  externalTenantFilters.pageNum = 1
+  loadExternalTenants()
+}
+
+const searchExternalTenants = () => {
+  externalTenantFilters.pageNum = 1
+  loadExternalTenants()
+}
+
+const resetExternalTenantFilters = () => {
+  externalTenantFilters.pageNum = 1
+  externalTenantFilters.pageSize = 10
+  externalTenantFilters.tenantName = ''
+  loadExternalTenants()
+}
+
+const resetExternalTenantForm = () => {
+  externalTenantForm.id = ''
+  externalTenantForm.tenantName = ''
+  externalTenantForm.userName = ''
+}
+
+const openExternalTenantCreate = () => {
+  resetExternalTenantForm()
+  externalTenantFormVisible.value = true
+}
+
+const openExternalTenantEdit = (row = {}) => {
+  externalTenantForm.id = row.id || ''
+  externalTenantForm.tenantName = row.tenantName || ''
+  externalTenantForm.userName = row.userName || ''
+  externalTenantFormVisible.value = true
+}
+
+const saveExternalTenant = async () => {
+  if (!externalTenantForm.tenantName) return ElMessage.warning('请输入会员名称')
+  externalTenantSaving.value = true
+  try {
+    const payload = {
+      id: externalTenantForm.id || undefined,
+      tenantName: externalTenantForm.tenantName,
+      userName: externalTenantForm.userName
+    }
+    if (externalTenantForm.id) {
+      await editTenantExternalTenant(payload)
+    } else {
+      await addTenantExternalTenant(payload)
+    }
+    externalTenantFormVisible.value = false
+    ElMessage.success(externalTenantForm.id ? '编辑成功' : '新增成功')
+    loadExternalTenants()
+  } catch (error) {
+    ElMessage.error(error?.message || '保存失败')
+  } finally {
+    externalTenantSaving.value = false
+  }
+}
+
+const removeExternalTenant = async (row = {}) => {
+  try {
+    await ElMessageBox.confirm(`确认删除 ${row.tenantName || '该会员'} 吗？`, '删除确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await deleteTenantExternalTenant(row.id)
+    ElMessage.success('删除成功')
+    loadExternalTenants()
+  } catch (error) {
+    ElMessage.error(error?.message || '删除失败')
+  }
+}
+
 const resetOutsourceFilters = () => {
   outsourceFilters.memberId = ''
   outsourceFilters.memberName = ''
@@ -307,6 +462,13 @@ const selectOutsourceUnit = (row = {}) => {
   formState.outsourceSupplierId = row.memberId || row.id || ''
   formState.outsourceSupplierName = row.memberName || row.companyName || ''
   formState.outsourceSupplierContact = row.contact || row.linkman || ''
+}
+
+const selectExternalTenant = (row = {}) => {
+  formState.outsourceSupplierId = row.id || ''
+  formState.outsourceSupplierName = row.tenantName || ''
+  formState.outsourceSupplierContact = row.userName || ''
+  externalTenantVisible.value = false
 }
 
 const normalizeCraftOptions = (data) => {
@@ -404,14 +566,25 @@ const normalizeCraftRow = (item = {}, product = {}) => ({
     craftName: item.craftName || item.name || '',
     spec: item.spec || item.specification || '',
     openNum: item.openNum ?? item.formatSize ?? '',
+    numberPerBoard: item.numberPerBoard ?? '',
+    singleDouble: item.singleDouble ?? 1,
+    spotColors: item.spotColors || '',
+    colour: item.colour || item.color || '',
+    formula: item.formula || '',
     startPrice: item.startPrice ?? item.priceBase ?? 0,
+    priceBase: item.priceBase ?? 0,
+    foilingStartingPrice: item.foilingStartingPrice ?? 0,
     finishNum: item.finishNum ?? item.orderQuantity ?? 0,
     unit: item.unit || '',
     price: item.price ?? item.unitPrice ?? 0,
     customerAmount: item.customerAmount ?? item.customerMoney ?? 0,
     remark: item.remark || '',
     craftStatus: item.craftStatus ?? item.status ?? 1,
-    operator: item.operator || item.createUserName || item.tenantUserName || '-'
+    operator: item.operator || item.createUserName || item.tenantUserName || '-',
+    orderSource: item.orderSource ?? product.orderSource ?? 1,
+    manual: item.manual ?? product.manual ?? 0,
+    outsourceChecked: Boolean(item.outsourceChecked || item.outTenantId),
+    outTenantId: item.outTenantId || ''
 })
 
 const nestedCraftRows = (products = []) =>
@@ -451,7 +624,11 @@ const normalizeDetailRow = (detail = {}, base = {}, processList = []) => {
   const rawProducts = detail.productList || detail.products || []
   const products = rawProducts.map(normalizeProductRow)
   const rawCrafts = detail.craftList || detail.crafts || []
-  const crafts = rawCrafts.length ? rawCrafts.map((item) => normalizeCraftRow(item)) : nestedCraftRows(rawProducts)
+  const craftFallback = {
+    orderSource: detail.orderSource ?? base.orderSource,
+    manual: detail.manual ?? base.manual
+  }
+  const crafts = rawCrafts.length ? rawCrafts.map((item) => normalizeCraftRow(item, craftFallback)) : nestedCraftRows(rawProducts)
   const timeline = (processList || []).map((item) => ({
     date: item.createTime || '',
     title: item.content || '订单记录',
@@ -516,11 +693,65 @@ const savedProductOptions = computed(() =>
 )
 const zeroIfEmpty = (value) => (value === '' || value === null || value === undefined ? 0 : value)
 const toFixed4Number = (value) => Number(Number(value || 0).toFixed(4))
+const formulaValue = (formula = '') => {
+  const text = String(formula || '').trim()
+  if (!text) return null
+  if (!/^[\d\s.+\-*/()]+$/.test(text)) return null
+  try {
+    const result = Function(`"use strict"; return (${text})`)()
+    return Number.isFinite(Number(result)) ? Number(result) : null
+  } catch {
+    return null
+  }
+}
+const appendFormulaPointText = (formula = '', point = '') => {
+  const value = String(point || '').trim()
+  if (!value) return formula || ''
+  const wrappedValue = `(${value})`
+  const current = String(formula || '').trim()
+  if (!current) return wrappedValue
+  return `(${current} + ${wrappedValue})`
+}
+const promptFormulaPoint = async (row) => {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入烫金点位，例如 0.1*0.2', '烫金点位', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputPattern: /^[\d\s.+\-*/()]+$/,
+      inputErrorMessage: '只能输入数字、括号和四则运算符'
+    })
+    row.formula = appendFormulaPointText(row.formula, value)
+  } catch {
+    // 用户取消时不处理
+  }
+}
 const computedCraftCustomerAmount = (craft = {}) => {
-  const finishNum = Number(zeroIfEmpty(craft.finishNum ?? craft.orderQuantity))
-  const price = Number(zeroIfEmpty(craft.price ?? craft.unitPrice))
-  const startPrice = Number(zeroIfEmpty(craft.startPrice ?? craft.priceBase))
-  return toFixed4Number(Math.max(finishNum * price, startPrice))
+  const rawFinishNum = Number(zeroIfEmpty(craft.finishNum ?? craft.orderQuantity))
+  if (!rawFinishNum) return 0
+
+  const type = Number(craft.singleDouble || 1)
+  let finishNum = rawFinishNum
+  let price = Number(zeroIfEmpty(craft.price ?? craft.unitPrice))
+  let startPrice = Number(zeroIfEmpty(craft.startPrice ?? craft.basePrice))
+  const priceBase = Number(zeroIfEmpty(craft.priceBase))
+
+  if (type === 2 || type === 3) {
+    finishNum *= 2
+  }
+  if (type === 4) {
+    price *= 2
+    startPrice *= 2
+  }
+
+  const formula = formulaValue(craft.formula)
+  if (formula !== null) {
+    return toFixed4Number(formula * finishNum * price)
+  }
+
+  if (priceBase === 0) {
+    return toFixed4Number(Math.max(finishNum * price, startPrice))
+  }
+  return toFixed4Number(((finishNum - priceBase) * price) + startPrice)
 }
 const productCraftSourceRows = () => {
   if (orderFormVisible.value) return formState.craftList || []
@@ -609,12 +840,21 @@ const addCraftRow = () => {
     craftName: '',
     spec: '',
     openNum: '',
+    numberPerBoard: '',
+    singleDouble: 1,
+    spotColors: '',
+    colour: '',
+    formula: '',
     startPrice: 0,
+    priceBase: 0,
+    foilingStartingPrice: 0,
     finishNum: 0,
     unit: '',
     price: 0,
     customerAmount: 0,
     remark: '',
+    outsourceChecked: formMode.value === 'outsource',
+    outTenantId: formMode.value === 'outsource' ? formState.outsourceSupplierId : '',
     _isEditing: true,
     _isNew: true
   })
@@ -624,26 +864,42 @@ const selectCraftProduct = (row) => {
   if (!product) return
   row.productId = product.id || ''
 }
-const selectCraftName = (row, id) => {
+const selectCraftName = async (row, id) => {
   const craft = craftOptions.value.find((item) => String(item.id) === String(id))
   if (!craft) return
   row.craftId = craft.id
   row.craftName = craft.craftName
   row.spec = craft.spec || craft.specification || craft.formatSize || row.spec || ''
   row.openNum = craft.openNum ?? craft.openCount ?? craft.formatSize ?? row.openNum ?? ''
+  row.numberPerBoard = craft.numberPerBoard ?? row.numberPerBoard ?? ''
+  row.singleDouble = craft.singleDouble ?? row.singleDouble ?? 1
+  row.spotColors = craft.spotColors ?? row.spotColors ?? ''
+  row.colour = craft.colour ?? craft.color ?? row.colour ?? ''
+  row.formula = craft.formula ?? row.formula ?? ''
   row.startPrice = zeroIfEmpty(craft.startPrice ?? craft.priceBase ?? craft.basePrice ?? row.startPrice)
+  row.priceBase = zeroIfEmpty(craft.priceBase ?? row.priceBase)
+  row.foilingStartingPrice = zeroIfEmpty(craft.foilingStartingPrice ?? craft.foilStartingPrice ?? craft.gildingStartingPrice ?? row.foilingStartingPrice)
   row.unit = craft.unit || row.unit || ''
   row.price = zeroIfEmpty(craft.price ?? craft.unitPrice ?? row.price)
   row.remark = row.remark || craft.remark || ''
+  if (Number(row.foilingStartingPrice || 0) > 0) {
+    await promptFormulaPoint(row)
+  }
 }
 const saveCraftRow = (row) => {
   if (!row.productName || !row.craftName) {
     ElMessage.warning('请选择产品名称和工艺名称')
     return
   }
+  if (row.formula && formulaValue(row.formula) === null) {
+    ElMessage.warning('公式只能填写数字、括号和四则运算符')
+    return
+  }
   row.startPrice = zeroIfEmpty(row.startPrice)
+  row.priceBase = zeroIfEmpty(row.priceBase)
   row.finishNum = zeroIfEmpty(row.finishNum)
   row.price = zeroIfEmpty(row.price)
+  row.singleDouble = row.singleDouble || 1
   row.customerAmount = computedCraftCustomerAmount(row)
   syncAllProductAmounts()
   row._isEditing = false
@@ -670,6 +926,7 @@ const cleanCraftRow = (row = {}) => {
   const { _isEditing, _isNew, ...payload } = row
   payload.startPrice = zeroIfEmpty(payload.startPrice)
   payload.priceBase = zeroIfEmpty(payload.priceBase ?? payload.startPrice)
+  payload.foilingStartingPrice = zeroIfEmpty(payload.foilingStartingPrice)
   payload.finishNum = zeroIfEmpty(payload.finishNum)
   payload.orderQuantity = zeroIfEmpty(payload.orderQuantity ?? payload.finishNum)
   payload.price = zeroIfEmpty(payload.price)
@@ -702,8 +959,14 @@ const normalizeOrderCraftPayload = (craft = {}) => ({
   spec: craft.spec || craft.specification,
   formatSize: craft.formatSize ?? craft.openNum,
   openNum: craft.openNum ?? craft.formatSize,
+  numberPerBoard: craft.numberPerBoard,
+  singleDouble: craft.singleDouble,
+  spotColors: craft.spotColors,
+  colour: craft.colour,
+  formula: craft.formula,
   priceBase: craft.priceBase ?? craft.startPrice,
   startPrice: craft.startPrice ?? craft.priceBase,
+  foilingStartingPrice: craft.foilingStartingPrice,
   orderQuantity: craft.orderQuantity ?? craft.finishNum,
   finishNum: craft.finishNum ?? craft.orderQuantity,
   unit: craft.unit,
@@ -711,12 +974,24 @@ const normalizeOrderCraftPayload = (craft = {}) => ({
   price: craft.price ?? craft.unitPrice,
   customerMoney: craft.customerMoney ?? craft.customerAmount,
   customerAmount: craft.customerAmount ?? craft.customerMoney,
+  outTenantId: craft.outTenantId || undefined,
   remark: craft.remark
 })
-const buildOrderRequestPayload = () => {
+const craftRowsForPayload = (options = {}) => {
+  const rows = craftRows.value.map((row) => {
+    const next = { ...row }
+    if (options.outsource) {
+      next.outTenantId = next.outsourceChecked ? formState.outsourceSupplierId : ''
+    }
+    return next
+  })
+  return options.outsource ? rows.filter((row) => row.outsourceChecked) : rows
+}
+
+const buildOrderRequestPayload = (options = {}) => {
   const total = formOrderTotal.value
   const products = JSON.parse(JSON.stringify(productRows.value.map(cleanProductRow)))
-  const crafts = JSON.parse(JSON.stringify(craftRows.value.map(cleanCraftRow)))
+  const crafts = JSON.parse(JSON.stringify(craftRowsForPayload(options).map(cleanCraftRow)))
   const normalizedCrafts = crafts.map(normalizeOrderCraftPayload)
   const normalizedProducts = products.map((product) => {
     const matchingCrafts = normalizedCrafts.filter((craft) => isCraftOfProduct(craft, product))
@@ -948,7 +1223,10 @@ const openOutsource = async (row) => {
   Object.assign(formState, {
     ...record,
     productList: record.products || record.productList || [],
-    craftList: record.crafts || record.craftList || [],
+    craftList: (record.crafts || record.craftList || []).map((item) => ({
+      ...item,
+      outsourceChecked: Boolean(item.outsourceChecked || item.outTenantId)
+    })),
     outsourceSupplierId: '',
     outsourceSupplierName: '',
     outsourceSupplierContact: ''
@@ -967,6 +1245,10 @@ const saveOrder = async () => {
     ElMessage.warning('请选择外协单位')
     return
   }
+  if (formMode.value === 'outsource' && !craftRows.value.some((item) => item.outsourceChecked)) {
+    ElMessage.warning('请选择需要转外协的工艺')
+    return
+  }
   if (formState.productList?.some((item) => item._isEditing)) {
     ElMessage.warning('请先保存产品信息')
     return
@@ -979,7 +1261,7 @@ const saveOrder = async () => {
   try {
     if (formMode.value === 'outsource') {
       await outsourceTenantOrder({
-        ...buildOrderRequestPayload(),
+        ...buildOrderRequestPayload({ outsource: true }),
         id: sourceOrderId.value || formState.id,
         tenantId: formState.outsourceSupplierId
       })
@@ -1101,6 +1383,50 @@ const confirmReject = async () => {
     await loadData()
   } catch (error) {
     ElMessage.error(error?.message || '驳回失败')
+  }
+}
+
+const openManualComplete = (row) => {
+  manualCompleteTarget.value = row
+  manualCompleteForm.completeRemark = ''
+  manualCompleteForm.completeImgRemark = ''
+  manualCompleteForm.completeImgRemarkUrl = ''
+  manualCompleteVisible.value = true
+}
+
+const uploadManualCompleteImage = async ({ file }) => {
+  try {
+    const data = await uploadTenantFile(file)
+    manualCompleteForm.completeImgRemark = data?.fileId || data?.id || data
+    manualCompleteForm.completeImgRemarkUrl = data?.url || data?.fileUrl || data?.path || URL.createObjectURL(file)
+    ElMessage.success('上传成功')
+  } catch (error) {
+    ElMessage.error(error?.message || '上传失败')
+  }
+}
+
+const confirmManualComplete = async () => {
+  const craftId = manualCompleteTarget.value?.id
+  if (!craftId) {
+    ElMessage.error('缺少工艺ID，无法手动完成')
+    return
+  }
+  manualCompleteSaving.value = true
+  try {
+    await completeTenantOrderProduction({
+      id: craftId,
+      completeRemark: manualCompleteForm.completeRemark || undefined,
+      completeImgRemark: manualCompleteForm.completeImgRemark || undefined
+    })
+    manualCompleteVisible.value = false
+    ElMessage.success('手动完成成功')
+    if (currentRecord.value?.id) {
+      await openDetail(currentRecord.value)
+    }
+  } catch (error) {
+    ElMessage.error(error?.message || '手动完成失败')
+  } finally {
+    manualCompleteSaving.value = false
   }
 }
 
@@ -1398,6 +1724,7 @@ watch(
             <div class="outsource-search__actions">
               <el-button type="primary" :icon="Search" @click="loadOutsourceUnits">查询</el-button>
               <el-button :icon="Refresh" @click="resetOutsourceFilters">重置</el-button>
+              <el-button type="danger" plain @click="openExternalTenantDialog">非本系统会员</el-button>
             </div>
           </div>
           <el-table
@@ -1533,6 +1860,11 @@ watch(
         <template v-else>
           <el-button type="primary" class="flow-add-button" @click="addCraftRow">添加</el-button>
           <el-table :data="craftRows" class="design-table">
+            <el-table-column v-if="formMode === 'outsource'" label="外协" width="70" fixed="left">
+              <template #default="{ row }">
+                <el-checkbox v-model="row.outsourceChecked" />
+              </template>
+            </el-table-column>
             <el-table-column prop="productName" label="产品名称" min-width="150">
               <template #default="{ row }">
                 <el-select v-if="row._isEditing" v-model="row.productName" placeholder="请选择产品" @change="selectCraftProduct(row)">
@@ -1583,10 +1915,36 @@ watch(
                 <span v-else>{{ row.openNum || '' }}</span>
               </template>
             </el-table-column>
+            <el-table-column prop="numberPerBoard" label="每板个数" min-width="130">
+              <template #default="{ row }">
+                <el-input v-if="row._isEditing" v-model="row.numberPerBoard" placeholder="请输入每板个数" />
+                <span v-else>{{ row.numberPerBoard || '' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="singleDouble" label="单双面" min-width="160">
+              <template #default="{ row }">
+                <el-select v-if="row._isEditing" v-model="row.singleDouble" placeholder="请选择单双面">
+                  <el-option v-for="item in singleDoubleOptions" :key="item.value" :label="item.label" :value="item.value" />
+                </el-select>
+                <span v-else>{{ singleDoubleText(row.singleDouble) }}</span>
+              </template>
+            </el-table-column>
             <el-table-column prop="startPrice" label="起价" min-width="120">
               <template #default="{ row }">
                 <el-input v-if="row._isEditing" v-model="row.startPrice" placeholder="请输入起步价" />
                 <span v-else>{{ row.startPrice === '' || row.startPrice === undefined || row.startPrice === null ? '' : row.startPrice }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="spotColors" label="专色" min-width="120">
+              <template #default="{ row }">
+                <el-input v-if="row._isEditing" v-model="row.spotColors" placeholder="请输入专色" />
+                <span v-else>{{ row.spotColors || '' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="colour" label="颜色" min-width="120">
+              <template #default="{ row }">
+                <el-input v-if="row._isEditing" v-model="row.colour" placeholder="请输入颜色" />
+                <span v-else>{{ row.colour || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="finishNum" label="成品数量" min-width="150">
@@ -1605,6 +1963,15 @@ watch(
               <template #default="{ row }">
                 <el-input v-if="row._isEditing" v-model="row.price" placeholder="请输入价格" />
                 <span v-else>{{ formatMoney(row.price) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="formula" label="公式" min-width="240">
+              <template #default="{ row }">
+                <div v-if="row._isEditing" class="formula-editor">
+                  <el-input v-model="row.formula" placeholder="请输入公式" />
+                  <el-button type="primary" link @click="promptFormulaPoint(row)">+ 点位</el-button>
+                </div>
+                <span v-else>{{ row.formula || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="customerAmount" label="客户金额" min-width="150">
@@ -1649,6 +2016,71 @@ watch(
     </el-dialog>
 
     <el-dialog
+      v-model="externalTenantVisible"
+      title="非本系统会员"
+      width="860px"
+      class="external-tenant-dialog"
+      :close-on-click-modal="false"
+    >
+      <div class="external-tenant-panel">
+        <div class="external-tenant-toolbar">
+          <el-input
+            v-model="externalTenantFilters.tenantName"
+            clearable
+            placeholder="请输入会员名称"
+            @keyup.enter="searchExternalTenants"
+          />
+          <el-button type="primary" :icon="Search" @click="searchExternalTenants">查询</el-button>
+          <el-button :icon="Refresh" @click="resetExternalTenantFilters">重置</el-button>
+          <el-button type="primary" :icon="Plus" @click="openExternalTenantCreate">添加</el-button>
+        </div>
+        <el-table v-loading="externalTenantLoading" :data="externalTenantRows" border>
+          <el-table-column prop="tenantName" label="会员名称" min-width="220" />
+          <el-table-column prop="userName" label="联系人" min-width="180" />
+          <el-table-column label="操作" width="240" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="selectExternalTenant(row)">选择</el-button>
+              <el-button type="primary" link @click="openExternalTenantEdit(row)">编辑</el-button>
+              <el-button type="danger" link @click="removeExternalTenant(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div class="pagination-wrap">
+          <el-pagination
+            v-model:current-page="externalTenantFilters.pageNum"
+            v-model:page-size="externalTenantFilters.pageSize"
+            background
+            layout="total, prev, pager, next, sizes"
+            :page-sizes="[10, 20, 30, 50]"
+            :total="externalTenantTotal"
+            @current-change="loadExternalTenants"
+            @size-change="searchExternalTenants"
+          />
+        </div>
+      </div>
+    </el-dialog>
+
+    <el-dialog
+      v-model="externalTenantFormVisible"
+      :title="externalTenantForm.id ? '编辑非本系统会员' : '新增非本系统会员'"
+      width="520px"
+      :close-on-click-modal="false"
+    >
+      <el-form class="external-tenant-form" :model="externalTenantForm" label-width="96px">
+        <el-form-item label="会员名称" required>
+          <el-input v-model="externalTenantForm.tenantName" placeholder="请输入会员名称" />
+        </el-form-item>
+        <el-form-item label="联系人">
+          <el-input v-model="externalTenantForm.userName" placeholder="请输入联系人" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="externalTenantFormVisible = false">取消</el-button>
+        <el-button type="primary" :loading="externalTenantSaving" @click="saveExternalTenant">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
       v-model="detailVisible"
       title="订单详情"
       width="1280px"
@@ -1686,11 +2118,26 @@ watch(
             <el-table-column prop="craftName" label="工艺名称" min-width="150" />
             <el-table-column prop="spec" label="规格" min-width="110" />
             <el-table-column prop="openNum" label="开数" min-width="110" />
+            <el-table-column prop="numberPerBoard" label="每板个数" min-width="120">
+              <template #default="{ row }">{{ row.numberPerBoard || '-' }}</template>
+            </el-table-column>
+            <el-table-column label="单双面" min-width="130">
+              <template #default="{ row }">{{ singleDoubleText(row.singleDouble) || '-' }}</template>
+            </el-table-column>
             <el-table-column prop="startPrice" label="起价" min-width="110" />
+            <el-table-column prop="spotColors" label="专色" min-width="110" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.spotColors || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="colour" label="颜色" min-width="110" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.colour || '-' }}</template>
+            </el-table-column>
             <el-table-column prop="finishNum" label="成品数量" min-width="140" />
             <el-table-column prop="unit" label="单位" min-width="110" />
             <el-table-column prop="price" label="单价" min-width="110">
               <template #default="{ row }">{{ formatMoney(row.price) }}</template>
+            </el-table-column>
+            <el-table-column prop="formula" label="公式" min-width="160" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.formula || '-' }}</template>
             </el-table-column>
             <el-table-column prop="customerAmount" label="客户金额" min-width="150">
               <template #default="{ row }">{{ formatMoney4(computedCraftCustomerAmount(row)) }}</template>
@@ -1702,6 +2149,21 @@ watch(
               </template>
             </el-table-column>
             <el-table-column prop="operator" label="操作人" min-width="120" />
+            <el-table-column label="订单来源" min-width="110">
+              <template #default="{ row }">
+                <el-tag class="order-source-tag" :class="orderSourceClass(row.orderSource)" effect="plain">
+                  {{ orderSourceText(row.orderSource) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" min-width="120" fixed="right">
+              <template #default="{ row }">
+                <el-button v-if="shouldShowManualComplete(row)" type="primary" link @click="openManualComplete(row)">
+                  手动完成
+                </el-button>
+                <span v-else>-</span>
+              </template>
+            </el-table-column>
           </el-table>
         </PageBlock>
 
@@ -1743,6 +2205,33 @@ watch(
           </div>
         </div>
       </section>
+    </el-dialog>
+
+    <el-dialog v-model="manualCompleteVisible" title="手动完成" width="620px" :close-on-click-modal="false">
+      <el-form label-position="top">
+        <el-form-item label="备注">
+          <el-input v-model="manualCompleteForm.completeRemark" type="textarea" :rows="4" placeholder="请输入备注" />
+        </el-form-item>
+        <el-form-item label="图片备注">
+          <div class="manual-complete-upload">
+            <el-upload action="#" accept="image/*" :show-file-list="false" :http-request="uploadManualCompleteImage">
+              <el-button :icon="Plus">上传图片</el-button>
+            </el-upload>
+            <el-image
+              v-if="manualCompleteForm.completeImgRemarkUrl"
+              class="manual-complete-image"
+              :src="manualCompleteForm.completeImgRemarkUrl"
+              :preview-src-list="[manualCompleteForm.completeImgRemarkUrl]"
+              fit="cover"
+              preview-teleported
+            />
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="manualCompleteVisible = false">取消</el-button>
+        <el-button type="primary" :loading="manualCompleteSaving" @click="confirmManualComplete">确定</el-button>
+      </template>
     </el-dialog>
 
     <el-dialog v-model="approveVisible" title="通过订单" width="620px">
@@ -2016,6 +2505,18 @@ watch(
   font-weight: 700;
 }
 
+.manual-complete-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.manual-complete-image {
+  width: 72px;
+  height: 72px;
+  border-radius: 6px;
+}
+
 .form-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-bottom: 16px;
@@ -2218,6 +2719,27 @@ watch(
   display: none;
 }
 
+.external-tenant-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.external-tenant-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) repeat(3, auto);
+  gap: 12px;
+  align-items: center;
+}
+
+.external-tenant-toolbar :deep(.el-button) {
+  min-width: 88px;
+}
+
+.external-tenant-form :deep(.el-input) {
+  width: 100%;
+}
+
 .design-form-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px 20px;
@@ -2261,6 +2783,16 @@ watch(
   border-radius: 0;
   background: #f5f6f8;
   box-shadow: none;
+}
+
+.formula-editor {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.formula-editor .el-button {
+  flex: 0 0 auto;
 }
 
 .table-actions {

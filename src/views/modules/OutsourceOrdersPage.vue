@@ -1,10 +1,12 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Printer, Refresh, Search, View } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
 import {
+  getTenantOrderConsumables,
+  getTenantOrderHandKept,
+  getTenantOrderOutsourceInfo,
   getTenantOrderPrintUrl,
   getTenantOutsourceIncomingOrders,
   getTenantOutsourceOutgoingOrders
@@ -18,8 +20,6 @@ const props = defineProps({
   }
 })
 
-const router = useRouter()
-
 const statusOptions = [
   { label: '待审批', value: 1 },
   { label: '待生产', value: 2 },
@@ -32,6 +32,7 @@ const statusOptions = [
 
 const statusText = (value) =>
   statusOptions.find((item) => Number(item.value) === Number(value))?.label || value || '-'
+const craftStatusText = (value) => (Number(value) === 2 ? '已完成' : '待生产')
 
 const filters = reactive({
   pageNum: 1,
@@ -46,11 +47,16 @@ const filters = reactive({
 
 const state = reactive({
   loading: false,
+  detailLoading: false,
   total: 0
 })
 
 const rows = ref([])
 const activeMode = ref(props.mode)
+const detailVisible = ref(false)
+const detailCrafts = ref([])
+const detailConsumables = ref([])
+const detailHandKept = ref([])
 
 const pageTitle = computed(() => (activeMode.value === 'incoming' ? '外协订单-转入的' : '外协订单-转出的'))
 const supplierLabel = computed(() => (activeMode.value === 'incoming' ? '转单单位' : '接单单位'))
@@ -78,6 +84,49 @@ const productInfoText = (row = {}) => {
   if (!Array.isArray(products)) return row.productName || '-'
   return products.map((item) => item.productName || item.name || item.productInfo).filter(Boolean).join('、') || '-'
 }
+
+const outsourceCraftRows = (payload) => {
+  if (Array.isArray(payload)) return payload
+  return payload?.craftList || payload?.crafts || payload?.records || payload?.list || payload?.rows || []
+}
+
+const consumableTypeLabels = {
+  1: '系统入库',
+  2: '手工出库',
+  3: '订单消耗'
+}
+
+const normalizeCraftRow = (row = {}) => ({
+  ...row,
+  id: row.id || row.productsCraftId,
+  productName: row.productName || row.productInfo || row.name || '-',
+  craftName: row.craftName || row.name || '-',
+  spec: row.spec || row.specification || '-',
+  openNum: row.openNum ?? row.formatSize ?? '-',
+  startPrice: row.startPrice ?? row.priceBase ?? 0,
+  finishNum: row.finishNum ?? row.orderQuantity ?? 0,
+  unit: row.unit || '-',
+  price: row.price ?? row.unitPrice ?? 0
+})
+
+const normalizeConsumableRecord = (row = {}) => ({
+  id: row.id || `${row.consumableName || row.name}-${row.createTime || row.num}`,
+  name: row.consumableName || row.name || '-',
+  type: consumableTypeLabels[Number(row.type)] || row.type || '-',
+  num: row.num ?? row.quantity ?? 0,
+  remark: row.remark || '-',
+  operator: row.createUserName || row.operator || row.tenantUserName || '-',
+  time: row.createTime || row.updateTime || '-'
+})
+
+const normalizeHandKeptRecord = (row = {}) => ({
+  id: row.id || `${row.name || row.handKeptName || row.createTime || row.num}`,
+  name: row.name || row.handKeptName || row.handName || '-',
+  num: row.num ?? row.quantity ?? 0,
+  remark: row.remark || '-',
+  operator: row.createUserName || row.operator || row.tenantUserName || '-',
+  time: row.createTime || row.updateTime || '-'
+})
 
 const normalizeRow = (row = {}) => ({
   ...row,
@@ -160,7 +209,25 @@ const changeMode = (mode) => {
 const openDetail = async (row) => {
   const detailId = row.detailId || row.id || row.orderNo
   if (!detailId || detailId === '-') return ElMessage.error('缺少订单ID，无法查看详情')
-  router.push({ name: 'orders', query: { detailId } })
+  detailVisible.value = true
+  state.detailLoading = true
+  detailCrafts.value = []
+  detailConsumables.value = []
+  detailHandKept.value = []
+  try {
+    const [crafts, consumables, handKept] = await Promise.all([
+      getTenantOrderOutsourceInfo(detailId),
+      getTenantOrderConsumables(detailId).catch(() => []),
+      getTenantOrderHandKept(detailId).catch(() => [])
+    ])
+    detailCrafts.value = outsourceCraftRows(crafts).map(normalizeCraftRow)
+    detailConsumables.value = listRows(consumables).map(normalizeConsumableRecord)
+    detailHandKept.value = listRows(handKept).map(normalizeHandKeptRecord)
+  } catch (error) {
+    ElMessage.error(error?.message || '外协详情加载失败')
+  } finally {
+    state.detailLoading = false
+  }
 }
 
 const printOrder = async (row) => {
@@ -257,6 +324,59 @@ onMounted(loadData)
       </div>
     </PageBlock>
 
+    <el-dialog
+      v-model="detailVisible"
+      title="外协详情"
+      width="1180px"
+      class="outsource-detail-dialog"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
+      <div v-loading="state.detailLoading" class="outsource-detail">
+        <PageBlock title="工艺信息">
+          <el-table :data="detailCrafts" border>
+            <el-table-column prop="productName" label="产品名称" min-width="180" />
+            <el-table-column prop="craftName" label="工艺名称" min-width="150" />
+            <el-table-column prop="spec" label="规格" min-width="110" />
+            <el-table-column prop="openNum" label="开数" min-width="110" />
+            <el-table-column prop="startPrice" label="起价" min-width="110" />
+            <el-table-column prop="finishNum" label="成品数量" min-width="120" />
+            <el-table-column prop="unit" label="单位" min-width="100" />
+            <el-table-column label="单价" min-width="110">
+              <template #default="{ row }">{{ moneyText(row.price) }}</template>
+            </el-table-column>
+            <el-table-column label="工艺状态" min-width="110">
+              <template #default="{ row }">{{ craftStatusText(row.craftStatus ?? row.status) }}</template>
+            </el-table-column>
+          </el-table>
+        </PageBlock>
+
+        <PageBlock title="耗材记录">
+          <el-table :data="detailConsumables" border>
+            <el-table-column prop="name" label="耗材名称" min-width="180" />
+            <el-table-column prop="type" label="明细类型" min-width="150" />
+            <el-table-column prop="num" label="数量" min-width="120" />
+            <el-table-column prop="remark" label="备注" min-width="220" />
+            <el-table-column prop="operator" label="操作员" min-width="140" />
+            <el-table-column prop="time" label="操作时间" min-width="180" />
+          </el-table>
+        </PageBlock>
+
+        <PageBlock title="手工记录">
+          <el-table :data="detailHandKept" border>
+            <el-table-column prop="name" label="手工名称" min-width="180" />
+            <el-table-column prop="num" label="数量" min-width="120" />
+            <el-table-column prop="remark" label="备注" min-width="220" />
+            <el-table-column prop="operator" label="操作员" min-width="140" />
+            <el-table-column prop="time" label="操作时间" min-width="180" />
+          </el-table>
+        </PageBlock>
+      </div>
+      <template #footer>
+        <el-button @click="detailVisible = false">返回</el-button>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -323,6 +443,18 @@ onMounted(loadData)
   display: flex;
   justify-content: flex-end;
   margin-top: 14px;
+}
+
+.outsource-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.outsource-detail-dialog :deep(.el-dialog__body) {
+  max-height: 72vh;
+  overflow: auto;
+  background: #f5f7fb;
 }
 
 </style>
