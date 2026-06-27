@@ -1,9 +1,11 @@
 import {
-  exportTenantCraftPerformance,
+  exportTenantMachineReport,
+  exportTenantPrintReport,
   exportTenantPerformanceCraft,
   exportTenantPerformanceDriver,
   exportTenantPerformanceOrder,
   getTenantCraftPerformanceList,
+  getTenantClientUsers,
   getTenantPerformanceCraftList,
   getTenantPerformanceDriverList,
   getTenantPerformanceOrderList
@@ -33,6 +35,20 @@ const performanceQuery = (payload = {}) => {
 }
 
 const numberText = (value) => Number(value || 0).toLocaleString('zh-CN')
+
+const singleDoubleText = (value) => ({
+  1: '单面',
+  2: '双面自翻',
+  3: '双面天地翻',
+  4: '双面扣板'
+}[Number(value)] || value || '-')
+const userOptions = (payload, listRows) =>
+  listRows(payload)
+    .map((item) => ({
+      label: item.name || item.userName || item.tenantUserName || '',
+      value: item.id || item.userId || item.tenantUserId
+    }))
+    .filter((item) => item.label && item.value !== undefined && item.value !== null)
 const moneyText = (value) =>
   `¥${Number(value || 0).toLocaleString('zh-CN', {
     minimumFractionDigits: 2,
@@ -135,32 +151,43 @@ export const craftPerformanceConfig = {
   labelWidth: '96px',
   searchFields: [
     { key: 'time', label: '时间', type: 'daterange' },
-    { key: 'customer', label: '客户名称' },
-    { key: 'productName', label: '产品名称' }
+    {
+      key: 'userId',
+      label: '用户',
+      type: 'select',
+      placeholder: '请选择用户',
+      optionsApi: getTenantClientUsers,
+      optionsPayload: { name: '' },
+      normalizeOptions: userOptions
+    }
   ],
   columns: [
     { prop: 'name', label: '人员姓名' },
     { prop: 'customer', label: '客户名称', minWidth: 150 },
     { prop: 'productName', label: '产品名称', minWidth: 150 },
     { prop: 'craftName', label: '工艺名称', minWidth: 130 },
-    { prop: 'bigMachine', label: '大机器' },
-    { prop: 'smallMachine', label: '小机器' },
-    { prop: 'total', label: '完成数合计', minWidth: 130 }
+    { prop: 'machineName', label: '机器名称', minWidth: 130 },
+    { prop: 'craftNum', label: '数量' },
+    { prop: 'spotColors', label: '专色' },
+    { prop: 'colour', label: '颜色' },
+    { prop: 'singleDoubleText', label: '单双面', minWidth: 130 },
+    { prop: 'createTime', label: '完成时间', minWidth: 160 }
   ],
   listApi: getTenantCraftPerformanceList,
-  exportApi: exportTenantCraftPerformance,
+  exportActions: [
+    { label: '印刷报表导出', api: exportTenantPrintReport },
+    { label: '机器报表导出', api: exportTenantMachineReport }
+  ],
   toQuery: (payload = {}) => {
     const [start, end] = splitRange(payload.time)
     return {
       ...listQuery(payload),
-      companyName: payload.customer || undefined,
-      productName: payload.productName || undefined,
+      userId: payload.userId || undefined,
       startTime: start || undefined,
       endTime: end || start || undefined
     }
   },
   normalize: (row = {}, index = 0) => {
-    const machineNum = Number(row.machineNum || 0)
     const craftNum = Number(row.craftNum || 0)
     return {
       ...row,
@@ -169,9 +196,12 @@ export const craftPerformanceConfig = {
       customer: row.companyName || row.customer || '-',
       productName: row.productName || '-',
       craftName: row.craftName || '-',
-      bigMachine: Number(row.machineType) === 1 ? machineNum : 0,
-      smallMachine: Number(row.machineType) === 2 ? machineNum : 0,
-      total: craftNum
+      machineName: row.machineName || '-',
+      craftNum,
+      spotColors: row.spotColors || '-',
+      colour: row.colour || row.color || '-',
+      singleDoubleText: singleDoubleText(row.singleDouble),
+      createTime: row.create_time || row.createTime || '-'
     }
   }
 }

@@ -462,6 +462,9 @@ const selectOutsourceUnit = (row = {}) => {
   formState.outsourceSupplierId = row.memberId || row.id || ''
   formState.outsourceSupplierName = row.memberName || row.companyName || ''
   formState.outsourceSupplierContact = row.contact || row.linkman || ''
+  if (formState.outsourceSupplierId) {
+    currentStep.value = Math.max(currentStep.value, 2)
+  }
 }
 
 const selectExternalTenant = (row = {}) => {
@@ -469,6 +472,9 @@ const selectExternalTenant = (row = {}) => {
   formState.outsourceSupplierName = row.tenantName || ''
   formState.outsourceSupplierContact = row.userName || ''
   externalTenantVisible.value = false
+  if (formState.outsourceSupplierId) {
+    currentStep.value = Math.max(currentStep.value, 2)
+  }
 }
 
 const normalizeCraftOptions = (data) => {
@@ -573,7 +579,7 @@ const normalizeCraftRow = (item = {}, product = {}) => ({
     formula: item.formula || '',
     startPrice: item.startPrice ?? item.priceBase ?? 0,
     priceBase: item.priceBase ?? 0,
-    foilingStartingPrice: item.foilingStartingPrice ?? 0,
+    foilingStartingPrice: item.foilingStartingPrice ?? null,
     finishNum: item.finishNum ?? item.orderQuantity ?? 0,
     unit: item.unit || '',
     price: item.price ?? item.unitPrice ?? 0,
@@ -847,7 +853,7 @@ const addCraftRow = () => {
     formula: '',
     startPrice: 0,
     priceBase: 0,
-    foilingStartingPrice: 0,
+    foilingStartingPrice: null,
     finishNum: 0,
     unit: '',
     price: 0,
@@ -877,8 +883,8 @@ const selectCraftName = async (row, id) => {
   row.colour = craft.colour ?? craft.color ?? row.colour ?? ''
   row.formula = craft.formula ?? row.formula ?? ''
   row.startPrice = zeroIfEmpty(craft.startPrice ?? craft.priceBase ?? craft.basePrice ?? row.startPrice)
-  row.priceBase = zeroIfEmpty(craft.priceBase ?? row.priceBase)
-  row.foilingStartingPrice = zeroIfEmpty(craft.foilingStartingPrice ?? craft.foilStartingPrice ?? craft.gildingStartingPrice ?? row.foilingStartingPrice)
+  row.priceBase = row.startPrice
+  row.foilingStartingPrice = craft.foilingStartingPrice ?? craft.foilStartingPrice ?? craft.gildingStartingPrice ?? row.foilingStartingPrice ?? null
   row.unit = craft.unit || row.unit || ''
   row.price = zeroIfEmpty(craft.price ?? craft.unitPrice ?? row.price)
   row.remark = row.remark || craft.remark || ''
@@ -896,7 +902,7 @@ const saveCraftRow = (row) => {
     return
   }
   row.startPrice = zeroIfEmpty(row.startPrice)
-  row.priceBase = zeroIfEmpty(row.priceBase)
+  row.priceBase = row.startPrice
   row.finishNum = zeroIfEmpty(row.finishNum)
   row.price = zeroIfEmpty(row.price)
   row.singleDouble = row.singleDouble || 1
@@ -925,8 +931,10 @@ const removeCraftRow = (index) => {
 const cleanCraftRow = (row = {}) => {
   const { _isEditing, _isNew, ...payload } = row
   payload.startPrice = zeroIfEmpty(payload.startPrice)
-  payload.priceBase = zeroIfEmpty(payload.priceBase ?? payload.startPrice)
-  payload.foilingStartingPrice = zeroIfEmpty(payload.foilingStartingPrice)
+  payload.priceBase = payload.startPrice
+  payload.foilingStartingPrice = payload.foilingStartingPrice === '' || payload.foilingStartingPrice === undefined
+    ? null
+    : payload.foilingStartingPrice
   payload.finishNum = zeroIfEmpty(payload.finishNum)
   payload.orderQuantity = zeroIfEmpty(payload.orderQuantity ?? payload.finishNum)
   payload.price = zeroIfEmpty(payload.price)
@@ -964,7 +972,7 @@ const normalizeOrderCraftPayload = (craft = {}) => ({
   spotColors: craft.spotColors,
   colour: craft.colour,
   formula: craft.formula,
-  priceBase: craft.priceBase ?? craft.startPrice,
+  priceBase: craft.startPrice ?? craft.priceBase,
   startPrice: craft.startPrice ?? craft.priceBase,
   foilingStartingPrice: craft.foilingStartingPrice,
   orderQuantity: craft.orderQuantity ?? craft.finishNum,
@@ -985,7 +993,7 @@ const craftRowsForPayload = (options = {}) => {
     }
     return next
   })
-  return options.outsource ? rows.filter((row) => row.outsourceChecked) : rows
+  return rows
 }
 
 const buildOrderRequestPayload = (options = {}) => {
@@ -1583,7 +1591,10 @@ watch(
           />
         </label>
         <div class="filter-actions">
-          <el-button type="primary" :icon="Search" @click="loadData">查询</el-button>
+          <el-button type="primary" @click="loadData">
+            <el-icon><Search /></el-icon>
+            <span>查询</span>
+          </el-button>
           <el-button @click="resetFilters">重置</el-button>
         </div>
       </div>
@@ -1722,7 +1733,10 @@ watch(
               <el-input v-model="outsourceFilters.memberName" placeholder="请输入会员名称" />
             </label>
             <div class="outsource-search__actions">
-              <el-button type="primary" :icon="Search" @click="loadOutsourceUnits">查询</el-button>
+              <el-button type="primary" @click="loadOutsourceUnits">
+                <el-icon><Search /></el-icon>
+                <span>查询</span>
+              </el-button>
               <el-button :icon="Refresh" @click="resetOutsourceFilters">重置</el-button>
               <el-button type="danger" plain @click="openExternalTenantDialog">非本系统会员</el-button>
             </div>
@@ -2030,7 +2044,10 @@ watch(
             placeholder="请输入会员名称"
             @keyup.enter="searchExternalTenants"
           />
-          <el-button type="primary" :icon="Search" @click="searchExternalTenants">查询</el-button>
+          <el-button type="primary" @click="searchExternalTenants">
+            <el-icon><Search /></el-icon>
+            <span>查询</span>
+          </el-button>
           <el-button :icon="Refresh" @click="resetExternalTenantFilters">重置</el-button>
           <el-button type="primary" :icon="Plus" @click="openExternalTenantCreate">添加</el-button>
         </div>

@@ -45,6 +45,8 @@ const statusText = (value) => {
 }
 
 const statusClass = (value) => (statusText(value) === '已生产' ? 'status-success' : 'status-warning')
+const orderSourceText = (value) => (Number(value) === 2 ? '外协' : '本厂')
+const orderSourceClass = (value) => (Number(value) === 2 ? 'source-outsourced' : 'source-local')
 
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -121,6 +123,7 @@ const normalizeRow = (row = {}) => ({
   unitPrice: row.unitPrice ?? 0,
   amount: row.customerMoney ?? row.amount ?? 0,
   status: statusText(row.craftStatus ?? row.status),
+  orderSource: row.orderSource ?? 1,
   operator: row.operator || row.createTenantUserName || ''
 })
 
@@ -338,6 +341,11 @@ onMounted(() => {
             <span :class="statusClass(row.status)">{{ row.status }}</span>
           </template>
         </el-table-column>
+        <el-table-column label="订单来源" min-width="110">
+          <template #default="{ row }">
+            <span :class="orderSourceClass(row.orderSource)">{{ orderSourceText(row.orderSource) }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="operator" label="操作员" min-width="100" />
         <el-table-column label="操作" width="90" fixed="right">
           <template #default="{ row }">
@@ -505,6 +513,16 @@ onMounted(() => {
 
 .status-success {
   color: #22c55e;
+  font-weight: 700;
+}
+
+.source-local {
+  color: #1677ff;
+  font-weight: 700;
+}
+
+.source-outsourced {
+  color: #722ed1;
   font-weight: 700;
 }
 </style>

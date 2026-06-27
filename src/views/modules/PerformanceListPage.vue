@@ -23,6 +23,8 @@ const state = reactive({
 })
 
 const rows = ref([])
+const fieldOptions = reactive({})
+const fieldOptionLoading = reactive({})
 
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -41,6 +43,22 @@ const applyDefaultFilters = () => {
 }
 
 const queryPayload = () => props.config.toQuery({ ...filters })
+
+const loadFieldOptions = async () => {
+  const fields = props.config.searchFields.filter((field) => field.optionsApi)
+  await Promise.all(fields.map(async (field) => {
+    fieldOptionLoading[field.key] = true
+    try {
+      const data = await field.optionsApi(field.optionsPayload || {})
+      fieldOptions[field.key] = field.normalizeOptions ? field.normalizeOptions(data, listRows) : listRows(data)
+    } catch (error) {
+      fieldOptions[field.key] = []
+      ElMessage.error(error?.message || `${field.label}列表加载失败`)
+    } finally {
+      fieldOptionLoading[field.key] = false
+    }
+  }))
+}
 
 const loadData = async () => {
   state.loading = true
@@ -79,12 +97,14 @@ const downloadBlob = (blob, filename) => {
   URL.revokeObjectURL(url)
 }
 
-const exportData = async () => {
-  if (!props.config.exportApi) return
+const exportData = async (action) => {
+  const exportApi = action?.api || props.config.exportApi
+  const exportName = action?.label || props.config.title
+  if (!exportApi) return
   state.exporting = true
   try {
-    const blob = await props.config.exportApi(queryPayload())
-    downloadBlob(blob, `${props.config.title}.xlsx`)
+    const blob = await exportApi(queryPayload())
+    downloadBlob(blob, `${exportName}.xlsx`)
     ElMessage.success('导出成功')
   } catch (error) {
     ElMessage.error(error?.message || '导出失败')
@@ -94,7 +114,10 @@ const exportData = async () => {
 }
 
 applyDefaultFilters()
-onMounted(loadData)
+onMounted(() => {
+  loadFieldOptions()
+  loadData()
+})
 </script>
 
 <template>
@@ -114,9 +137,16 @@ onMounted(loadData)
             v-else-if="field.type === 'select'"
             v-model="filters[field.key]"
             clearable
+            filterable
+            :loading="fieldOptionLoading[field.key]"
             :placeholder="field.placeholder || `请选择${field.label}`"
           >
-            <el-option v-for="item in field.options || []" :key="item.value" :label="item.label" :value="item.value" />
+            <el-option
+              v-for="item in field.options || fieldOptions[field.key] || []"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
           </el-select>
           <el-input
             v-else
@@ -136,7 +166,20 @@ onMounted(loadData)
     <PageBlock>
       <div class="table-toolbar">
         <span v-if="config.summary" class="summary-text">{{ config.summary(rows) }}</span>
-        <el-button v-if="config.exportApi" :icon="Download" :loading="state.exporting" @click="exportData">导出</el-button>
+        <div class="export-actions">
+          <template v-if="config.exportActions?.length">
+            <el-button
+              v-for="action in config.exportActions"
+              :key="action.label"
+              :icon="Download"
+              :loading="state.exporting"
+              @click="exportData(action)"
+            >
+              {{ action.label }}
+            </el-button>
+          </template>
+          <el-button v-else-if="config.exportApi" :icon="Download" :loading="state.exporting" @click="exportData()">导出</el-button>
+        </div>
       </div>
       <el-table v-loading="state.loading" :data="rows" border>
         <el-table-column
@@ -200,6 +243,11 @@ onMounted(loadData)
   justify-content: space-between;
   min-height: 32px;
   margin-bottom: 12px;
+}
+
+.export-actions {
+  display: flex;
+  gap: 12px;
 }
 
 .summary-text {

@@ -342,9 +342,6 @@ onMounted(loadData)
             <el-table-column prop="startPrice" label="起价" min-width="110" />
             <el-table-column prop="finishNum" label="成品数量" min-width="120" />
             <el-table-column prop="unit" label="单位" min-width="100" />
-            <el-table-column label="单价" min-width="110">
-              <template #default="{ row }">{{ moneyText(row.price) }}</template>
-            </el-table-column>
             <el-table-column label="工艺状态" min-width="110">
               <template #default="{ row }">{{ craftStatusText(row.craftStatus ?? row.status) }}</template>
             </el-table-column>

@@ -174,6 +174,10 @@ export const getTenantCraftPerformanceList = (payload = {}) =>
   tenantHttp.post('/api/tenant/performance/craftStatisticsList', payload)
 export const exportTenantCraftPerformance = (payload = {}) =>
   exportPost('/api/tenant/performance/craftStatisticsExport', payload)
+export const exportTenantPrintReport = (payload = {}) =>
+  exportPost('/api/tenant/performance/printReport', payload)
+export const exportTenantMachineReport = (payload = {}) =>
+  exportPost('/api/tenant/performance/machineReport', payload)
 export const getTenantPerformanceCraftList = (payload = {}) =>
   tenantHttp.post('/api/tenant/performance/craftList', payload)
 export const getTenantPerformanceCraftTotal = () => tenantHttp.get('/api/tenant/performance/craftTotal')

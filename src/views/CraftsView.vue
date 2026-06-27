@@ -49,7 +49,7 @@ const normalizeCraft = (row = {}, index = 0) => ({
   id: row.id || row.craftId || index + 1,
   name: row.name || row.craftName || '-',
   priceBase: row.priceBase ?? row.basePrice ?? 0,
-  foilingStartingPrice: row.foilingStartingPrice ?? 0,
+  foilingStartingPrice: row.foilingStartingPrice ?? null,
   unit: row.unit || '-',
   sort: row.sort ?? row.sortNum ?? 0,
   remark: row.remark || row.description || '',
@@ -59,6 +59,7 @@ const normalizeCraft = (row = {}, index = 0) => ({
 })
 
 const formatNumber = (value) => {
+  if (value === null || value === undefined || value === '') return ''
   const number = Number(value || 0)
   if (!Number.isFinite(number)) return value || 0
   return String(Math.trunc(number))
@@ -126,7 +127,7 @@ const openEdit = (row) => {
   Object.assign(form, {
     ...row,
     priceBase: row.priceBase === 0 ? 0 : row.priceBase || '',
-    foilingStartingPrice: row.foilingStartingPrice === 0 ? 0 : row.foilingStartingPrice || '',
+    foilingStartingPrice: row.foilingStartingPrice ?? '',
     formatSize: row.formatSize === '--' ? '' : row.formatSize,
     spotColors: row.spotColors === '--' ? '' : row.spotColors
   })
@@ -151,7 +152,7 @@ const submit = async () => {
       name: form.name,
       unit: form.unit,
       priceBase: form.priceBase,
-      foilingStartingPrice: form.foilingStartingPrice,
+      foilingStartingPrice: form.foilingStartingPrice === '' ? null : form.foilingStartingPrice,
       formatSize: form.formatSize,
       spotColors: form.spotColors,
       sort: form.sort,
