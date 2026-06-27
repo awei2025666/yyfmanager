@@ -161,6 +161,7 @@ onMounted(loadInfo)
 	font-size: 29rpx;
 	gap: 30rpx;
 	text:first-child{ color: #999; }
+	 
 	text:last-child{ flex: 1; text-align: right; word-break: break-all; }
 }
 </style>

@@ -15,7 +15,10 @@
 			<view class="section-title"><view class="mark"></view><text>工艺信息</text></view>
 			<view class="craft-card" v-for="item in craftList" :key="item.id">
 				<view class="craft-head">
-					<text class="craft-name">{{ item.productInfo || item.productName || '-' }}</text>
+					<view class="craft-title-wrap">
+						<text class="craft-name">{{ item.productInfo || item.productName || '-' }}</text>
+						<text v-if="getOrderSourceText(item)" :class="['source-tag', getOrderSourceClass(item)]">{{ getOrderSourceText(item) }}</text>
+					</view>
 					<text :class="['pill', isCraftDone(item) ? 'done' : 'pending']">{{ statusMap[getCraftStatus(item)] || '待生产' }}</text>
 				</view>
 				<view class="craft-desc">
@@ -40,6 +43,13 @@
 		<view class="bottom-bar">
 			<button class="add-btn" @click="addConsumable">添加耗材消耗</button>
 		</view>
+
+		<view v-if="showStartPopup" class="start-mask">
+			<view class="start-popup">
+				<button class="start-action" :disabled="startSubmitting" @click="handleStartProduction(1)">开始生产</button>
+				<button class="start-action" :disabled="startSubmitting" @click="handleStartProduction(2)">开始调试</button>
+			</view>
+		</view>
 	</view>
 </template>
 
@@ -50,6 +60,9 @@ import { ref } from 'vue'
 const orderId = ref('')
 const craftList = ref([])
 const consumableList = ref([])
+const showStartPopup = ref(false)
+const startStatusChecked = ref(false)
+const startSubmitting = ref(false)
 const statusMap = {
 	1: '待生产',
 	2: '已生产'
@@ -64,6 +77,15 @@ const getCraftStatus = item => {
 }
 
 const isCraftDone = item => getCraftStatus(item) === 2
+
+const getOrderSource = item => Number(item?.orderSource ?? item?.source)
+const getOrderSourceText = item => {
+	const source = getOrderSource(item)
+	if (source === 1) return '本厂'
+	if (source === 2) return '外协'
+	return ''
+}
+const getOrderSourceClass = item => getOrderSource(item) === 2 ? 'outsource' : 'factory'
 
 const formatMoney = value => {
 	if (value === undefined || value === null || value === '') return ''
@@ -107,6 +129,37 @@ const loadConsumables = async () => {
 	}
 }
 
+const checkStartProductionStatus = async () => {
+	if (!orderId.value || startStatusChecked.value) return
+	startStatusChecked.value = true
+	try {
+		const data = await uni.$api.startProductionStatus({ id: orderId.value })
+		const value = data?.value ?? data?.status ?? data?.show ?? data
+		showStartPopup.value = value === true || value === 'true' || value === 1 || value === '1'
+	} catch (e) {
+		showStartPopup.value = false
+	}
+}
+
+const handleStartProduction = async type => {
+	if (!orderId.value || startSubmitting.value) return
+	startSubmitting.value = true
+	try {
+		await uni.$api.startProduction({
+			id: orderId.value,
+			type
+		})
+		uni.showToast({ title: type === 1 ? '已开始生产' : '已开始调试', icon: 'none' })
+		showStartPopup.value = false
+		loadCrafts()
+		loadConsumables()
+	} catch (e) {
+		uni.showToast({ title: e?.message || '操作失败', icon: 'none' })
+	} finally {
+		startSubmitting.value = false
+	}
+}
+
 const toComplete = item => {
 	uni.navigateTo({
 		url: `/pages/productionComplete/index?id=${item.id || ''}&orderId=${orderId.value || ''}`
@@ -132,6 +185,7 @@ onLoad(options => {
 	orderId.value = options.id || options.orderId || ''
 	loadCrafts()
 	loadConsumables()
+	checkStartProductionStatus()
 })
 
 onShow(() => {
@@ -252,11 +306,34 @@ onShow(() => {
 	gap: 18rpx;
 }
 .craft-name{
-	flex: 1;
 	color: #333;
 	font-size: 30rpx;
 	line-height: 42rpx;
 	word-break: break-all;
+}
+.craft-title-wrap{
+	flex: 1;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10rpx;
+	min-width: 0;
+}
+.source-tag{
+	flex: 0 0 auto;
+	height: 34rpx;
+	padding: 0 14rpx;
+	border-radius: 34rpx;
+	font-size: 21rpx;
+	line-height: 34rpx;
+}
+.source-tag.factory{
+	background: #e8f2ff;
+	color: #1f7cff;
+}
+.source-tag.outsource{
+	background: #fff0d9;
+	color: #ff9f18;
 }
 .pill{
 	flex: 0 0 auto;
@@ -337,5 +414,46 @@ onShow(() => {
 	font-size: 30rpx;
 	line-height: 78rpx;
 	&::after{ border: 0; }
+}
+.start-mask{
+	position: fixed;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	z-index: 90;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0 56rpx;
+	background: rgba(255, 255, 255, .74);
+	box-sizing: border-box;
+}
+.start-popup{
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 56rpx;
+	width: 100%;
+	max-width: 580rpx;
+	min-height: 540rpx;
+	border: 3rpx solid #ff3347;
+	background: rgba(255, 255, 255, .86);
+	box-sizing: border-box;
+}
+.start-action{
+	width: 320rpx;
+	height: 92rpx;
+	border: 3rpx solid #ff3347;
+	border-radius: 0;
+	background: #fff;
+	color: #ff3347;
+	font-size: 34rpx;
+	line-height: 86rpx;
+	&::after{ border: 0; }
+	&[disabled]{
+		opacity: .6;
+	}
 }
 </style>
