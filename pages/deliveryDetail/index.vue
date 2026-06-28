@@ -23,7 +23,7 @@
 				</view>
 				<view class="product">{{ getOrderProducts(order) || '-' }}</view>
 				<view class="time">{{ order.orderTime || order.createTime || '-' }}</view>
-				<view class="shipping-info">
+				<view class="shipping-info" v-if="!isOrderDone(order)">
 					<view class="shipping-row"><text>联系人</text><text>{{ getShippingInfo(order).linkman || '-' }}</text></view>
 					<view class="shipping-row"><text>联系电话</text><text>{{ getShippingInfo(order).phone || '-' }}</text></view>
 					<view class="shipping-row"><text>配送地址</text><text>{{ getShippingInfo(order).companyAddress || '-' }}</text></view>

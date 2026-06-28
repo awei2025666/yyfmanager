@@ -17,12 +17,6 @@
 					<text>{{ order.orderNum || '-' }}（订单号）</text>
 				</view>
 				<view class="product">{{ getOrderProducts(order) || '-' }}</view>
-				<view class="shipping-info">
-					<view class="shipping-row"><text>联系人</text><text>{{ getShippingInfo(order).linkman || '-' }}</text></view>
-					<view class="shipping-row"><text>联系电话</text><text>{{ getShippingInfo(order).phone || '-' }}</text></view>
-					<view class="shipping-row"><text>配送地址</text><text>{{ getShippingInfo(order).companyAddress || '-' }}</text></view>
-					<view class="shipping-edit" @click.stop="openShippingEditor(order)">编辑配送信息</view>
-				</view>
 			</view>
 		</view>
 
@@ -38,58 +32,8 @@
 				<view class="info-row"><text>交货日期</text><text>{{ companyInfo.deliveryDate || '-' }}</text></view>
 			</view>
 		</view>
-
-		<view class="gap"></view>
-
-		<view class="section record-section">
-			<view class="section-title"><view class="mark"></view><text>配送记录</text></view>
-			<view class="timeline">
-				<view class="record-item" v-for="(item,index) in processList" :key="item.id || index">
-					<view class="dot"></view>
-					<view class="record-card">
-						<view class="record-time">{{ formatTime(item.createTime) }}</view>
-						<view class="record-content">{{ item.content || '-' }}</view>
-						<view v-if="getRecordRemark(item)" class="record-remark">{{ getRecordRemark(item) }}</view>
-						<view v-if="getImages(item).length" class="thumbs">
-							<image v-for="(image, imageIndex) in getImages(item)" :key="imageIndex" :src="image" mode="aspectFill"></image>
-						</view>
-						<view v-if="getVideos(item).length" class="videos">
-							<video v-for="(video, videoIndex) in getVideos(item)" :key="videoIndex" :src="video" controls></video>
-						</view>
-						<view class="record-user">
-							<text>{{ item.tenantUserName || driverName || '-' }}</text>
-							<text>{{ maskPhone(item.tenantUserPhone || item.phone || driverPhone) || '-' }}</text>
-						</view>
-					</view>
-				</view>
-				<view v-if="!processList.length" class="empty-state">暂无数据</view>
-			</view>
-		</view>
-
 		<view class="bottom-bar" v-if="deliveryStatus === 1">
 			<button class="complete-btn" @click="toComplete">已完成配送</button>
-		</view>
-
-		<view v-if="showShippingEditor" class="popup-mask" @click="closeShippingEditor">
-			<view class="shipping-popup" @click.stop>
-				<view class="popup-title">编辑配送信息</view>
-				<view class="popup-row">
-					<text>联系人</text>
-					<input v-model="shippingForm.linkman" placeholder="请输入联系人" placeholder-class="placeholder" />
-				</view>
-				<view class="popup-row">
-					<text>联系电话</text>
-					<input v-model="shippingForm.phone" type="number" placeholder="请输入联系电话" placeholder-class="placeholder" />
-				</view>
-				<view class="popup-block">
-					<text>配送地址</text>
-					<textarea v-model="shippingForm.companyAddress" placeholder="请输入配送地址" placeholder-class="placeholder" />
-				</view>
-				<view class="popup-actions">
-					<button class="cancel-btn" @click="closeShippingEditor">取消</button>
-					<button class="save-btn" @click="saveShippingInfo">保存</button>
-				</view>
-			</view>
 		</view>
 	</view>
 </template>
