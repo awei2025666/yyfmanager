@@ -341,7 +341,7 @@ onMounted(() => {
             <span :class="statusClass(row.status)">{{ row.status }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="订单来源" min-width="110">
+        <el-table-column label="类型" min-width="110">
           <template #default="{ row }">
             <span :class="orderSourceClass(row.orderSource)">{{ orderSourceText(row.orderSource) }}</span>
           </template>

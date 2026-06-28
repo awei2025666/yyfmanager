@@ -1652,7 +1652,7 @@ watch(
         <el-table-column prop="totalMoney" label="订单金额" min-width="130">
           <template #default="{ row }">{{ formatMoney(row.totalMoney) }}</template>
         </el-table-column>
-        <el-table-column label="订单来源" min-width="110">
+        <el-table-column label="类型" min-width="110">
           <template #default="{ row }">
             <el-tag class="order-source-tag" :class="orderSourceClass(row.orderSource)" effect="plain">
               {{ orderSourceText(row.orderSource) }}
@@ -2166,7 +2166,7 @@ watch(
               </template>
             </el-table-column>
             <el-table-column prop="operator" label="操作人" min-width="120" />
-            <el-table-column label="订单来源" min-width="110">
+            <el-table-column label="类型" min-width="110">
               <template #default="{ row }">
                 <el-tag class="order-source-tag" :class="orderSourceClass(row.orderSource)" effect="plain">
                   {{ orderSourceText(row.orderSource) }}
