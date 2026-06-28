@@ -163,7 +163,7 @@ const craftStatusText = (value) => (Number(value) === 2 ? '已完成' : '待生�
 const craftStatusClass = (value) => (Number(value) === 2 ? 'craft-status-success' : 'craft-status-warning')
 const orderSourceText = (value) => (Number(value) === 2 ? '外协' : '本厂')
 const orderSourceClass = (value) => (Number(value) === 2 ? 'order-source-outsourced' : 'order-source-local')
-const shouldShowManualComplete = (row = {}) => Number(row.manual) === 1 && Number(row.craftStatus) === 2
+const shouldShowManualComplete = (row = {}) => Number(row.manual) === 1 && Number(row.craftStatus) === 1
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
   return payload?.records || payload?.list || payload?.rows || []
