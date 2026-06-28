@@ -562,9 +562,13 @@ onLoad(options => {
 	font-size: 26rpx;
 }
 .machine-popup{
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
 	width: 100%;
-	max-height: 72vh;
-	padding: 34rpx 34rpx calc(34rpx + env(safe-area-inset-bottom));
+	max-height: 76vh;
+	padding: 34rpx 34rpx calc(42rpx + env(safe-area-inset-bottom));
 	border-radius: 24rpx 24rpx 0 0;
 	background: #fff;
 	box-sizing: border-box;

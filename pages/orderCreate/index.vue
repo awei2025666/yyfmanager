@@ -154,8 +154,29 @@
 				<input v-model="craftForm.specification" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
 			<view class="form-row">
-				<text class="label required">每版个数</text>
-				<input v-model="craftForm.formatSize" type="number" placeholder="请输入" placeholder-class="placeholder" />
+				<text class="label">开数</text>
+				<input v-model="craftForm.openNum" placeholder="请输入" placeholder-class="placeholder" />
+			</view>
+			<view class="form-row">
+				<text class="label">每板个数</text>
+				<input v-model="craftForm.numberPerBoard" placeholder="请输入" placeholder-class="placeholder" />
+			</view>
+			<picker :range="singleDoubleOptions" range-key="label" :value="singleDoubleIndex" @change="handleSingleDoubleChange">
+				<view class="form-row">
+					<text class="label">单双面</text>
+					<view class="value muted">
+						<text>{{ singleDoubleText || '请选择' }}</text>
+						<u-icon name="arrow-right" color="#333" size="30"></u-icon>
+					</view>
+				</view>
+			</picker>
+			<view class="form-row">
+				<text class="label">专色</text>
+				<input v-model="craftForm.spotColors" placeholder="请输入" placeholder-class="placeholder" />
+			</view>
+			<view class="form-row">
+				<text class="label">颜色</text>
+				<input v-model="craftForm.colour" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
 			<view class="form-row">
 				<text class="label">起价</text>
@@ -172,6 +193,10 @@
 			<view class="form-row">
 				<text class="label required">单价</text>
 				<input v-model="craftForm.unitPrice" type="digit" placeholder="请输入" placeholder-class="placeholder" />
+			</view>
+			<view class="form-row">
+				<text class="label">公式</text>
+				<input v-model="craftForm.formula" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
 			<view class="form-row">
 				<text class="label required">客户金额</text>
@@ -278,6 +303,12 @@ const deliveryTypeOptions = Object.entries(deliveryTypeMap).map(([value, label])
 	value: Number(value),
 	label
 }))
+const singleDoubleOptions = [
+	{ label: '单面', value: 1 },
+	{ label: '双面自翻', value: 2 },
+	{ label: '双面天地翻', value: 3 },
+	{ label: '双面扣板', value: 4 }
+]
 const customerTypes = [
 	{ label: '月结客户', value: '1' },
 	{ label: '现结客户', value: '2' },
@@ -318,18 +349,27 @@ const productForm = reactive({
 })
 const craftForm = reactive({
 	productLocalId: '',
+	productId: '',
 	productName: '',
 	craftId: '',
 	name: '',
 	specification: '',
-	formatSize: '',
+	openNum: '',
+	numberPerBoard: '',
+	singleDouble: 1,
+	spotColors: '',
+	colour: '',
 	priceBase: '',
+	foilingStartingPrice: null,
 	unit: '',
 	orderQuantity: '',
 	unitPrice: '',
+	formula: '',
 	customerMoney: '',
 	remark: ''
 })
+const singleDoubleIndex = computed(() => Math.max(0, singleDoubleOptions.findIndex(item => String(item.value) === String(craftForm.singleDouble))))
+const singleDoubleText = computed(() => singleDoubleOptions.find(item => String(item.value) === String(craftForm.singleDouble))?.label || '')
 const clientForm = reactive({
 	name: '',
 	contact: '',
@@ -341,11 +381,40 @@ const clientForm = reactive({
 })
 const zeroIfEmpty = value => (value === '' || value === null || value === undefined ? 0 : value)
 const toFixed4Number = value => Number(Number(value || 0).toFixed(4))
+const formulaValue = (formula = '') => {
+	const text = String(formula || '').trim()
+	if (!text) return null
+	if (!/^[\d\s.+\-*/()]+$/.test(text)) return null
+	try {
+		const result = Function(`"use strict"; return (${text})`)()
+		return Number.isFinite(Number(result)) ? Number(result) : null
+	} catch (e) {
+		return null
+	}
+}
 const computedCraftCustomerAmount = (craft = {}) => {
-	const finishNum = Number(zeroIfEmpty(craft.finishNum ?? craft.orderQuantity))
-	const price = Number(zeroIfEmpty(craft.price ?? craft.unitPrice))
-	const startPrice = Number(zeroIfEmpty(craft.startPrice ?? craft.priceBase))
-	return toFixed4Number(Math.max(finishNum * price, startPrice))
+	const rawFinishNum = Number(zeroIfEmpty(craft.finishNum ?? craft.orderQuantity))
+	if (!rawFinishNum) return 0
+	const type = Number(craft.singleDouble || 1)
+	let finishNum = rawFinishNum
+	let price = Number(zeroIfEmpty(craft.price ?? craft.unitPrice))
+	let startPrice = Number(zeroIfEmpty(craft.startPrice ?? craft.priceBase ?? craft.basePrice))
+	const priceBase = Number(zeroIfEmpty(craft.priceBase))
+	if (type === 2 || type === 3) {
+		finishNum *= 2
+	}
+	if (type === 4) {
+		price *= 2
+		startPrice *= 2
+	}
+	const formula = formulaValue(craft.formula)
+	if (formula !== null) {
+		return toFixed4Number(formula * finishNum * price)
+	}
+	if (priceBase === 0) {
+		return toFixed4Number(Math.max(finishNum * price, startPrice))
+	}
+	return toFixed4Number(((finishNum - priceBase) * price) + startPrice)
 }
 const isCraftOfProduct = (craft = {}, product = {}) => {
 	const productValues = [product.localId, product.id, product.productId, product.name, product.productName]
@@ -459,6 +528,11 @@ const handleClientTypeChange = event => {
 const handleSalesChange = event => {
 	const item = salesOptions.value[Number(event.detail.value)]
 	clientForm.sales = item?.value || ''
+}
+
+const handleSingleDoubleChange = event => {
+	const item = singleDoubleOptions[Number(event.detail.value)]
+	craftForm.singleDouble = item?.value || 1
 }
 
 const fillClientForm = client => {
@@ -605,16 +679,23 @@ const selectPickerItem = item => {
 	if (pickerType.value === 'product') {
 		const product = item.value || {}
 		craftForm.productLocalId = product.localId || ''
+		craftForm.productId = product.id || product.productId || ''
 		craftForm.productName = product.name || ''
 	}
 	if (pickerType.value === 'craft') {
 		const craft = item.value || {}
 		craftForm.craftId = craft.id
 		craftForm.name = craft.name || craft.craftName || ''
-		craftForm.specification = craft.spec || craft.specification || craft.formatSize || craftForm.specification || ''
+		craftForm.specification = craft.spec || craft.specification || craftForm.specification || ''
 		craftForm.priceBase = zeroIfEmpty(craft.startPrice ?? craft.priceBase ?? craft.basePrice ?? craft.startingPrice)
+		craftForm.foilingStartingPrice = craft.foilingStartingPrice ?? craft.foilStartingPrice ?? craft.gildingStartingPrice ?? null
 		craftForm.unit = craft.unit || craftForm.unit || ''
-		craftForm.formatSize = craft.openNum ?? craft.openCount ?? craft.formatSize ?? craft.numberPerEdition ?? craftForm.formatSize
+		craftForm.openNum = craft.openNum ?? craft.openCount ?? craft.formatSize ?? craftForm.openNum
+		craftForm.numberPerBoard = craft.numberPerBoard ?? craft.numberPerEdition ?? craftForm.numberPerBoard
+		craftForm.singleDouble = craft.singleDouble ?? craftForm.singleDouble ?? 1
+		craftForm.spotColors = craft.spotColors ?? craftForm.spotColors
+		craftForm.colour = craft.colour ?? craft.color ?? craftForm.colour
+		craftForm.formula = craft.formula ?? craftForm.formula
 		craftForm.unitPrice = zeroIfEmpty(craft.price ?? craft.unitPrice ?? craftForm.unitPrice)
 	}
 	closePicker()
@@ -626,18 +707,33 @@ const addCraft = () => {
 
 const saveCraft = () => {
 	const product = products.value.find(item => item.localId === craftForm.productLocalId) || products.value[0]
+	if (craftForm.formula && formulaValue(craftForm.formula) === null) {
+		uni.showToast({ title: '公式只能填写数字、括号和四则运算符', icon: 'none' })
+		return
+	}
 	crafts.value.push({
 		productLocalId: product?.localId || '',
+		productId: craftForm.productId || product?.id || product?.productId || '',
 		productName: craftForm.productName || product?.name || '',
 		craftId: craftForm.craftId,
 		name: craftForm.name,
 		specification: craftForm.specification,
-		formatSize: Number(craftForm.formatSize || 0),
+		openNum: craftForm.openNum || '',
+		numberPerBoard: craftForm.numberPerBoard || '',
+		singleDouble: craftForm.singleDouble || 1,
+		spotColors: craftForm.spotColors || '',
+		colour: craftForm.colour || '',
 		priceBase: Number(craftForm.priceBase || 0),
+		startPrice: Number(craftForm.priceBase || 0),
+		foilingStartingPrice: craftForm.foilingStartingPrice,
 		unit: craftForm.unit || '',
 		orderQuantity: Number(craftForm.orderQuantity || 0),
+		finishNum: Number(craftForm.orderQuantity || 0),
 		unitPrice: Number(craftForm.unitPrice || 0),
+		price: Number(craftForm.unitPrice || 0),
+		formula: craftForm.formula || '',
 		customerMoney: craftFormCustomerMoney.value,
+		customerAmount: craftFormCustomerMoney.value,
 		remark: craftForm.remark || ''
 	})
 	resetCraft()
@@ -645,15 +741,22 @@ const saveCraft = () => {
 
 const resetCraft = () => {
 	craftForm.productLocalId = ''
+	craftForm.productId = ''
 	craftForm.productName = ''
 	craftForm.craftId = ''
 	craftForm.name = ''
 	craftForm.specification = ''
-	craftForm.formatSize = ''
+	craftForm.openNum = ''
+	craftForm.numberPerBoard = ''
+	craftForm.singleDouble = 1
+	craftForm.spotColors = ''
+	craftForm.colour = ''
 	craftForm.priceBase = ''
+	craftForm.foilingStartingPrice = null
 	craftForm.unit = ''
 	craftForm.orderQuantity = ''
 	craftForm.unitPrice = ''
+	craftForm.formula = ''
 	craftForm.customerMoney = ''
 	craftForm.remark = ''
 }
@@ -683,22 +786,32 @@ const handleNext = async () => {
 }
 
 const buildCraftPayload = craft => ({
+	id: craft.id || undefined,
 	craftId: craft.craftId || undefined,
+	productId: craft.productId || undefined,
 	productName: craft.productName,
 	unit: craft.unit,
 	priceBase: Number(craft.priceBase || 0),
-	startPrice: Number(craft.priceBase || 0),
-	formatSize: Number(craft.formatSize || 0),
-	openNum: Number(craft.formatSize || 0),
+	startPrice: Number(craft.startPrice ?? craft.priceBase ?? 0),
+	formatSize: craft.openNum ?? craft.formatSize ?? '',
+	openNum: craft.openNum ?? craft.formatSize ?? '',
+	numberPerBoard: craft.numberPerBoard ?? '',
+	singleDouble: craft.singleDouble || 1,
+	spotColors: craft.spotColors || '',
+	colour: craft.colour || '',
+	formula: craft.formula || '',
+	foilingStartingPrice: craft.foilingStartingPrice === '' || craft.foilingStartingPrice === undefined
+		? null
+		: craft.foilingStartingPrice,
 	name: craft.name,
 	craftName: craft.name,
 	orderQuantity: Number(craft.orderQuantity || 0),
-	finishNum: Number(craft.orderQuantity || 0),
+	finishNum: Number(craft.finishNum ?? craft.orderQuantity ?? 0),
 	remark: craft.remark,
 	specification: craft.specification,
 	spec: craft.specification,
 	unitPrice: Number(craft.unitPrice || 0),
-	price: Number(craft.unitPrice || 0),
+	price: Number(craft.price ?? craft.unitPrice ?? 0),
 	customerMoney: computedCraftCustomerAmount(craft),
 	customerAmount: computedCraftCustomerAmount(craft)
 })

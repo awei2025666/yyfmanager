@@ -45,9 +45,14 @@
 		</view>
 
 		<view v-if="showStartPopup" class="start-mask">
-			<view class="start-popup">
-				<button class="start-action" :disabled="startSubmitting" @click="handleStartProduction(1)">开始生产</button>
-				<button class="start-action" :disabled="startSubmitting" @click="handleStartProduction(2)">开始调试</button>
+			<view class="start-popup" @tap.stop>
+				<view class="start-icon"></view>
+				<view class="start-title">请选择当前操作</view>
+				<view class="start-desc">订单还未开始生产，可先开始生产或进入调试流程</view>
+				<view class="start-actions">
+					<button class="start-action primary" :disabled="startSubmitting" @click="handleStartProduction(1)">开始生产</button>
+					<button class="start-action secondary" :disabled="startSubmitting" @click="handleStartProduction(2)">开始调试</button>
+				</view>
 			</view>
 		</view>
 	</view>
@@ -425,35 +430,75 @@ onShow(() => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 0 56rpx;
-	background: rgba(255, 255, 255, .74);
+	padding: 0 48rpx;
+	background: rgba(0, 0, 0, .34);
 	box-sizing: border-box;
 }
 .start-popup{
+	width: 100%;
+	max-width: 600rpx;
+	padding: 52rpx 42rpx 44rpx;
+	border-radius: 24rpx;
+	background: #fff;
+	box-shadow: 0 22rpx 64rpx rgba(0, 0, 0, .16);
+	box-sizing: border-box;
+	text-align: center;
+}
+.start-icon{
+	width: 76rpx;
+	height: 76rpx;
+	margin: 0 auto 24rpx;
+	border-radius: 50%;
+	background: linear-gradient(135deg, #1f7cff, #36c2ff);
+	position: relative;
+	&::before{
+		content: '';
+		position: absolute;
+		left: 25rpx;
+		top: 21rpx;
+		width: 22rpx;
+		height: 30rpx;
+		border-right: 6rpx solid #fff;
+		border-bottom: 6rpx solid #fff;
+		transform: rotate(45deg);
+	}
+}
+.start-title{
+	color: #222;
+	font-size: 34rpx;
+	font-weight: 600;
+	line-height: 48rpx;
+}
+.start-desc{
+	margin-top: 14rpx;
+	color: #8a8a8a;
+	font-size: 26rpx;
+	line-height: 38rpx;
+}
+.start-actions{
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: 56rpx;
-	width: 100%;
-	max-width: 580rpx;
-	min-height: 540rpx;
-	border: 3rpx solid #ff3347;
-	background: rgba(255, 255, 255, .86);
-	box-sizing: border-box;
+	gap: 22rpx;
+	margin-top: 42rpx;
 }
 .start-action{
-	width: 320rpx;
-	height: 92rpx;
-	border: 3rpx solid #ff3347;
-	border-radius: 0;
-	background: #fff;
-	color: #ff3347;
-	font-size: 34rpx;
-	line-height: 86rpx;
+	width: 100%;
+	height: 82rpx;
+	border: 0;
+	border-radius: 12rpx;
+	font-size: 30rpx;
+	line-height: 82rpx;
 	&::after{ border: 0; }
 	&[disabled]{
 		opacity: .6;
 	}
+}
+.start-action.primary{
+	background: #1f7cff;
+	color: #fff;
+}
+.start-action.secondary{
+	background: #f4f7fb;
+	color: #1f7cff;
 }
 </style>
