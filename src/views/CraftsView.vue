@@ -241,9 +241,7 @@ onMounted(() => {
           <el-table-column prop="priceBase" label="起价基数" min-width="120">
             <template #default="{ row }">{{ formatNumber(row.priceBase) }}</template>
           </el-table-column>
-          <el-table-column prop="foilingStartingPrice" label="烫金起价" min-width="120">
-            <template #default="{ row }">{{ formatNumber(row.foilingStartingPrice) }}</template>
-          </el-table-column>
+          <el-table-column prop="foilingStartingPrice" label="烫金起价" min-width="120"/>
           <el-table-column prop="unit" label="单位" min-width="100" />
           <el-table-column prop="sort" label="排序" min-width="100" />
           <el-table-column prop="remark" label="描述" min-width="190" show-overflow-tooltip />
