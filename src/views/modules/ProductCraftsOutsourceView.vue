@@ -5,7 +5,7 @@ import { Refresh, Search, View } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
 import {
   getTenantOutsourceCraftList,
-  getTenantOutsourceCraftStatistics,
+  getTenantOutsourceCraftStatistics, getTenantOutsourceTenantsAll,
   getTenantProductCraftDetail,
   searchTenantClients
 } from '../../api/tenant'
@@ -27,8 +27,10 @@ const state = reactive({
   clientLoading: false,
   total: 0
 })
+const tenantOptions = ref([])
 
 const rows = ref([])
+const allTenantOptions = ref([])
 const allClientOptions = ref([])
 const clientOptions = ref([])
 const currentRow = ref(null)
@@ -257,11 +259,54 @@ const openDetail = async (row) => {
     state.detailLoading = false
   }
 }
+const normalizeTenantOptions = (data) =>
+    listRows(data)
+        .map((item) => ({
+          ...item,
+          id: item.id || item.tenantId || item.tenantName,
+          tenantName: item.tenantName || item.name || '',
+          tenantNamePinyin: item.tenantNamePinyin || item.pinyin || ''
+        }))
+        .filter((item) => item.id && item.tenantName)
 
+const tenantMatchesKeyword = (tenant = {}, keyword = '') => {
+  const text = String(keyword || '').trim().toLowerCase()
+  if (!text) return true
+  return [tenant.tenantName, tenant.tenantNamePinyin]
+      .some((value) => String(value || '').toLowerCase().includes(text))
+}
+
+const filterTenantOptions = (tenantName = '') => {
+  tenantOptions.value = allTenantOptions.value
+      .filter((item) => tenantMatchesKeyword(item, tenantName))
+      .slice(0, 50)
+}
+
+const loadTenants = async () => {
+  state.tenantLoading = true
+  try {
+    const data = await getTenantOutsourceTenantsAll({ tenantName: '' })
+    allTenantOptions.value = normalizeTenantOptions(data)
+    filterTenantOptions()
+  } catch (error) {
+    ElMessage.error(error?.message || '外协单位列表加载失败')
+  } finally {
+    state.tenantLoading = false
+  }
+}
+const handleTenantDropdownVisible = (visible) => {
+  if (!visible) return
+  if (!allTenantOptions.value.length) {
+    loadTenants()
+  } else {
+    filterTenantOptions()
+  }
+}
 onMounted(() => {
   loadClients()
   loadStatistics()
   loadData()
+  loadTenants()
 })
 </script>
 
@@ -269,8 +314,26 @@ onMounted(() => {
   <div class="module-page">
     <PageBlock>
       <el-form class="search-form" :model="filters" label-width="96px">
+
         <el-form-item label="转单单位">
-          <el-input v-model="filters.transferUnit" clearable placeholder="请输入转单单位" @keyup.enter="searchData" />
+          <el-select
+              v-model="filters.transferUnit"
+              clearable
+              filterable
+              remote
+              reserve-keyword
+              :placeholder="`请输入转单单位`"
+              :remote-method="filterTenantOptions"
+              :loading="state.tenantLoading"
+              @visible-change="handleTenantDropdownVisible"
+          >
+            <el-option
+                v-for="item in tenantOptions"
+                :key="item.id"
+                :label="item.tenantName"
+                :value="item.tenantName"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="单位名称">
           <el-select
@@ -318,9 +381,6 @@ onMounted(() => {
     </PageBlock>
 
     <PageBlock>
-      <div class="table-toolbar">
-        <strong>{{ summaryText }}</strong>
-      </div>
       <el-table v-loading="state.loading" :data="rows" border>
         <el-table-column prop="orderNo" label="所属订单号" min-width="130" />
         <el-table-column prop="transferUnit" label="转单单位" min-width="150" show-overflow-tooltip />
