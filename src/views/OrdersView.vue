@@ -486,6 +486,26 @@ const normalizeCraftOptions = (data) => {
   }))
 }
 
+const seedCraftOptions = (crafts = []) => {
+  const current = Array.isArray(craftOptions.value) ? [...craftOptions.value] : []
+  ;(crafts || []).forEach((item) => {
+    const id = item.craftId ?? item.craftIdList ?? item.id
+    const craftName = item.craftName || item.name || item.craft || ''
+    if (id === '' || id === null || id === undefined || !craftName) return
+    if (!current.some((option) => String(option.id) === String(id))) {
+      current.push({ ...item, id, craftName })
+    }
+  })
+  craftOptions.value = current
+}
+
+const hydrateCraftNames = (crafts = []) => {
+  ;(crafts || []).forEach((item) => {
+    const option = craftOptions.value.find((craft) => String(craft.id) === String(item.craftId))
+    if (option?.craftName) item.craftName = option.craftName
+  })
+}
+
 const searchCrafts = async (keyword = '') => {
   const craftName = String(keyword || '').trim()
   if (craftSearching.value && lastCraftKeyword.value === craftName) return craftSearchPromise
@@ -573,7 +593,7 @@ const normalizeCraftRow = (item = {}, product = {}) => ({
     spec: item.spec || item.specification || '',
     openNum: item.openNum ?? item.formatSize ?? '',
     numberPerBoard: item.numberPerBoard ?? '',
-    singleDouble: item.singleDouble ?? 1,
+    singleDouble: item.singleDouble ?? '',
     spotColors: item.spotColors || '',
     colour: item.colour || item.color || '',
     formula: item.formula || '',
@@ -583,7 +603,7 @@ const normalizeCraftRow = (item = {}, product = {}) => ({
     finishNum: item.finishNum ?? item.orderQuantity ?? 0,
     unit: item.unit || '',
     price: item.price ?? item.unitPrice ?? 0,
-    customerAmount: item.customerAmount ?? item.customerMoney ?? 0,
+    customerAmount: item.customerAmount ?? item.customerMoney ?? null,
     remark: item.remark || '',
     craftStatus: item.craftStatus ?? item.status ?? 1,
     operator: item.operator || item.createUserName || item.tenantUserName || '-',
@@ -760,6 +780,14 @@ const computedCraftCustomerAmount = (craft = {}) => {
   }
   return toFixed4Number(((finishNum - priceBase) * price) + startPrice)
 }
+const hasStoredCraftAmount = (craft = {}) =>
+  craft.customerAmount !== '' && craft.customerAmount !== null && craft.customerAmount !== undefined
+  || craft.customerMoney !== '' && craft.customerMoney !== null && craft.customerMoney !== undefined
+const storedCraftAmount = (craft = {}) => Number(zeroIfEmpty(craft.customerAmount ?? craft.customerMoney))
+const displayCraftCustomerAmount = (craft = {}) => {
+  if (!craft._isEditing && hasStoredCraftAmount(craft)) return storedCraftAmount(craft)
+  return computedCraftCustomerAmount(craft)
+}
 const productCraftSourceRows = () => {
   if (orderFormVisible.value) return formState.craftList || []
   if (currentRecord.value?.crafts?.length) return currentRecord.value.crafts
@@ -774,7 +802,7 @@ const isCraftOfProduct = (craft = {}, product = {}) => {
   if (!productValues.length) return false
   return craftMatchValues(craft).some((value) => productValues.includes(value))
 }
-const craftCustomerAmount = (craft = {}) => computedCraftCustomerAmount(craft)
+const craftCustomerAmount = (craft = {}) => displayCraftCustomerAmount(craft)
 const productCraftAmount = (product = {}) =>
   productCraftSourceRows()
     .filter((craft) => isCraftOfProduct(craft, product))
@@ -848,7 +876,7 @@ const addCraftRow = () => {
     spec: '',
     openNum: '',
     numberPerBoard: '',
-    singleDouble: 1,
+    singleDouble: '',
     spotColors: '',
     colour: '',
     formula: '',
@@ -879,7 +907,7 @@ const selectCraftName = async (row, id) => {
   row.spec = craft.spec || craft.specification || craft.formatSize || row.spec || ''
   row.openNum = craft.openNum ?? craft.openCount ?? craft.formatSize ?? row.openNum ?? ''
   row.numberPerBoard = craft.numberPerBoard ?? row.numberPerBoard ?? ''
-  row.singleDouble = craft.singleDouble ?? row.singleDouble ?? 1
+  row.singleDouble = craft.singleDouble ?? row.singleDouble ?? ''
   row.spotColors = craft.spotColors ?? row.spotColors ?? ''
   row.colour = craft.colour ?? craft.color ?? row.colour ?? ''
   row.formula = craft.formula ?? row.formula ?? ''
@@ -906,7 +934,7 @@ const saveCraftRow = (row) => {
   row.priceBase = zeroIfEmpty(row.priceBase)
   row.finishNum = zeroIfEmpty(row.finishNum)
   row.price = zeroIfEmpty(row.price)
-  row.singleDouble = row.singleDouble || 1
+  row.singleDouble = row.singleDouble || ''
   row.customerAmount = computedCraftCustomerAmount(row)
   syncAllProductAmounts()
   row._isEditing = false
@@ -931,6 +959,7 @@ const removeCraftRow = (index) => {
 }
 const cleanCraftRow = (row = {}) => {
   const { _isEditing, _isNew, ...payload } = row
+  const customerAmount = displayCraftCustomerAmount(row)
   payload.startPrice = zeroIfEmpty(payload.startPrice)
   payload.priceBase = zeroIfEmpty(payload.priceBase ?? payload.startPrice)
   payload.foilingStartingPrice = payload.foilingStartingPrice === '' || payload.foilingStartingPrice === undefined
@@ -940,8 +969,8 @@ const cleanCraftRow = (row = {}) => {
   payload.orderQuantity = zeroIfEmpty(payload.orderQuantity ?? payload.finishNum)
   payload.price = zeroIfEmpty(payload.price)
   payload.unitPrice = zeroIfEmpty(payload.unitPrice ?? payload.price)
-  payload.customerAmount = computedCraftCustomerAmount(payload)
-  payload.customerMoney = payload.customerAmount
+  payload.customerAmount = customerAmount
+  payload.customerMoney = customerAmount
   return payload
 }
 const normalizeOrderProductPayload = (product = {}) => ({
@@ -1210,6 +1239,11 @@ const openEdit = async (row) => {
     craftList: record.crafts || record.craftList || []
   })
   seedClientOption(record)
+  craftOptions.value = []
+  lastCraftKeyword.value = null
+  await searchCrafts('')
+  seedCraftOptions(formState.craftList)
+  hydrateCraftNames(formState.craftList)
   currentStep.value = 1
   orderFormVisible.value = true
 }
@@ -1241,6 +1275,11 @@ const openOutsource = async (row) => {
     outsourceSupplierContact: ''
   })
   seedClientOption(record)
+  craftOptions.value = []
+  lastCraftKeyword.value = null
+  await searchCrafts('')
+  seedCraftOptions(formState.craftList)
+  hydrateCraftNames(formState.craftList)
   outsourceFilters.memberId = ''
   outsourceFilters.memberName = ''
   currentStep.value = 1
@@ -1991,7 +2030,7 @@ watch(
             </el-table-column>
             <el-table-column prop="customerAmount" label="客户金额" min-width="150">
               <template #default="{ row }">
-                <span>{{ formatMoney4(computedCraftCustomerAmount(row)) }}</span>
+                <span>{{ formatMoney4(displayCraftCustomerAmount(row)) }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="remark" label="备注" min-width="150">
@@ -2158,7 +2197,7 @@ watch(
               <template #default="{ row }">{{ row.formula || '-' }}</template>
             </el-table-column>
             <el-table-column prop="customerAmount" label="客户金额" min-width="150">
-              <template #default="{ row }">{{ formatMoney4(computedCraftCustomerAmount(row)) }}</template>
+              <template #default="{ row }">{{ formatMoney4(displayCraftCustomerAmount(row)) }}</template>
             </el-table-column>
             <el-table-column prop="remark" label="备注" min-width="120" />
             <el-table-column label="工艺状态" min-width="110">
