@@ -6,7 +6,8 @@ import PageBlock from '../../components/PageBlock.vue'
 import {
   getTenantOutsourceCraftList,
   getTenantOutsourceCraftStatistics,
-  getTenantProductCraftDetail
+  getTenantProductCraftDetail,
+  searchTenantClients
 } from '../../api/tenant'
 
 const filters = reactive({
@@ -23,10 +24,13 @@ const filters = reactive({
 const state = reactive({
   loading: false,
   detailLoading: false,
+  clientLoading: false,
   total: 0
 })
 
 const rows = ref([])
+const allClientOptions = ref([])
+const clientOptions = ref([])
 const currentRow = ref(null)
 const detailVisible = ref(false)
 const activeDetailTab = ref('crafts')
@@ -88,6 +92,51 @@ const queryPayload = () => {
     orderId: filters.orderNo || undefined,
     orderCreateTimeStart: start || undefined,
     orderCreateTimeEnd: end || start || undefined
+  }
+}
+
+const normalizeClientOptions = (data) =>
+  listRows(data)
+    .map((item) => ({
+      ...item,
+      id: item.id || item.cooperativeClientId || item.clientId || item.companyName,
+      companyName: item.companyName || item.name || '',
+      companyNamePinyin: item.companyNamePinyin || item.pinyin || ''
+    }))
+    .filter((item) => item.id && item.companyName)
+
+const clientMatchesKeyword = (client = {}, keyword = '') => {
+  const text = String(keyword || '').trim().toLowerCase()
+  if (!text) return true
+  return [client.companyName, client.companyNamePinyin]
+    .some((value) => String(value || '').toLowerCase().includes(text))
+}
+
+const filterClientOptions = (companyName = '') => {
+  clientOptions.value = allClientOptions.value
+    .filter((item) => clientMatchesKeyword(item, companyName))
+    .slice(0, 50)
+}
+
+const loadClients = async () => {
+  state.clientLoading = true
+  try {
+    const data = await searchTenantClients({ companyName: '' })
+    allClientOptions.value = normalizeClientOptions(data)
+    filterClientOptions()
+  } catch (error) {
+    ElMessage.error(error?.message || '单位列表加载失败')
+  } finally {
+    state.clientLoading = false
+  }
+}
+
+const handleClientDropdownVisible = (visible) => {
+  if (!visible) return
+  if (!allClientOptions.value.length) {
+    loadClients()
+  } else {
+    filterClientOptions()
   }
 }
 
@@ -210,6 +259,7 @@ const openDetail = async (row) => {
 }
 
 onMounted(() => {
+  loadClients()
   loadStatistics()
   loadData()
 })
@@ -223,7 +273,24 @@ onMounted(() => {
           <el-input v-model="filters.transferUnit" clearable placeholder="请输入转单单位" @keyup.enter="searchData" />
         </el-form-item>
         <el-form-item label="单位名称">
-          <el-input v-model="filters.customer" clearable placeholder="请输入单位名称" @keyup.enter="searchData" />
+          <el-select
+            v-model="filters.customer"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            placeholder="请输入单位名称"
+            :remote-method="filterClientOptions"
+            :loading="state.clientLoading"
+            @visible-change="handleClientDropdownVisible"
+          >
+            <el-option
+              v-for="item in clientOptions"
+              :key="item.id"
+              :label="item.companyName"
+              :value="item.companyName"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="产品名称">
           <el-input v-model="filters.productName" clearable placeholder="请输入产品名称" @keyup.enter="searchData" />
@@ -257,16 +324,11 @@ onMounted(() => {
       <el-table v-loading="state.loading" :data="rows" border>
         <el-table-column prop="orderNo" label="所属订单号" min-width="130" />
         <el-table-column prop="transferUnit" label="转单单位" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="customer" label="单位名称" min-width="150" show-overflow-tooltip />
         <el-table-column prop="orderTime" label="订单时间" min-width="160" />
         <el-table-column prop="productInfo" label="产品信息" min-width="170" show-overflow-tooltip />
         <el-table-column prop="quantity" label="产品数量" min-width="100" />
         <el-table-column prop="craftName" label="工艺名称" min-width="120" />
         <el-table-column prop="remark" label="备注" min-width="130" show-overflow-tooltip />
-        <el-table-column prop="unitPrice" label="产品单价" min-width="110" />
-        <el-table-column label="客户金额" min-width="120">
-          <template #default="{ row }">{{ moneyText(row.amount) }}</template>
-        </el-table-column>
         <el-table-column label="工艺状态" min-width="110">
           <template #default="{ row }">
             <span :class="statusClass(row.status)">{{ row.status }}</span>
