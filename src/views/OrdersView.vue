@@ -718,6 +718,7 @@ const appendFormulaPointText = (formula = '', point = '') => {
   if (!current) return wrappedValue
   return `(${current} + ${wrappedValue})`
 }
+const hasFoilingStartingPrice = (row = {}) => Number(row.foilingStartingPrice || 0) > 0
 const promptFormulaPoint = async (row) => {
   try {
     const { value } = await ElMessageBox.prompt('请输入烫金点位，例如 0.1*0.2', '烫金点位', {
@@ -883,12 +884,12 @@ const selectCraftName = async (row, id) => {
   row.colour = craft.colour ?? craft.color ?? row.colour ?? ''
   row.formula = craft.formula ?? row.formula ?? ''
   row.startPrice = zeroIfEmpty(craft.startPrice ?? craft.priceBase ?? craft.basePrice ?? row.startPrice)
-  row.priceBase = row.startPrice
+  row.priceBase = zeroIfEmpty(craft.priceBase ?? row.priceBase)
   row.foilingStartingPrice = craft.foilingStartingPrice ?? craft.foilStartingPrice ?? craft.gildingStartingPrice ?? row.foilingStartingPrice ?? null
   row.unit = craft.unit || row.unit || ''
   row.price = zeroIfEmpty(craft.price ?? craft.unitPrice ?? row.price)
   row.remark = row.remark || craft.remark || ''
-  if (Number(row.foilingStartingPrice || 0) > 0) {
+  if (hasFoilingStartingPrice(row)) {
     await promptFormulaPoint(row)
   }
 }
@@ -902,7 +903,7 @@ const saveCraftRow = (row) => {
     return
   }
   row.startPrice = zeroIfEmpty(row.startPrice)
-  row.priceBase = row.startPrice
+  row.priceBase = zeroIfEmpty(row.priceBase)
   row.finishNum = zeroIfEmpty(row.finishNum)
   row.price = zeroIfEmpty(row.price)
   row.singleDouble = row.singleDouble || 1
@@ -931,7 +932,7 @@ const removeCraftRow = (index) => {
 const cleanCraftRow = (row = {}) => {
   const { _isEditing, _isNew, ...payload } = row
   payload.startPrice = zeroIfEmpty(payload.startPrice)
-  payload.priceBase = payload.startPrice
+  payload.priceBase = zeroIfEmpty(payload.priceBase ?? payload.startPrice)
   payload.foilingStartingPrice = payload.foilingStartingPrice === '' || payload.foilingStartingPrice === undefined
     ? null
     : payload.foilingStartingPrice
@@ -1983,7 +1984,7 @@ watch(
               <template #default="{ row }">
                 <div v-if="row._isEditing" class="formula-editor">
                   <el-input v-model="row.formula" placeholder="请输入公式" />
-                  <el-button type="primary" link @click="promptFormulaPoint(row)">+ 点位</el-button>
+                  <el-button v-if="hasFoilingStartingPrice(row)" type="primary" link @click="promptFormulaPoint(row)">+ 点位</el-button>
                 </div>
                 <span v-else>{{ row.formula || '' }}</span>
               </template>
