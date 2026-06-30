@@ -24,7 +24,7 @@
 				<view class="craft-desc">
 					{{ getCraftDesc(item) }}<text v-if="item.remark" class="danger">*{{ item.remark }}</text>
 				</view>
-				<button v-if="!isCraftDone(item)" class="complete-btn" @click="toComplete(item)">已完成生产</button>
+				<button v-if="!isCraftDone(item) && getOrderSource(item) === 1 " class="complete-btn" @click="toComplete(item)">已完成生产</button>
 			</view>
 			<view v-if="!craftList.length" class="empty-state">暂无数据</view>
 		</view>
