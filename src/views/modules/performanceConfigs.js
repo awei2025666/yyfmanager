@@ -29,6 +29,7 @@ const performanceQuery = (payload = {}) => {
     ...listQuery(payload),
     name: payload.name || undefined,
     phone: payload.phone || undefined,
+    userId: payload.userId || undefined,
     createTimeStart: start || undefined,
     createTimeEnd: end || start || undefined
   }
@@ -87,14 +88,20 @@ export const billingPerformanceConfig = {
 
 export const deliveryPerformanceConfig = {
   title: '配送绩效',
+  exportAlign: 'left',
   searchFields: [
     { key: 'time', label: '时间', type: 'daterange' },
-    { key: 'name', label: '人员姓名' },
-    { key: 'phone', label: '联系方式' }
+    {
+      key: 'userId',
+      label: '用户',
+      type: 'select',
+      placeholder: '请选择用户',
+      optionsApi: getTenantClientUsers,
+      optionsPayload: { name: '' },
+      normalizeOptions: userOptions
+    }
   ],
   columns: [
-    { prop: 'name', label: '人员姓名' },
-    { prop: 'phone', label: '联系方式（账号）', minWidth: 150 },
     { prop: 'pendingOrders', label: '待配送订单', minWidth: 130 },
     { prop: 'completedOrders', label: '已配送订单', minWidth: 130 }
   ],

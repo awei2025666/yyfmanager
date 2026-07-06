@@ -164,9 +164,8 @@ onMounted(() => {
     </PageBlock>
 
     <PageBlock>
-      <div class="table-toolbar">
-        <span v-if="config.summary" class="summary-text">{{ config.summary(rows) }}</span>
-        <div class="export-actions">
+      <div class="table-toolbar" :class="{ 'table-toolbar--export-left': config.exportAlign === 'left' }">
+        <div class="export-actions" :class="{ 'export-actions--left': config.exportAlign === 'left' }">
           <template v-if="config.exportActions?.length">
             <el-button
               v-for="action in config.exportActions"
@@ -180,6 +179,7 @@ onMounted(() => {
           </template>
           <el-button v-else-if="config.exportApi" :icon="Download" :loading="state.exporting" @click="exportData()">导出</el-button>
         </div>
+        <span v-if="config.summary" class="summary-text">{{ config.summary(rows) }}</span>
       </div>
       <el-table v-loading="state.loading" :data="rows" border>
         <el-table-column
@@ -243,6 +243,11 @@ onMounted(() => {
   justify-content: space-between;
   min-height: 32px;
   margin-bottom: 12px;
+}
+
+.table-toolbar--export-left {
+  justify-content: flex-start;
+  gap: 24px;
 }
 
 .export-actions {

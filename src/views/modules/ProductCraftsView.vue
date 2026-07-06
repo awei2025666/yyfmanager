@@ -1,12 +1,15 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh, Search, View } from '@element-plus/icons-vue'
+import { Printer, Refresh, Search, Switch, View } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
 import {
   getTenantProductCraftDetail,
   getTenantProductCraftList,
+  getTenantProductCraftOutsourcePrintUrl,
   getTenantProductCraftStatistics,
+  getTenantOutsourceTenants,
+  outsourceTenantProductCraft,
   searchTenantClients
 } from '../../api/tenant'
 
@@ -24,6 +27,8 @@ const state = reactive({
   loading: false,
   detailLoading: false,
   clientLoading: false,
+  outsourceLoading: false,
+  outsourceSaving: false,
   total: 0
 })
 
@@ -32,11 +37,25 @@ const allClientOptions = ref([])
 const clientOptions = ref([])
 const currentRow = ref(null)
 const detailVisible = ref(false)
+const outsourceVisible = ref(false)
 const activeDetailTab = ref('crafts')
+const outsourceOptions = ref([])
 const statistics = reactive({
   pending: 0,
   completed: 0,
   amount: 0
+})
+const outsourceFilters = reactive({
+  memberName: ''
+})
+const outsourceForm = reactive({
+  id: '',
+  outTenantId: '',
+  outTenantName: '',
+  outContact: '',
+  outNum: '',
+  outMoney: '',
+  outRemark: ''
 })
 
 const statusText = (value) => {
@@ -107,6 +126,78 @@ const handleClientDropdownVisible = (visible) => {
     loadClientOptions()
   } else {
     filterClientOptions('')
+  }
+}
+
+const normalizeOutsourceOptions = (data) =>
+  listRows(data)
+    .map((item) => ({
+      ...item,
+      memberId: item.memberId || item.id || item.tenantId || '',
+      tenantName: item.tenantName || item.memberName || item.companyName || item.name || '',
+      contact: item.contact || item.userName || item.linkman || ''
+    }))
+    .filter((item) => item.memberId && item.tenantName)
+
+const loadOutsourceUnits = async () => {
+  state.outsourceLoading = true
+  try {
+    const data = await getTenantOutsourceTenants({ tenantName: outsourceFilters.memberName || undefined })
+    outsourceOptions.value = normalizeOutsourceOptions(data)
+  } catch (error) {
+    outsourceOptions.value = []
+    ElMessage.error(error?.message || '外协单位加载失败')
+  } finally {
+    state.outsourceLoading = false
+  }
+}
+
+const resetOutsourceFields = () => {
+  Object.assign(outsourceForm, {
+    id: '',
+    outTenantId: '',
+    outTenantName: '',
+    outContact: '',
+    outNum: '',
+    outMoney: '',
+    outRemark: ''
+  })
+}
+
+const openOutsource = (row) => {
+  resetOutsourceFields()
+  currentRow.value = row
+  outsourceForm.id = row.id
+  outsourceForm.outNum = row.quantity || ''
+  outsourceVisible.value = true
+  if (!outsourceOptions.value.length) loadOutsourceUnits()
+}
+
+const selectOutsourceUnit = (row) => {
+  outsourceForm.outTenantId = row.memberId
+  outsourceForm.outTenantName = row.tenantName
+  outsourceForm.outContact = row.contact || ''
+}
+
+const submitOutsource = async () => {
+  if (!outsourceForm.id) return ElMessage.error('缺少工艺ID，无法转外协')
+  if (!outsourceForm.outTenantId) return ElMessage.warning('请选择外协单位')
+  state.outsourceSaving = true
+  try {
+    await outsourceTenantProductCraft({
+      id: outsourceForm.id,
+      outTenantId: outsourceForm.outTenantId,
+      outNum: outsourceForm.outNum === '' ? undefined : Number(outsourceForm.outNum),
+      outMoney: outsourceForm.outMoney === '' ? undefined : Number(outsourceForm.outMoney),
+      outRemark: outsourceForm.outRemark || undefined
+    })
+    outsourceVisible.value = false
+    ElMessage.success('已转外协')
+    await Promise.all([loadData(), loadStatistics()])
+  } catch (error) {
+    ElMessage.error(error?.message || '转外协失败')
+  } finally {
+    state.outsourceSaving = false
   }
 }
 
@@ -256,6 +347,21 @@ const openDetail = async (row) => {
     state.detailLoading = false
   }
 }
+
+const printOutsource = async (row) => {
+  if (!row?.id) return ElMessage.warning('缺少工艺ID，无法打印')
+  try {
+    const data = await getTenantProductCraftOutsourcePrintUrl(row.id)
+    const url = data?.url || data?.printUrl || data
+    if (!url) {
+      ElMessage.warning('暂无打印地址')
+      return
+    }
+    window.open(url, '_blank')
+  } catch (error) {
+    ElMessage.error(error?.message || '打印地址获取失败')
+  }
+}
 const deliveryTypeOptions = [
   { label: '自提', value: 1 },
   { label: '发货', value: 2 },
@@ -347,9 +453,29 @@ onMounted(() => {
           </template>
         </el-table-column>
         <el-table-column prop="operator" label="操作员" min-width="100" />
-        <el-table-column label="操作" width="90" fixed="right">
+        <el-table-column label="操作" width="170" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link :icon="View" @click="openDetail(row)">详情</el-button>
+            <el-space wrap>
+              <el-button type="primary" link :icon="View" @click="openDetail(row)">详情</el-button>
+              <el-button
+                v-if="Number(row.orderSource) !== 2"
+                type="warning"
+                link
+                :icon="Switch"
+                @click="openOutsource(row)"
+              >
+                转外协
+              </el-button>
+              <el-button
+                v-if="Number(row.orderSource) === 2"
+                type="primary"
+                link
+                :icon="Printer"
+                @click="printOutsource(row)"
+              >
+                打印
+              </el-button>
+            </el-space>
           </template>
         </el-table-column>
       </el-table>
@@ -366,6 +492,97 @@ onMounted(() => {
         />
       </div>
     </PageBlock>
+
+    <el-dialog
+      v-model="outsourceVisible"
+      title="转外协"
+      width="920px"
+      class="craft-outsource-dialog"
+      :close-on-click-modal="false"
+    >
+      <div class="outsource-layout">
+        <section class="outsource-card">
+          <div class="outsource-card__title">
+            <strong>选择外协单位</strong>
+            <span>{{ outsourceForm.outTenantName || '未选择' }}</span>
+          </div>
+          <div class="outsource-search">
+            <el-input
+              v-model="outsourceFilters.memberName"
+              clearable
+              placeholder="请输入会员名称"
+              @keyup.enter="loadOutsourceUnits"
+            />
+            <el-button type="primary" :icon="Search" @click="loadOutsourceUnits">查询</el-button>
+            <el-button :icon="Refresh" @click="outsourceFilters.memberName = ''; loadOutsourceUnits()">重置</el-button>
+          </div>
+          <el-table
+            v-loading="state.outsourceLoading"
+            :data="outsourceOptions"
+            border
+            height="260"
+            empty-text="暂无外协单位"
+            @row-click="selectOutsourceUnit"
+          >
+            <el-table-column width="60">
+              <template #default="{ row }">
+                <el-radio
+                  :model-value="outsourceForm.outTenantId"
+                  :label="row.memberId"
+                  @change="selectOutsourceUnit(row)"
+                />
+              </template>
+            </el-table-column>
+            <el-table-column prop="tenantName" label="会员名称" min-width="260" show-overflow-tooltip />
+            <el-table-column prop="contact" label="联系人" min-width="160" show-overflow-tooltip />
+          </el-table>
+        </section>
+
+        <section class="outsource-card outsource-form-card">
+          <div class="outsource-card__title">
+            <strong>外协信息</strong>
+            <span>{{ currentRow?.craftName || '-' }}</span>
+          </div>
+          <el-form label-position="top">
+            <el-form-item label="外协单位">
+              <el-input v-model="outsourceForm.outTenantName" disabled placeholder="请先选择外协单位" />
+            </el-form-item>
+            <el-form-item label="外协数量">
+              <el-input-number
+                v-model="outsourceForm.outNum"
+                :min="0"
+                :precision="0"
+                controls-position="right"
+                placeholder="请输入外协数量"
+              />
+            </el-form-item>
+            <el-form-item label="外协金额">
+              <el-input-number
+                v-model="outsourceForm.outMoney"
+                :min="0"
+                :precision="2"
+                controls-position="right"
+                placeholder="请输入外协金额"
+              />
+            </el-form-item>
+            <el-form-item label="外协备注">
+              <el-input
+                v-model="outsourceForm.outRemark"
+                type="textarea"
+                :rows="4"
+                maxlength="300"
+                show-word-limit
+                placeholder="请输入外协备注"
+              />
+            </el-form-item>
+          </el-form>
+        </section>
+      </div>
+      <template #footer>
+        <el-button @click="outsourceVisible = false">取消</el-button>
+        <el-button type="primary" :loading="state.outsourceSaving" @click="submitOutsource">确定</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="detailVisible" title="产品工艺详情" width="1080px">
       <div v-loading="state.detailLoading" class="detail-wrap">
@@ -504,6 +721,56 @@ onMounted(() => {
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.outsource-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.8fr);
+  gap: 16px;
+}
+
+.outsource-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.outsource-card__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.outsource-card__title strong {
+  color: #303133;
+  font-size: 16px;
+}
+
+.outsource-card__title span {
+  min-width: 0;
+  overflow: hidden;
+  color: #909399;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outsource-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.outsource-form-card :deep(.el-input-number) {
+  width: 100%;
+}
+
+.craft-outsource-dialog :deep(.el-dialog__body) {
+  background: #f5f7fa;
 }
 
 .status-warning {

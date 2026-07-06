@@ -76,6 +76,8 @@ export const changeTenantOrderAutoApprove = (payload = {}) => tenantHttp.post('/
 export const approveTenantOrder = (payload = {}) => tenantHttp.post('/api/tenant/order/approve', payload)
 export const returnTenantOrder = (id) => tenantHttp.get('/api/tenant/order/returnOrder', { params: { id } })
 export const deleteTenantOrder = (id) => tenantHttp.get('/api/tenant/order/del', { params: { id } })
+export const addTenantOrderError = (payload = {}) => tenantHttp.post('/api/tenant/orderError', payload)
+export const getTenantOrderErrorInfo = (id) => tenantHttp.get('/api/tenant/orderErrorInfo', { params: { orderId: id } })
 export const getTenantOutsourceTenants = (payload = {}) => tenantHttp.post('/api/tenant/order/tenants', payload)
 export const outsourceTenantOrder = (payload = {}) => tenantHttp.post('/api/tenant/order/outsource', payload)
 export const completeTenantOrderProduction = (payload = {}) => tenantHttp.post('/api/tenant/order/completeProduction', payload)
@@ -90,6 +92,9 @@ export const getTenantProductCraftList = (payload) => tenantHttp.post('/api/tena
 export const getTenantProductCraftDetail = (id) =>
   tenantHttp.get('/api/tenant/productsCraft/detail', { params: { id } })
 export const getTenantProductCraftStatistics = () => tenantHttp.get('/api/tenant/productsCraft/statistics')
+export const outsourceTenantProductCraft = (payload = {}) => tenantHttp.post('/api/tenant/productsCraft/outsource', payload)
+export const getTenantProductCraftOutsourcePrintUrl = (id) =>
+  tenantHttp.get('/api/tenant/productsCraft/printUrlOut', { params: { id } })
 export const getTenantOutsourceCraftList = (payload) => tenantHttp.post('/api/tenant/productsCraft/intoCraft', payload)
 export const getTenantOutsourceCraftStatistics = () => tenantHttp.get('/api/tenant/productsCraft/statisticsOutsourcing')
 export const getTenantConsumableDetailList = (payload = {}) => tenantHttp.post('/api/tenant/consumableDetail/list', payload)
