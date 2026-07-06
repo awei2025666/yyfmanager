@@ -180,7 +180,7 @@
 			</view>
 			<view class="form-row">
 				<text class="label">起价</text>
-				<input v-model="craftForm.priceBase" type="digit" placeholder="请输入" placeholder-class="placeholder" />
+				<input v-model="craftForm.startPrice" type="digit" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
 			<view class="form-row">
 				<text class="label required">成品数量</text>
@@ -196,7 +196,10 @@
 			</view>
 			<view class="form-row">
 				<text class="label">公式</text>
-				<input v-model="craftForm.formula" placeholder="请输入" placeholder-class="placeholder" />
+				<view class="formula-value">
+					<input v-model="craftForm.formula" :disabled="isFoilingCraft(craftForm)" placeholder="请输入" placeholder-class="placeholder" />
+					<text v-if="isFoilingCraft(craftForm)" class="point-link" @click="openFoilingPointDialog">+ 点位</text>
+				</view>
 			</view>
 			<view class="form-row">
 				<text class="label required">客户金额</text>
@@ -226,8 +229,8 @@
 						<text class="picker-close" @click="closePicker">×</text>
 					</view>
 				</view>
-				<view v-if="pickerType === 'client'" class="picker-search">
-					<input v-model="pickerSearchKeyword" placeholder="请输入单位名称、联系人、电话" placeholder-class="placeholder" />
+				<view v-if="showPickerSearch" class="picker-search">
+					<input v-model="pickerSearchKeyword" :placeholder="pickerSearchPlaceholder" placeholder-class="placeholder" />
 				</view>
 				<scroll-view scroll-y class="picker-list">
 					<view v-if="!filteredPickerOptions.length" class="picker-empty">暂无数据</view>
@@ -236,6 +239,37 @@
 						<view v-if="item.subLabel" class="picker-sub">{{ item.subLabel }}</view>
 					</view>
 				</scroll-view>
+			</view>
+		</view>
+
+		<view v-if="showFoilingPointDialog" class="dialog-mask" @click="closeFoilingPointDialog">
+			<view class="foiling-dialog" @click.stop>
+				<view class="dialog-head">
+					<text>烫金点位</text>
+					<text class="dialog-close" @click="closeFoilingPointDialog">×</text>
+				</view>
+				<view class="foiling-price-grid">
+					<view class="dialog-row">
+						<text class="label">点位起价</text>
+						<input v-model="foilingPointForm.foilingPointPrice" type="digit" placeholder="请输入点位起价" placeholder-class="placeholder" />
+					</view>
+					<view class="dialog-row">
+						<text class="label">每页起价</text>
+						<input v-model="foilingPointForm.foilingSheetPrice" type="digit" placeholder="请输入每页起价" placeholder-class="placeholder" />
+					</view>
+				</view>
+				<view class="foiling-point-head">
+					<text>点位</text>
+					<text class="point-link" @click="addFoilingPoint">+ 点位</text>
+				</view>
+				<view class="foiling-point-row" v-for="(point, index) in foilingPointForm.points" :key="index">
+					<input v-model="foilingPointForm.points[index]" placeholder="请输入烫金点位，例如 0.1*0.2" placeholder-class="placeholder" />
+					<text class="remove-point" @click="removeFoilingPoint(index)">删除</text>
+				</view>
+				<view class="dialog-actions">
+					<button class="ghost" @click="closeFoilingPointDialog">取消</button>
+					<button class="save" @click="saveFoilingPointDialog">确定</button>
+				</view>
 			</view>
 		</view>
 
@@ -336,6 +370,7 @@ const salesOptions = ref([])
 const craftOptions = ref([])
 const showPicker = ref(false)
 const showClientCreate = ref(false)
+const showFoilingPointDialog = ref(false)
 const clientSaving = ref(false)
 const pickerType = ref('')
 const pickerTitle = ref('')
@@ -356,17 +391,26 @@ const craftForm = reactive({
 	specification: '',
 	openNum: '',
 	numberPerBoard: '',
-	singleDouble: 1,
+	singleDouble: '',
 	spotColors: '',
 	colour: '',
+	startPrice: '',
 	priceBase: '',
 	foilingStartingPrice: null,
+	foilingPointPrice: null,
+	foilingSheetPrice: null,
+	foilingPointList: [],
 	unit: '',
 	orderQuantity: '',
 	unitPrice: '',
 	formula: '',
 	customerMoney: '',
 	remark: ''
+})
+const foilingPointForm = reactive({
+	foilingPointPrice: '',
+	foilingSheetPrice: '',
+	points: ['']
 })
 const singleDoubleIndex = computed(() => Math.max(0, singleDoubleOptions.findIndex(item => String(item.value) === String(craftForm.singleDouble))))
 const singleDoubleText = computed(() => singleDoubleOptions.find(item => String(item.value) === String(craftForm.singleDouble))?.label || '')
@@ -392,13 +436,131 @@ const formulaValue = (formula = '') => {
 		return null
 	}
 }
+const stripOuterParentheses = (text = '') => {
+	let value = String(text || '').trim()
+	let changed = true
+	while (changed && value.startsWith('(') && value.endsWith(')')) {
+		changed = false
+		let depth = 0
+		let wraps = true
+		for (let index = 0; index < value.length; index += 1) {
+			const char = value[index]
+			if (char === '(') depth += 1
+			if (char === ')') depth -= 1
+			if (depth === 0 && index < value.length - 1) {
+				wraps = false
+				break
+			}
+			if (depth < 0) {
+				wraps = false
+				break
+			}
+		}
+		if (wraps) {
+			value = value.slice(1, -1).trim()
+			changed = true
+		}
+	}
+	return value
+}
+const splitFoilingFormulaPoints = (formula = '') => {
+	const text = stripOuterParentheses(formula)
+	if (!text) return []
+	const points = []
+	let depth = 0
+	let start = 0
+	for (let index = 0; index < text.length; index += 1) {
+		const char = text[index]
+		if (char === '(') depth += 1
+		if (char === ')') depth -= 1
+		if (char === '+' && depth === 0) {
+			points.push(stripOuterParentheses(text.slice(start, index)))
+			start = index + 1
+		}
+	}
+	points.push(stripOuterParentheses(text.slice(start)))
+	return points.map(item => item.trim()).filter(Boolean)
+}
+const normalizeFoilingPointList = (value, formula = '') => {
+	let points = []
+	if (Array.isArray(value)) {
+		points = value.map(item => String((item?.formula ?? item?.value ?? item) || '').trim()).filter(Boolean)
+	} else if (typeof value === 'string' && value.trim()) {
+		try {
+			const parsed = JSON.parse(value)
+			points = Array.isArray(parsed)
+				? parsed.map(item => String((item?.formula ?? item?.value ?? item) || '').trim()).filter(Boolean)
+				: []
+		} catch (e) {
+			points = splitFoilingFormulaPoints(value)
+		}
+	}
+	if (!points.length) points = splitFoilingFormulaPoints(formula)
+	return points.map(item => ({ formula: item }))
+}
+const formatFoilingFormula = (points = []) => {
+	const formulas = normalizeFoilingPointList(points).map(item => item.formula).filter(Boolean)
+	if (!formulas.length) return ''
+	return `(${formulas.map(item => `(${item})`).join(' + ')})`
+}
+const hasFoilingStartingPrice = (craft = {}) =>
+	Number(craft.foilingPointPrice || 0) > 0
+	|| Number(craft.foilingSheetPrice || 0) > 0
+	|| Number(craft.foilingStartingPrice || 0) > 0
+const hasExplicitFoilingPointList = (craft = {}) =>
+	(Array.isArray(craft.foilingPointList) && craft.foilingPointList.length > 0)
+	|| (typeof craft.foilingPointList === 'string' && craft.foilingPointList.trim())
+const isFoilingCraft = (craft = {}) =>
+	hasFoilingStartingPrice(craft)
+	|| hasExplicitFoilingPointList(craft)
+const syncFoilingFormula = craft => {
+	if (!isFoilingCraft(craft)) return
+	craft.foilingPointList = normalizeFoilingPointList(craft.foilingPointList, craft.formula)
+	craft.formula = formatFoilingFormula(craft.foilingPointList)
+}
+const openFoilingPointDialog = () => {
+	const points = normalizeFoilingPointList(craftForm.foilingPointList, craftForm.formula)
+	foilingPointForm.foilingPointPrice = craftForm.foilingPointPrice ?? craftForm.foilingStartingPrice ?? ''
+	foilingPointForm.foilingSheetPrice = craftForm.foilingSheetPrice ?? craftForm.foilingStartingPrice ?? ''
+	foilingPointForm.points = points.length ? points.map(item => item.formula) : ['']
+	showFoilingPointDialog.value = true
+}
+const closeFoilingPointDialog = () => {
+	showFoilingPointDialog.value = false
+}
+const addFoilingPoint = () => {
+	foilingPointForm.points.push('')
+}
+const removeFoilingPoint = index => {
+	if (foilingPointForm.points.length <= 1) {
+		foilingPointForm.points = ['']
+		return
+	}
+	foilingPointForm.points.splice(index, 1)
+}
+const saveFoilingPointDialog = () => {
+	const points = foilingPointForm.points.map(item => String(item || '').trim()).filter(Boolean)
+	if (!points.length) {
+		uni.showToast({ title: '请填写烫金点位', icon: 'none' })
+		return
+	}
+	if (points.some(item => formulaValue(item) === null)) {
+		uni.showToast({ title: '点位只能填写数字、括号和四则运算符', icon: 'none' })
+		return
+	}
+	craftForm.foilingPointPrice = foilingPointForm.foilingPointPrice === '' ? null : Number(foilingPointForm.foilingPointPrice)
+	craftForm.foilingSheetPrice = foilingPointForm.foilingSheetPrice === '' ? null : Number(foilingPointForm.foilingSheetPrice)
+	craftForm.foilingPointList = points.map(item => ({ formula: item }))
+	craftForm.formula = formatFoilingFormula(craftForm.foilingPointList)
+	showFoilingPointDialog.value = false
+}
 const computedCraftCustomerAmount = (craft = {}) => {
 	const rawFinishNum = Number(zeroIfEmpty(craft.finishNum ?? craft.orderQuantity))
 	if (!rawFinishNum) return 0
 	const type = Number(craft.singleDouble || 1)
 	let finishNum = rawFinishNum
 	let price = Number(zeroIfEmpty(craft.price ?? craft.unitPrice))
-	let startPrice = Number(zeroIfEmpty(craft.startPrice ?? craft.priceBase ?? craft.basePrice))
+	let startPrice = Number(zeroIfEmpty(craft.startPrice ?? craft.basePrice))
 	const priceBase = Number(zeroIfEmpty(craft.priceBase))
 	if (type === 2 || type === 3) {
 		finishNum *= 2
@@ -406,6 +568,19 @@ const computedCraftCustomerAmount = (craft = {}) => {
 	if (type === 4) {
 		price *= 2
 		startPrice *= 2
+	}
+	if (isFoilingCraft(craft)) {
+		const points = normalizeFoilingPointList(craft.foilingPointList, craft.formula)
+		if (points.length) {
+			const pointStartPrice = Number(zeroIfEmpty(craft.foilingPointPrice ?? craft.foilingStartingPrice))
+			const sheetStartPrice = Number(zeroIfEmpty(craft.foilingSheetPrice ?? craft.foilingStartingPrice))
+			const pointTotal = points.reduce((sum, point) => {
+				const pointValue = formulaValue(point.formula)
+				if (pointValue === null) return sum
+				return sum + Math.max(pointValue * price, pointStartPrice)
+			}, 0)
+			return toFixed4Number(Math.max(pointTotal, sheetStartPrice) * finishNum)
+		}
 	}
 	const formula = formulaValue(craft.formula)
 	if (formula !== null) {
@@ -431,18 +606,31 @@ const productCraftAmount = product => crafts.value
 const productFormAmountText = computed(() => '自动计算')
 const craftFormCustomerMoney = computed(() => computedCraftCustomerAmount(craftForm))
 const craftFormCustomerMoneyText = computed(() => craftFormCustomerMoney.value ? craftFormCustomerMoney.value : '自动计算')
+const showPickerSearch = computed(() => ['client', 'craft'].includes(pickerType.value))
+const pickerSearchPlaceholder = computed(() => {
+	if (pickerType.value === 'craft') return '请输入工艺名称、规格、单位'
+	return '请输入单位名称、联系人、电话'
+})
 const filteredPickerOptions = computed(() => {
-	if (pickerType.value !== 'client') return pickerOptions.value
+	if (!showPickerSearch.value) return pickerOptions.value
 	const keyword = pickerSearchKeyword.value.trim().toLowerCase()
 	if (!keyword) return pickerOptions.value
 	return pickerOptions.value.filter(item => {
+		const value = item.value || {}
 		const text = [
 			item.label,
 			item.subLabel,
-			item.value?.companyName,
-			item.value?.name,
-			item.value?.linkman,
-			item.value?.phone
+			value.companyName,
+			value.name,
+			value.craftName,
+			value.linkman,
+			value.phone,
+			value.unit,
+			value.spec,
+			value.specification,
+			value.formatSize,
+			value.openNum,
+			value.remark
 		].filter(Boolean).join(' ').toLowerCase()
 		return text.includes(keyword)
 	})
@@ -532,7 +720,7 @@ const handleSalesChange = event => {
 
 const handleSingleDoubleChange = event => {
 	const item = singleDoubleOptions[Number(event.detail.value)]
-	craftForm.singleDouble = item?.value || 1
+	craftForm.singleDouble = item?.value || ''
 }
 
 const fillClientForm = client => {
@@ -648,7 +836,7 @@ const openCraftPicker = async () => {
 			key: item.id,
 			value: item,
 			label: item.name || item.craftName || '-',
-			subLabel: [item.unit ? `单位：${item.unit}` : '', item.priceBase ? `起价：${item.priceBase}` : ''].filter(Boolean).join('  ')
+			subLabel: [item.unit ? `单位：${item.unit}` : '', item.priceBase ? `起价基数：${item.priceBase}` : ''].filter(Boolean).join('  ')
 		})))
 	} catch (e) {
 		openPicker('craft', '选择工艺名称', [])
@@ -684,18 +872,40 @@ const selectPickerItem = item => {
 	}
 	if (pickerType.value === 'craft') {
 		const craft = item.value || {}
+		craftForm.specification = ''
+		craftForm.openNum = ''
+		craftForm.numberPerBoard = ''
+		craftForm.singleDouble = ''
+		craftForm.spotColors = ''
+		craftForm.colour = ''
+		craftForm.startPrice = ''
+		craftForm.priceBase = ''
+		craftForm.foilingStartingPrice = null
+		craftForm.foilingPointPrice = null
+		craftForm.foilingSheetPrice = null
+		craftForm.foilingPointList = []
+		craftForm.unit = ''
+		craftForm.unitPrice = ''
+		craftForm.formula = ''
 		craftForm.craftId = craft.id
 		craftForm.name = craft.name || craft.craftName || ''
 		craftForm.specification = craft.spec || craft.specification || craftForm.specification || ''
-		craftForm.priceBase = zeroIfEmpty(craft.startPrice ?? craft.priceBase ?? craft.basePrice ?? craft.startingPrice)
+		craftForm.startPrice = zeroIfEmpty(craft.startPrice ?? craft.basePrice ?? craft.startingPrice ?? '')
+		craftForm.priceBase = zeroIfEmpty(craft.priceBase ?? '')
 		craftForm.foilingStartingPrice = craft.foilingStartingPrice ?? craft.foilStartingPrice ?? craft.gildingStartingPrice ?? null
+		craftForm.foilingPointPrice = craft.foilingPointPrice ?? craft.foilPointPrice ?? craft.pointStartPrice ?? craftForm.foilingStartingPrice
+		craftForm.foilingSheetPrice = craft.foilingSheetPrice ?? craft.foilSheetPrice ?? craft.sheetStartPrice ?? craftForm.foilingStartingPrice
 		craftForm.unit = craft.unit || craftForm.unit || ''
 		craftForm.openNum = craft.openNum ?? craft.openCount ?? craft.formatSize ?? craftForm.openNum
 		craftForm.numberPerBoard = craft.numberPerBoard ?? craft.numberPerEdition ?? craftForm.numberPerBoard
-		craftForm.singleDouble = craft.singleDouble ?? craftForm.singleDouble ?? 1
+		craftForm.singleDouble = ''
 		craftForm.spotColors = craft.spotColors ?? craftForm.spotColors
 		craftForm.colour = craft.colour ?? craft.color ?? craftForm.colour
 		craftForm.formula = craft.formula ?? craftForm.formula
+		craftForm.foilingPointList = isFoilingCraft(craftForm)
+			? normalizeFoilingPointList(craft.foilingPointList ?? craft.foilingPoints, craftForm.formula)
+			: []
+		if (isFoilingCraft(craftForm)) syncFoilingFormula(craftForm)
 		craftForm.unitPrice = zeroIfEmpty(craft.price ?? craft.unitPrice ?? craftForm.unitPrice)
 	}
 	closePicker()
@@ -707,7 +917,17 @@ const addCraft = () => {
 
 const saveCraft = () => {
 	const product = products.value.find(item => item.localId === craftForm.productLocalId) || products.value[0]
-	if (craftForm.formula && formulaValue(craftForm.formula) === null) {
+	if (isFoilingCraft(craftForm)) {
+		syncFoilingFormula(craftForm)
+		if (!craftForm.foilingPointList.length) {
+			uni.showToast({ title: '请填写烫金点位', icon: 'none' })
+			return
+		}
+		if (craftForm.foilingPointList.some(item => formulaValue(item.formula) === null)) {
+			uni.showToast({ title: '烫金点位只能填写数字、括号和四则运算符', icon: 'none' })
+			return
+		}
+	} else if (craftForm.formula && formulaValue(craftForm.formula) === null) {
 		uni.showToast({ title: '公式只能填写数字、括号和四则运算符', icon: 'none' })
 		return
 	}
@@ -720,12 +940,15 @@ const saveCraft = () => {
 		specification: craftForm.specification,
 		openNum: craftForm.openNum || '',
 		numberPerBoard: craftForm.numberPerBoard || '',
-		singleDouble: craftForm.singleDouble || 1,
+		singleDouble: craftForm.singleDouble || '',
 		spotColors: craftForm.spotColors || '',
 		colour: craftForm.colour || '',
 		priceBase: Number(craftForm.priceBase || 0),
-		startPrice: Number(craftForm.priceBase || 0),
+		startPrice: Number(craftForm.startPrice || 0),
 		foilingStartingPrice: craftForm.foilingStartingPrice,
+		foilingPointPrice: craftForm.foilingPointPrice,
+		foilingSheetPrice: craftForm.foilingSheetPrice,
+		foilingPointList: isFoilingCraft(craftForm) ? normalizeFoilingPointList(craftForm.foilingPointList, craftForm.formula) : [],
 		unit: craftForm.unit || '',
 		orderQuantity: Number(craftForm.orderQuantity || 0),
 		finishNum: Number(craftForm.orderQuantity || 0),
@@ -748,11 +971,15 @@ const resetCraft = () => {
 	craftForm.specification = ''
 	craftForm.openNum = ''
 	craftForm.numberPerBoard = ''
-	craftForm.singleDouble = 1
+	craftForm.singleDouble = ''
 	craftForm.spotColors = ''
 	craftForm.colour = ''
+	craftForm.startPrice = ''
 	craftForm.priceBase = ''
 	craftForm.foilingStartingPrice = null
+	craftForm.foilingPointPrice = null
+	craftForm.foilingSheetPrice = null
+	craftForm.foilingPointList = []
 	craftForm.unit = ''
 	craftForm.orderQuantity = ''
 	craftForm.unitPrice = ''
@@ -792,17 +1019,24 @@ const buildCraftPayload = craft => ({
 	productName: craft.productName,
 	unit: craft.unit,
 	priceBase: Number(craft.priceBase || 0),
-	startPrice: Number(craft.startPrice ?? craft.priceBase ?? 0),
+	startPrice: Number(craft.startPrice ?? 0),
 	formatSize: craft.openNum ?? craft.formatSize ?? '',
 	openNum: craft.openNum ?? craft.formatSize ?? '',
 	numberPerBoard: craft.numberPerBoard ?? '',
-	singleDouble: craft.singleDouble || 1,
+	singleDouble: craft.singleDouble || undefined,
 	spotColors: craft.spotColors || '',
 	colour: craft.colour || '',
 	formula: craft.formula || '',
 	foilingStartingPrice: craft.foilingStartingPrice === '' || craft.foilingStartingPrice === undefined
 		? null
 		: craft.foilingStartingPrice,
+	foilingPointPrice: craft.foilingPointPrice === '' || craft.foilingPointPrice === undefined
+		? null
+		: craft.foilingPointPrice,
+	foilingSheetPrice: craft.foilingSheetPrice === '' || craft.foilingSheetPrice === undefined
+		? null
+		: craft.foilingSheetPrice,
+	foilingPointList: isFoilingCraft(craft) ? normalizeFoilingPointList(craft.foilingPointList, craft.formula) : [],
 	name: craft.name,
 	craftName: craft.name,
 	orderQuantity: Number(craft.orderQuantity || 0),
@@ -1090,6 +1324,22 @@ const goBack = () => {
 		color: #999;
 		font-size: 28rpx;
 	}
+	.formula-value{
+		flex: 1;
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 18rpx;
+		min-width: 0;
+		input{
+			flex: 1;
+		}
+	}
+	.point-link{
+		flex: 0 0 auto;
+		color: #1f7cff;
+		font-size: 27rpx;
+	}
 	.radio-group{
 		display: flex;
 		align-items: center;
@@ -1232,15 +1482,15 @@ picker{
 	line-height: 1;
 }
 .picker-search{
-	padding: 20rpx 32rpx;
+	padding: 18rpx 32rpx;
 	border-bottom: 1rpx solid #eeeeee;
 	input{
 		width: 100%;
-		height: 72rpx;
-		padding: 0 22rpx;
-		border: 1rpx solid #d8d8d8;
-		border-radius: 8rpx;
-		background: #fff;
+		height: 70rpx;
+		padding: 0 26rpx;
+		border: 0;
+		border-radius: 35rpx;
+		background: #f5f6f8;
 		color: #222;
 		font-size: 28rpx;
 		box-sizing: border-box;
@@ -1293,6 +1543,70 @@ picker{
 	border-radius: 18rpx;
 	background: #fff;
 	overflow: hidden;
+}
+.foiling-dialog{
+	width: 100%;
+	max-width: 360px;
+	border-radius: 18rpx;
+	background: #fff;
+	overflow: hidden;
+	padding-bottom: 28rpx;
+}
+.foiling-price-grid{
+	padding: 0 28rpx;
+}
+.foiling-point-head{
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 28rpx 28rpx 12rpx;
+	color: #333;
+	font-size: 28rpx;
+	font-weight: 600;
+	.point-link{
+		color: #1f7cff;
+		font-size: 27rpx;
+	}
+}
+.foiling-point-row{
+	display: flex;
+	align-items: center;
+	gap: 18rpx;
+	padding: 12rpx 28rpx;
+	input{
+		flex: 1;
+		height: 72rpx;
+		padding: 0 20rpx;
+		border-radius: 8rpx;
+		background: #f5f6f8;
+		color: #222;
+		font-size: 28rpx;
+		box-sizing: border-box;
+	}
+	.remove-point{
+		color: #ff4d4f;
+		font-size: 27rpx;
+	}
+}
+.dialog-actions{
+	display: flex;
+	gap: 20rpx;
+	padding: 22rpx 28rpx 0;
+	button{
+		flex: 1;
+		height: 76rpx;
+		border-radius: 8rpx;
+		font-size: 28rpx;
+		line-height: 76rpx;
+	}
+	.ghost{
+		background: #f2f3f5;
+		color: #606266;
+	}
+	.save{
+		background: #1f7cff;
+		color: #fff;
+	}
 }
 .dialog-head{
 	display: flex;

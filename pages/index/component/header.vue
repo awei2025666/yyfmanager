@@ -39,11 +39,16 @@
 					手工记录
 				</view>
 			</view>
-			<view class="item" @click="toPage('/pages/deliveryPending/index')">
-				<image src="/static/home/nosent.png"></image>
+			<view class="item" @click="scanTo('deliveryBinding')">
+				<view class="quick-icon scan-icon">
+					<view class="corner lt"></view>
+					<view class="corner rt"></view>
+					<view class="corner lb"></view>
+					<view class="corner rb"></view>
+				</view>
 				<view v-if="toBeDeliveredNum" class="badge">{{ toBeDeliveredNum }}</view>
 				<view class="desc">
-					待配送
+					配送绑定
 				</view>
 			</view>
 			<view class="item" @click="toPage('/pages/deliveryTransit/index')">
@@ -120,7 +125,12 @@ const openScannedPage = (type, result) => {
 		uni.showToast({ title: '未识别到订单信息', icon: 'none' })
 		return
 	}
-	const page = type === 'production' ? '/pages/production/index' : '/pages/handRecord/index'
+	const pageMap = {
+		production: '/pages/production/index',
+		handRecord: '/pages/handRecord/index',
+		deliveryBinding: '/pages/deliveryPending/index'
+	}
+	const page = pageMap[type] || '/pages/handRecord/index'
 	uni.navigateTo({
 		url: `${page}?id=${encodeURIComponent(orderId)}`
 	})

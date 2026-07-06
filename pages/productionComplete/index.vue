@@ -25,6 +25,21 @@
 			</view>
 			<view class="divider-line"></view>
 
+			<view class="form-row">
+				<text class="label">是否过油</text>
+				<radio-group class="fry-radio-group" @change="changeFry">
+					<label class="fry-radio">
+						<radio value="1" :checked="form.fry === 1" color="#1f7cff" />
+						<text>是</text>
+					</label>
+					<label class="fry-radio">
+						<radio value="0" :checked="form.fry === 0" color="#1f7cff" />
+						<text>否</text>
+					</label>
+				</radio-group>
+			</view>
+			<view class="divider-line"></view>
+
 			<view class="field-block">
 				<text class="label">备注</text>
 				<textarea v-model="form.completeRemark" class="remark" placeholder="请输入" placeholder-class="placeholder" />
@@ -118,6 +133,7 @@ const form = ref({
 	machineId: '',
 	machineName: '',
 	num: '',
+	fry: 0,
 	completeRemark: '',
 	completeImgRemark: ''
 })
@@ -146,6 +162,10 @@ const chooseImage = () => {
 
 const removeImage = index => {
 	images.value.splice(index, 1)
+}
+
+const changeFry = e => {
+	form.value.fry = Number(e.detail.value)
 }
 
 const getUploadFileId = result => {
@@ -250,6 +270,7 @@ const submit = async () => {
 			orderId: orderId.value,
 			machineId: form.value.machineId,
 			num: Number(form.value.num),
+			fry: form.value.fry,
 			completeRemark: form.value.completeRemark,
 			completeImgRemark: fileId || form.value.completeImgRemark,
 			fileId,
@@ -412,6 +433,21 @@ onLoad(options => {
 	color: #333;
 	font-size: 28rpx;
 	text-align: right;
+}
+.fry-radio-group{
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 42rpx;
+	flex: 1;
+}
+.fry-radio{
+	display: flex;
+	align-items: center;
+	gap: 10rpx;
+	color: #333;
+	font-size: 28rpx;
+	line-height: 40rpx;
 }
 .divider-line{
 	height: 1rpx;
