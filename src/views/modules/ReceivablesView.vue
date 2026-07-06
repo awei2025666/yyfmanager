@@ -10,7 +10,8 @@ import {
   getTenantReceivableClientList,
   getTenantReceivableClientTotal,
   getTenantReceivableOrderList,
-  getTenantReceivableOrderTotal
+  getTenantReceivableOrderTotal,
+  searchTenantClients
 } from '../../api/tenant'
 
 const props = defineProps({
@@ -51,6 +52,7 @@ const state = reactive({
   exporting: false,
   detailLoading: false,
   craftLoading: false,
+  clientLoading: false,
   total: 0,
   detailTotal: 0
 })
@@ -63,6 +65,8 @@ const totals = reactive({
 })
 
 const rows = ref([])
+const allClientOptions = ref([])
+const clientOptions = ref([])
 const detailRows = ref([])
 const currentUnit = ref(null)
 const detailVisible = ref(false)
@@ -229,6 +233,51 @@ const detailQuery = () => ({
   cooperativeClientId: currentUnit.value?.cooperativeClientId,
   orderNo: detailFilters.orderNo || undefined
 })
+
+const normalizeClientOptions = (data) =>
+  listRows(data)
+    .map((item) => ({
+      ...item,
+      id: item.id || item.cooperativeClientId || item.clientId || item.companyName,
+      companyName: item.companyName || item.name || '',
+      companyNamePinyin: item.companyNamePinyin || item.pinyin || ''
+    }))
+    .filter((item) => item.id && item.companyName)
+
+const clientMatchesKeyword = (client = {}, keyword = '') => {
+  const text = String(keyword || '').trim().toLowerCase()
+  if (!text) return true
+  return [client.companyName, client.companyNamePinyin]
+    .some((value) => String(value || '').toLowerCase().includes(text))
+}
+
+const filterClientOptions = (companyName = '') => {
+  clientOptions.value = allClientOptions.value
+    .filter((item) => clientMatchesKeyword(item, companyName))
+    .slice(0, 50)
+}
+
+const loadClients = async () => {
+  state.clientLoading = true
+  try {
+    const data = await searchTenantClients({ companyName: '' })
+    allClientOptions.value = normalizeClientOptions(data)
+    filterClientOptions()
+  } catch (error) {
+    ElMessage.error(error?.message || '单位列表加载失败')
+  } finally {
+    state.clientLoading = false
+  }
+}
+
+const handleClientDropdownVisible = (visible) => {
+  if (!visible) return
+  if (!allClientOptions.value.length) {
+    loadClients()
+  } else {
+    filterClientOptions()
+  }
+}
 
 const applyTotals = (data = {}) => {
   totals.billMoney = pickNumber(data, ['billMoneyTotal', 'billMoney', 'totalMoney', 'orderMoneyTotal', 'amount'])
@@ -397,7 +446,10 @@ const resetDetail = () => {
 
 watch(activeTab, reloadPage)
 
-onMounted(reloadPage)
+onMounted(() => {
+  loadClients()
+  reloadPage()
+})
 </script>
 
 <template>
@@ -413,7 +465,24 @@ onMounted(reloadPage)
           <el-input v-model="orderFilters.orderNo" clearable placeholder="请输入订单号" @keyup.enter="searchData" />
         </el-form-item>
         <el-form-item label="单位名称">
-          <el-input v-model="orderFilters.companyName" clearable placeholder="请输入单位名称" @keyup.enter="searchData" />
+          <el-select
+            v-model="orderFilters.companyName"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            placeholder="请输入单位名称"
+            :remote-method="filterClientOptions"
+            :loading="state.clientLoading"
+            @visible-change="handleClientDropdownVisible"
+          >
+            <el-option
+              v-for="item in clientOptions"
+              :key="item.id"
+              :label="item.companyName"
+              :value="item.companyName"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="填单员">
           <el-input v-model="orderFilters.fillUserName" clearable placeholder="请输入填单员" @keyup.enter="searchData" />
@@ -435,7 +504,24 @@ onMounted(reloadPage)
 
       <el-form v-else class="search-form search-form--units" :model="unitFilters" label-width="86px">
         <el-form-item label="单位名称">
-          <el-input v-model="unitFilters.companyName" clearable placeholder="请输入单位名称" @keyup.enter="searchData" />
+          <el-select
+            v-model="unitFilters.companyName"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            placeholder="请输入单位名称"
+            :remote-method="filterClientOptions"
+            :loading="state.clientLoading"
+            @visible-change="handleClientDropdownVisible"
+          >
+            <el-option
+              v-for="item in clientOptions"
+              :key="item.id"
+              :label="item.companyName"
+              :value="item.companyName"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="联系人">
           <el-input v-model="unitFilters.linkman" clearable placeholder="请输入联系人" @keyup.enter="searchData" />

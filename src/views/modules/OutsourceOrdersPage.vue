@@ -7,9 +7,11 @@ import {
   getTenantOrderConsumables,
   getTenantOrderHandKept,
   getTenantOrderOutsourceInfo,
-  getTenantOrderPrintUrl,
+  getTenantOrderPrintUrl, getTenantOrderPrintUrlInto,
   getTenantOutsourceIncomingOrders,
-  getTenantOutsourceOutgoingOrders
+  getTenantOutsourceOutgoingOrders,
+  getTenantOutsourceTenants, getTenantOutsourceTenantsAll,
+  searchTenantClients
 } from '../../api/tenant'
 
 const props = defineProps({
@@ -48,10 +50,16 @@ const filters = reactive({
 const state = reactive({
   loading: false,
   detailLoading: false,
+  clientLoading: false,
+  tenantLoading: false,
   total: 0
 })
 
 const rows = ref([])
+const allClientOptions = ref([])
+const clientOptions = ref([])
+const allTenantOptions = ref([])
+const tenantOptions = ref([])
 const activeMode = ref(props.mode)
 const detailVisible = ref(false)
 const detailCrafts = ref([])
@@ -165,6 +173,96 @@ const queryPayload = () => {
   return payload
 }
 
+const normalizeClientOptions = (data) =>
+  listRows(data)
+    .map((item) => ({
+      ...item,
+      id: item.id || item.cooperativeClientId || item.clientId || item.companyName,
+      companyName: item.companyName || item.name || '',
+      companyNamePinyin: item.companyNamePinyin || item.pinyin || ''
+    }))
+    .filter((item) => item.id && item.companyName)
+
+const clientMatchesKeyword = (client = {}, keyword = '') => {
+  const text = String(keyword || '').trim().toLowerCase()
+  if (!text) return true
+  return [client.companyName, client.companyNamePinyin]
+    .some((value) => String(value || '').toLowerCase().includes(text))
+}
+
+const filterClientOptions = (companyName = '') => {
+  clientOptions.value = allClientOptions.value
+    .filter((item) => clientMatchesKeyword(item, companyName))
+    .slice(0, 50)
+}
+
+const loadClients = async () => {
+  state.clientLoading = true
+  try {
+    const data = await searchTenantClients({ companyName: '' })
+    allClientOptions.value = normalizeClientOptions(data)
+    filterClientOptions()
+  } catch (error) {
+    ElMessage.error(error?.message || '单位列表加载失败')
+  } finally {
+    state.clientLoading = false
+  }
+}
+
+const handleClientDropdownVisible = (visible) => {
+  if (!visible) return
+  if (!allClientOptions.value.length) {
+    loadClients()
+  } else {
+    filterClientOptions()
+  }
+}
+
+const normalizeTenantOptions = (data) =>
+  listRows(data)
+    .map((item) => ({
+      ...item,
+      id: item.id || item.tenantId || item.tenantName,
+      tenantName: item.tenantName || item.name || '',
+      tenantNamePinyin: item.tenantNamePinyin || item.pinyin || ''
+    }))
+    .filter((item) => item.id && item.tenantName)
+
+const tenantMatchesKeyword = (tenant = {}, keyword = '') => {
+  const text = String(keyword || '').trim().toLowerCase()
+  if (!text) return true
+  return [tenant.tenantName, tenant.tenantNamePinyin]
+    .some((value) => String(value || '').toLowerCase().includes(text))
+}
+
+const filterTenantOptions = (tenantName = '') => {
+  tenantOptions.value = allTenantOptions.value
+    .filter((item) => tenantMatchesKeyword(item, tenantName))
+    .slice(0, 50)
+}
+
+const loadTenants = async () => {
+  state.tenantLoading = true
+  try {
+    const data = await getTenantOutsourceTenantsAll({ tenantName: '' })
+    allTenantOptions.value = normalizeTenantOptions(data)
+    filterTenantOptions()
+  } catch (error) {
+    ElMessage.error(error?.message || '外协单位列表加载失败')
+  } finally {
+    state.tenantLoading = false
+  }
+}
+
+const handleTenantDropdownVisible = (visible) => {
+  if (!visible) return
+  if (!allTenantOptions.value.length) {
+    loadTenants()
+  } else {
+    filterTenantOptions()
+  }
+}
+
 const loadData = async () => {
   state.loading = true
   try {
@@ -233,14 +331,18 @@ const openDetail = async (row) => {
 const printOrder = async (row) => {
   if (!row.id) return ElMessage.error('缺少订单ID，无法打印')
   try {
-    const url = await getTenantOrderPrintUrl(row.id)
+    const url = await getTenantOrderPrintUrlInto(row.id)
     if (url) window.open(url.url, '_blank')
   } catch (error) {
     ElMessage.error(error?.message || '打印地址获取失败')
   }
 }
 
-onMounted(loadData)
+onMounted(() => {
+  loadClients()
+  loadTenants()
+  loadData()
+})
 </script>
 
 <template>
@@ -255,11 +357,45 @@ onMounted(loadData)
         </button>
       </div>
       <el-form class="search-form" :model="filters" label-width="86px">
-        <el-form-item label="单位名称">
-          <el-input v-model="filters.customer" clearable placeholder="请输入单位名称" @keyup.enter="searchData" />
+        <el-form-item label="单位名称" v-if="activeMode === 'outgoing'">
+          <el-select
+            v-model="filters.customer"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            placeholder="请输入单位名称"
+            :remote-method="filterClientOptions"
+            :loading="state.clientLoading"
+            @visible-change="handleClientDropdownVisible"
+          >
+            <el-option
+              v-for="item in clientOptions"
+              :key="item.id"
+              :label="item.companyName"
+              :value="item.companyName"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item :label="supplierLabel">
-          <el-input v-model="filters.supplier" clearable :placeholder="`请输入${supplierLabel}`" @keyup.enter="searchData" />
+          <el-select
+            v-model="filters.supplier"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            :placeholder="`请输入${supplierLabel}`"
+            :remote-method="filterTenantOptions"
+            :loading="state.tenantLoading"
+            @visible-change="handleTenantDropdownVisible"
+          >
+            <el-option
+              v-for="item in tenantOptions"
+              :key="item.id"
+              :label="item.tenantName"
+              :value="item.tenantName"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="业务员">
           <el-input v-model="filters.sales" clearable placeholder="请输入业务员" @keyup.enter="searchData" />
@@ -294,12 +430,12 @@ onMounted(loadData)
       </div>
       <el-table v-loading="state.loading" :data="rows" border>
         <el-table-column prop="orderNo" label="订单号" min-width="130" />
-        <el-table-column prop="customer" label="单位名称" min-width="150" show-overflow-tooltip />
+        <el-table-column v-if="activeMode === 'outgoing'" prop="customer" label="单位名称" min-width="150" show-overflow-tooltip />
         <el-table-column prop="orderTime" label="订单时间" min-width="160" />
         <el-table-column prop="sales" label="业务员" min-width="100" />
         <el-table-column prop="supplier" :label="supplierLabel" min-width="140" show-overflow-tooltip />
         <el-table-column prop="productInfo" label="产品信息" min-width="170" show-overflow-tooltip />
-        <el-table-column label="订单金额" min-width="120">
+        <el-table-column v-if="activeMode === 'outgoing'" label="订单金额" min-width="120">
           <template #default="{ row }">{{ moneyText(row.amount) }}</template>
         </el-table-column>
         <el-table-column prop="status" label="订单状态" min-width="110" />
@@ -339,7 +475,6 @@ onMounted(loadData)
             <el-table-column prop="craftName" label="工艺名称" min-width="150" />
             <el-table-column prop="spec" label="规格" min-width="110" />
             <el-table-column prop="openNum" label="开数" min-width="110" />
-            <el-table-column prop="startPrice" label="起价" min-width="110" />
             <el-table-column prop="finishNum" label="成品数量" min-width="120" />
             <el-table-column prop="unit" label="单位" min-width="100" />
             <el-table-column label="工艺状态" min-width="110">
