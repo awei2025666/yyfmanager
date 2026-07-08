@@ -452,6 +452,11 @@ onMounted(() => {
             <span :class="orderSourceClass(row.orderSource)">{{ orderSourceText(row.orderSource) }}</span>
           </template>
         </el-table-column>
+        <el-table-column prop="outTenantName" label="外协单位" min-width="110" />
+        <el-table-column prop="outNum" label="外协数量" min-width="110" />
+        <el-table-column prop="outMoney" label="外协金额" min-width="110" />
+        <el-table-column prop="outRemark" label="外协备注" min-width="110" />
+
         <el-table-column prop="operator" label="操作员" min-width="100" />
         <el-table-column label="操作" width="170" fixed="right">
           <template #default="{ row }">

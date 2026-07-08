@@ -1863,10 +1863,10 @@ const outsourceOrder = (row) => {
 const rowActions = (row) => {
   if (row.status === 1) return ['审批', '编辑', '删除']
   if (row.status === 7) return ['重新申请', '删除']
-  if (row.status === 2) return ['详情', '差错单']
+  if (row.status === 2) return ['详情','编辑', '差错单']
   if (row.status === 8) return ['详情', '差错详情']
-  if (row.status === 6) return ['详情', '返单']
-  return ['详情']
+  if (row.status === 6) return ['详情', '返单','差错单']
+  return ['详情','差错单']
 }
 
 const handleAction = (row, action) => {
@@ -2009,7 +2009,12 @@ watch(
         <el-button link @click="resetFilters">重置筛选</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="rows" empty-text="当前筛选下暂无订单数据">
+      <el-table
+          v-loading="loading"
+          :data="rows"
+          empty-text="当前筛选下暂无订单数据"
+          :cell-style="({ row }) => row.status === 8 ? { color: 'red' } : {}"
+      >
         <el-table-column prop="orderId" label="订单号" min-width="150" />
         <el-table-column prop="companyName" label="单位名称" min-width="180" />
         <el-table-column prop="orderTime" label="订单时间" min-width="160" />
@@ -2057,7 +2062,7 @@ watch(
             </el-space>
           </template>
         </el-table-column>
-        <el-table-column label="配送单打印" min-width="110">
+        <el-table-column label="配送单打印" min-width="110" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" plain :icon="Printer" @click="printDelivery(row)">打印</el-button>
           </template>

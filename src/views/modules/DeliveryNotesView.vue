@@ -499,6 +499,24 @@ const removeRow = async (row) => {
     ElMessage.error(error?.message || '删除失败')
   }
 }
+const printDelivery = async (row) => {
+  const printId = row?.orderId
+  if (!printId) {
+    ElMessage.error('缺少ID，无法打印配送单')
+    return
+  }
+  try {
+    const result = await getTenantDeliveryPrintUrl(printId)
+    const url = typeof result === 'string' ? result : result?.url || result?.printUrl || result?.fileUrl
+    if (!url) {
+      ElMessage.error('配送单打印地址为空')
+      return
+    }
+    window.open(url, '_blank')
+  } catch (error) {
+    ElMessage.error(error?.message || '配送单打印地址获取失败')
+  }
+}
 onMounted(() => {
   loadData()
 })
@@ -559,7 +577,6 @@ onMounted(() => {
         </el-table-column>
         <el-table-column label="操作" width="190" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link :icon="Printer" @click="printRow(row)">打印</el-button>
             <el-button type="primary" link :icon="View" @click="openDetail(row)">详情</el-button>
 <!--            <el-button type="primary" link :icon="Edit" @click="openEdit(row)">编辑</el-button>-->
             <el-button type="primary" link @click="removeRow(row)">删除</el-button>
@@ -668,9 +685,14 @@ onMounted(() => {
               <span :class="deliveryStatusClass(row.status)">{{ row.status }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="90" fixed="right">
+          <el-table-column label="操作" width="110" fixed="right">
             <template #default="{ row }">
-              <el-button type="primary" link :icon="Edit" @click="openShippingEdit(row)">编辑</el-button>
+              <el-button type="primary" link :icon="Printer" @click="printDelivery(row)">打印配送单</el-button>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="110" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link :icon="Edit" @click="openShippingEdit(row)">编辑地址</el-button>
             </template>
           </el-table-column>
         </el-table>
