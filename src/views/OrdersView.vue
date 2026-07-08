@@ -90,7 +90,6 @@ const manualCompleteTarget = ref(null)
 const errorTarget = ref(null)
 const userOptions = ref([])
 const viewMode = ref(route.query.mode === 'detail' ? 'detail' : 'list')
-const currentStep = ref(1)
 const activeProductKey = ref('')
 const formMode = ref('create')
 const sourceOrderId = ref(null)
@@ -507,9 +506,6 @@ const selectOutsourceUnit = (row = {}) => {
   formState.outsourceSupplierId = row.memberId || row.id || ''
   formState.outsourceSupplierName = row.memberName || row.companyName || ''
   formState.outsourceSupplierContact = row.contact || row.linkman || ''
-  if (formState.outsourceSupplierId) {
-    currentStep.value = Math.max(currentStep.value, 2)
-  }
 }
 
 const selectExternalTenant = (row = {}) => {
@@ -517,9 +513,6 @@ const selectExternalTenant = (row = {}) => {
   formState.outsourceSupplierName = row.tenantName || ''
   formState.outsourceSupplierContact = row.userName || ''
   externalTenantVisible.value = false
-  if (formState.outsourceSupplierId) {
-    currentStep.value = Math.max(currentStep.value, 2)
-  }
 }
 
 const normalizeCraftOptions = (data) => {
@@ -744,13 +737,6 @@ const localCards = computed(() => [
   { label: '已完成', value: rows.value.filter((item) => item.status === 6).length },
   { label: '已驳回', value: rows.value.filter((item) => item.status === 7).length }
 ])
-const orderStepItems = computed(() => [
-  ...(formMode.value === 'outsource' ? [{ step: 1, label: '外协单位', done: currentStep.value > 1 }] : []),
-  { step: formMode.value === 'outsource' ? 2 : 1, label: '订单信息', done: currentStep.value > (formMode.value === 'outsource' ? 2 : 1) },
-  { step: formMode.value === 'outsource' ? 3 : 2, label: '产品工艺', done: false }
-])
-const maxOrderStep = computed(() => formMode.value === 'outsource' ? 3 : 2)
-const formContentStep = computed(() => formMode.value === 'outsource' ? currentStep.value - 1 : currentStep.value)
 const orderDialogTitle = computed(() => {
   if (formMode.value === 'outsource') return '转外协'
   return formState.id ? '编辑订单' : '添加订单'
@@ -1470,7 +1456,6 @@ const openAdd = () => {
   craftOptions.value = []
   lastCraftKeyword.value = null
   activeProductKey.value = ''
-  currentStep.value = 1
   orderFormVisible.value = true
 }
 
@@ -1501,7 +1486,6 @@ const openEdit = async (row) => {
   seedCraftOptions(formState.craftList)
   hydrateCraftNames(formState.craftList)
   activeProductKey.value = formState.productList[0] ? ensureProductRowKey(formState.productList[0]) : ''
-  currentStep.value = 1
   orderFormVisible.value = true
 }
 
@@ -1540,7 +1524,6 @@ const openOutsource = async (row) => {
   activeProductKey.value = formState.productList[0] ? ensureProductRowKey(formState.productList[0]) : ''
   outsourceFilters.memberId = ''
   outsourceFilters.memberName = ''
-  currentStep.value = 1
   orderFormVisible.value = true
   loadOutsourceUnits()
 }
@@ -1840,7 +1823,6 @@ const reapplyOrder = async (row) => {
   seedClientOption(record)
   craftOptions.value = []
   lastCraftKeyword.value = null
-  currentStep.value = 1
   orderFormVisible.value = true
 }
 
@@ -2095,28 +2077,9 @@ watch(
       :close-on-click-modal="false"
     >
       <section class="order-flow">
-      <PageBlock class="step-card">
-        <div
-          class="steps-line"
-          :class="{
-            'steps-line--two': orderStepItems.length === 2,
-            'steps-line--four': orderStepItems.length === 4
-          }"
-        >
-          <div
-            v-for="item in orderStepItems"
-            :key="item.step"
-            class="step-node"
-            :class="{ active: currentStep === item.step, done: item.done }"
-          >
-            <span>{{ item.done ? '✓' : item.step }}</span>
-            <strong>{{ item.label }}</strong>
-          </div>
-        </div>
-      </PageBlock>
-
       <PageBlock class="form-panel">
-        <template v-if="formMode === 'outsource' && currentStep === 1">
+        <div v-if="formMode === 'outsource'" class="order-form-section">
+          <h3>外协单位</h3>
           <div class="outsource-search">
             <label>
               <span>会员名称</span>
@@ -2150,8 +2113,8 @@ watch(
             <el-table-column prop="tenantName" label="会员名称" min-width="320" />
             <el-table-column prop="contact" label="联系人" min-width="240" />
           </el-table>
-        </template>
-        <template v-else-if="formContentStep === 1">
+        </div>
+        <div class="order-form-section">
           <h3>订单信息</h3>
           <div class="form-grid design-form-grid">
             <label class="full-span">
@@ -2212,8 +2175,8 @@ watch(
               <el-input v-model="formState.remark" type="textarea" :rows="4" placeholder="请输入备注" />
             </label>
           </div>
-        </template>
-        <template v-else-if="formContentStep === 2">
+        </div>
+        <div class="order-form-section">
           <div class="order-billing-section">
             <div class="billing-toolbar">
               <el-button type="primary" class="flow-add-button" @click="addProductRow">新增产品</el-button>
@@ -2406,16 +2369,14 @@ watch(
             </el-table-column>
           </el-table>
           </div>
-        </template>
+        </div>
       </PageBlock>
 
       <div class="sticky-total">
         <strong>订单合计：<span>{{ formatMoney4(formOrderTotal) }}</span></strong>
         <div>
           <el-button :disabled="saving" @click="orderFormVisible = false">取消</el-button>
-          <el-button v-if="currentStep > 1" type="primary" @click="currentStep -= 1">上一步</el-button>
-          <el-button v-if="currentStep < maxOrderStep" type="primary" @click="currentStep += 1">下一步</el-button>
-          <el-button v-else type="primary" :loading="saving" @click="saveOrder">保存</el-button>
+          <el-button type="primary" :loading="saving" @click="saveOrder">保存</el-button>
         </div>
       </div>
       </section>
