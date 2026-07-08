@@ -1,9 +1,13 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Printer, Refresh, Search, Switch, View } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Printer, Refresh, Search, Switch, View } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
 import {
+  addTenantExternalTenant,
+  deleteTenantExternalTenant,
+  editTenantExternalTenant,
+  getTenantExternalTenantList,
   getTenantProductCraftDetail,
   getTenantProductCraftList,
   getTenantProductCraftOutsourcePrintUrl,
@@ -29,6 +33,8 @@ const state = reactive({
   clientLoading: false,
   outsourceLoading: false,
   outsourceSaving: false,
+  externalTenantLoading: false,
+  externalTenantSaving: false,
   total: 0
 })
 
@@ -38,8 +44,12 @@ const clientOptions = ref([])
 const currentRow = ref(null)
 const detailVisible = ref(false)
 const outsourceVisible = ref(false)
+const externalTenantVisible = ref(false)
+const externalTenantFormVisible = ref(false)
 const activeDetailTab = ref('crafts')
 const outsourceOptions = ref([])
+const externalTenantRows = ref([])
+const externalTenantTotal = ref(0)
 const statistics = reactive({
   pending: 0,
   completed: 0,
@@ -47,6 +57,16 @@ const statistics = reactive({
 })
 const outsourceFilters = reactive({
   memberName: ''
+})
+const externalTenantFilters = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  tenantName: ''
+})
+const externalTenantForm = reactive({
+  id: '',
+  tenantName: '',
+  userName: ''
 })
 const outsourceForm = reactive({
   id: '',
@@ -139,6 +159,14 @@ const normalizeOutsourceOptions = (data) =>
     }))
     .filter((item) => item.memberId && item.tenantName)
 
+const normalizeExternalTenantRows = (data = {}) =>
+  listRows(data).map((item) => ({
+    ...item,
+    id: item.id || item.tenantId || item.memberId,
+    tenantName: item.tenantName || item.memberName || item.companyName || item.name || '',
+    userName: item.userName || item.linkman || item.contact || ''
+  }))
+
 const loadOutsourceUnits = async () => {
   state.outsourceLoading = true
   try {
@@ -149,6 +177,101 @@ const loadOutsourceUnits = async () => {
     ElMessage.error(error?.message || '外协单位加载失败')
   } finally {
     state.outsourceLoading = false
+  }
+}
+
+const loadExternalTenants = async () => {
+  state.externalTenantLoading = true
+  try {
+    const data = await getTenantExternalTenantList({
+      pageNum: externalTenantFilters.pageNum,
+      pageSize: externalTenantFilters.pageSize,
+      tenantName: externalTenantFilters.tenantName || undefined
+    })
+    const rows = normalizeExternalTenantRows(data)
+    externalTenantRows.value = rows
+    externalTenantTotal.value = listTotal(data, rows)
+  } catch (error) {
+    externalTenantRows.value = []
+    externalTenantTotal.value = 0
+    ElMessage.error(error?.message || '非本系统会员加载失败')
+  } finally {
+    state.externalTenantLoading = false
+  }
+}
+
+const openExternalTenantDialog = () => {
+  externalTenantVisible.value = true
+  externalTenantFilters.pageNum = 1
+  loadExternalTenants()
+}
+
+const searchExternalTenants = () => {
+  externalTenantFilters.pageNum = 1
+  loadExternalTenants()
+}
+
+const resetExternalTenantFilters = () => {
+  externalTenantFilters.pageNum = 1
+  externalTenantFilters.pageSize = 10
+  externalTenantFilters.tenantName = ''
+  loadExternalTenants()
+}
+
+const resetExternalTenantForm = () => {
+  externalTenantForm.id = ''
+  externalTenantForm.tenantName = ''
+  externalTenantForm.userName = ''
+}
+
+const openExternalTenantCreate = () => {
+  resetExternalTenantForm()
+  externalTenantFormVisible.value = true
+}
+
+const openExternalTenantEdit = (row = {}) => {
+  externalTenantForm.id = row.id || ''
+  externalTenantForm.tenantName = row.tenantName || ''
+  externalTenantForm.userName = row.userName || ''
+  externalTenantFormVisible.value = true
+}
+
+const saveExternalTenant = async () => {
+  if (!externalTenantForm.tenantName) return ElMessage.warning('请输入会员名称')
+  state.externalTenantSaving = true
+  try {
+    const payload = {
+      id: externalTenantForm.id || undefined,
+      tenantName: externalTenantForm.tenantName,
+      userName: externalTenantForm.userName
+    }
+    if (externalTenantForm.id) {
+      await editTenantExternalTenant(payload)
+    } else {
+      await addTenantExternalTenant(payload)
+    }
+    externalTenantFormVisible.value = false
+    ElMessage.success(externalTenantForm.id ? '编辑成功' : '新增成功')
+    loadExternalTenants()
+  } catch (error) {
+    ElMessage.error(error?.message || '保存失败')
+  } finally {
+    state.externalTenantSaving = false
+  }
+}
+
+const removeExternalTenant = async (row = {}) => {
+  try {
+    await ElMessageBox.confirm(`确认删除 ${row.tenantName || '该会员'} 吗？`, '删除确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await deleteTenantExternalTenant(row.id)
+    ElMessage.success('删除成功')
+    loadExternalTenants()
+  } catch (error) {
+    ElMessage.error(error?.message || '删除失败')
   }
 }
 
@@ -177,6 +300,13 @@ const selectOutsourceUnit = (row) => {
   outsourceForm.outTenantId = row.memberId
   outsourceForm.outTenantName = row.tenantName
   outsourceForm.outContact = row.contact || ''
+}
+
+const selectExternalTenant = (row = {}) => {
+  outsourceForm.outTenantId = row.id || ''
+  outsourceForm.outTenantName = row.tenantName || ''
+  outsourceForm.outContact = row.userName || ''
+  externalTenantVisible.value = false
 }
 
 const submitOutsource = async () => {
@@ -511,6 +641,9 @@ onMounted(() => {
             <strong>选择外协单位</strong>
             <span>{{ outsourceForm.outTenantName || '未选择' }}</span>
           </div>
+          <div class="outsource-switch">
+            <el-button type="danger" plain @click="openExternalTenantDialog">非本系统会员</el-button>
+          </div>
           <div class="outsource-search">
             <el-input
               v-model="outsourceFilters.memberName"
@@ -586,6 +719,71 @@ onMounted(() => {
       <template #footer>
         <el-button @click="outsourceVisible = false">取消</el-button>
         <el-button type="primary" :loading="state.outsourceSaving" @click="submitOutsource">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="externalTenantVisible"
+      title="非本系统会员"
+      width="860px"
+      class="external-tenant-dialog"
+      :close-on-click-modal="false"
+    >
+      <div class="external-tenant-panel">
+        <div class="external-tenant-toolbar">
+          <el-input
+            v-model="externalTenantFilters.tenantName"
+            clearable
+            placeholder="请输入会员名称"
+            @keyup.enter="searchExternalTenants"
+          />
+          <el-button type="primary" :icon="Search" @click="searchExternalTenants">查询</el-button>
+          <el-button :icon="Refresh" @click="resetExternalTenantFilters">重置</el-button>
+          <el-button type="primary" :icon="Plus" @click="openExternalTenantCreate">添加</el-button>
+        </div>
+        <el-table v-loading="state.externalTenantLoading" :data="externalTenantRows" border>
+          <el-table-column prop="tenantName" label="会员名称" min-width="220" show-overflow-tooltip />
+          <el-table-column prop="userName" label="联系人" min-width="180" show-overflow-tooltip />
+          <el-table-column label="操作" width="240" fixed="right">
+            <template #default="{ row }">
+              <el-button type="primary" link @click="selectExternalTenant(row)">选择</el-button>
+              <el-button type="primary" link @click="openExternalTenantEdit(row)">编辑</el-button>
+              <el-button type="danger" link @click="removeExternalTenant(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div class="pagination-wrap">
+          <el-pagination
+            v-model:current-page="externalTenantFilters.pageNum"
+            v-model:page-size="externalTenantFilters.pageSize"
+            background
+            layout="total, prev, pager, next, sizes"
+            :page-sizes="[10, 20, 30, 50]"
+            :total="externalTenantTotal"
+            @current-change="loadExternalTenants"
+            @size-change="searchExternalTenants"
+          />
+        </div>
+      </div>
+    </el-dialog>
+
+    <el-dialog
+      v-model="externalTenantFormVisible"
+      :title="externalTenantForm.id ? '编辑非本系统会员' : '新增非本系统会员'"
+      width="520px"
+      :close-on-click-modal="false"
+    >
+      <el-form class="external-tenant-form" :model="externalTenantForm" label-width="96px">
+        <el-form-item label="会员名称" required>
+          <el-input v-model="externalTenantForm.tenantName" placeholder="请输入会员名称" />
+        </el-form-item>
+        <el-form-item label="联系人">
+          <el-input v-model="externalTenantForm.userName" placeholder="请输入联系人" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="externalTenantFormVisible = false">取消</el-button>
+        <el-button type="primary" :loading="state.externalTenantSaving" @click="saveExternalTenant">保存</el-button>
       </template>
     </el-dialog>
 
@@ -770,12 +968,39 @@ onMounted(() => {
   margin-bottom: 12px;
 }
 
+.outsource-switch {
+  display: flex;
+  justify-content: flex-end;
+  margin: -6px 0 12px;
+}
+
 .outsource-form-card :deep(.el-input-number) {
   width: 100%;
 }
 
 .craft-outsource-dialog :deep(.el-dialog__body) {
   background: #f5f7fa;
+}
+
+.external-tenant-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.external-tenant-toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) repeat(3, auto);
+  gap: 12px;
+  align-items: center;
+}
+
+.external-tenant-toolbar :deep(.el-button) {
+  min-width: 88px;
+}
+
+.external-tenant-form :deep(.el-input) {
+  width: 100%;
 }
 
 .status-warning {
