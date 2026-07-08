@@ -179,7 +179,6 @@ onMounted(() => {
           </template>
           <el-button v-else-if="config.exportApi" :icon="Download" :loading="state.exporting" @click="exportData()">导出</el-button>
         </div>
-        <span v-if="config.summary" class="summary-text">{{ config.summary(rows) }}</span>
       </div>
       <el-table v-loading="state.loading" :data="rows" border>
         <el-table-column
