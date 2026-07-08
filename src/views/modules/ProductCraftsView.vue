@@ -5,6 +5,7 @@ import { Plus, Printer, Refresh, Search, Switch, View } from '@element-plus/icon
 import PageBlock from '../../components/PageBlock.vue'
 import {
   addTenantExternalTenant,
+  completeTenantOrderProduction,
   deleteTenantExternalTenant,
   editTenantExternalTenant,
   getTenantExternalTenantList,
@@ -14,7 +15,8 @@ import {
   getTenantProductCraftStatistics,
   getTenantOutsourceTenants,
   outsourceTenantProductCraft,
-  searchTenantClients
+  searchTenantClients,
+  uploadTenantFile
 } from '../../api/tenant'
 
 const filters = reactive({
@@ -43,6 +45,9 @@ const allClientOptions = ref([])
 const clientOptions = ref([])
 const currentRow = ref(null)
 const detailVisible = ref(false)
+const manualCompleteVisible = ref(false)
+const manualCompleteSaving = ref(false)
+const manualCompleteTarget = ref(null)
 const outsourceVisible = ref(false)
 const externalTenantVisible = ref(false)
 const externalTenantFormVisible = ref(false)
@@ -68,6 +73,11 @@ const externalTenantForm = reactive({
   tenantName: '',
   userName: ''
 })
+const manualCompleteForm = reactive({
+  completeRemark: '',
+  completeImgRemark: '',
+  completeImgRemarkUrl: ''
+})
 const outsourceForm = reactive({
   id: '',
   outTenantId: '',
@@ -86,6 +96,7 @@ const statusText = (value) => {
 const statusClass = (value) => (statusText(value) === '已生产' ? 'status-success' : 'status-warning')
 const orderSourceText = (value) => (Number(value) === 2 ? '外协' : '本厂')
 const orderSourceClass = (value) => (Number(value) === 2 ? 'source-outsourced' : 'source-local')
+const shouldShowManualComplete = (row = {}) => Number(row.manual) === 1 && Number(row.craftStatus) === 1
 
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
@@ -331,6 +342,47 @@ const submitOutsource = async () => {
   }
 }
 
+const openManualComplete = (row) => {
+  manualCompleteTarget.value = row
+  manualCompleteForm.completeRemark = ''
+  manualCompleteForm.completeImgRemark = ''
+  manualCompleteForm.completeImgRemarkUrl = ''
+  manualCompleteVisible.value = true
+}
+
+const uploadManualCompleteImage = async ({ file }) => {
+  try {
+    const data = await uploadTenantFile(file)
+    manualCompleteForm.completeImgRemark = data?.fileId || data?.id || data
+    manualCompleteForm.completeImgRemarkUrl = data?.url || data?.fileUrl || data?.path || URL.createObjectURL(file)
+  } catch (error) {
+    ElMessage.error(error?.message || '图片上传失败')
+  }
+}
+
+const confirmManualComplete = async () => {
+  const craftId = manualCompleteTarget.value?.id
+  if (!craftId) {
+    ElMessage.error('缺少工艺ID，无法手动完成')
+    return
+  }
+  manualCompleteSaving.value = true
+  try {
+    await completeTenantOrderProduction({
+      id: craftId,
+      completeRemark: manualCompleteForm.completeRemark || undefined,
+      completeImgRemark: manualCompleteForm.completeImgRemark || undefined
+    })
+    manualCompleteVisible.value = false
+    ElMessage.success('手动完成成功')
+    await Promise.all([loadData(), loadStatistics()])
+  } catch (error) {
+    ElMessage.error(error?.message || '手动完成失败')
+  } finally {
+    manualCompleteSaving.value = false
+  }
+}
+
 const normalizeRow = (row = {}) => ({
   ...row,
   id: row.id || row.productsCraftId,
@@ -343,6 +395,8 @@ const normalizeRow = (row = {}) => ({
   remark: row.remark || '',
   unitPrice: row.unitPrice ?? 0,
   amount: row.customerMoney ?? row.amount ?? 0,
+  craftStatus: row.craftStatus ?? row.status ?? 1,
+  manual: row.manual ?? 0,
   status: statusText(row.craftStatus ?? row.status),
   orderSource: row.orderSource ?? 1,
   operator: row.operator || row.createTenantUserName || ''
@@ -588,10 +642,13 @@ onMounted(() => {
         <el-table-column prop="outRemark" label="外协备注" min-width="110" />
 
         <el-table-column prop="operator" label="操作员" min-width="100" />
-        <el-table-column label="操作" width="170" fixed="right">
+        <el-table-column label="操作" width="230" fixed="right">
           <template #default="{ row }">
             <el-space wrap>
               <el-button type="primary" link :icon="View" @click="openDetail(row)">详情</el-button>
+              <el-button v-if="shouldShowManualComplete(row)" type="primary" link @click="openManualComplete(row)">
+                手动完成
+              </el-button>
               <el-button
                 v-if="Number(row.orderSource) !== 2"
                 type="warning"
@@ -784,6 +841,33 @@ onMounted(() => {
       <template #footer>
         <el-button @click="externalTenantFormVisible = false">取消</el-button>
         <el-button type="primary" :loading="state.externalTenantSaving" @click="saveExternalTenant">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="manualCompleteVisible" title="手动完成" width="620px" :close-on-click-modal="false">
+      <el-form label-position="top">
+        <el-form-item label="备注">
+          <el-input v-model="manualCompleteForm.completeRemark" type="textarea" :rows="4" placeholder="请输入备注" />
+        </el-form-item>
+        <el-form-item label="图片备注">
+          <div class="manual-complete-upload">
+            <el-upload action="#" accept="image/*" :show-file-list="false" :http-request="uploadManualCompleteImage">
+              <el-button :icon="Plus">上传图片</el-button>
+            </el-upload>
+            <el-image
+              v-if="manualCompleteForm.completeImgRemarkUrl"
+              class="manual-complete-image"
+              :src="manualCompleteForm.completeImgRemarkUrl"
+              :preview-src-list="[manualCompleteForm.completeImgRemarkUrl]"
+              fit="cover"
+              preview-teleported
+            />
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="manualCompleteVisible = false">取消</el-button>
+        <el-button type="primary" :loading="manualCompleteSaving" @click="confirmManualComplete">确定</el-button>
       </template>
     </el-dialog>
 
@@ -1001,6 +1085,18 @@ onMounted(() => {
 
 .external-tenant-form :deep(.el-input) {
   width: 100%;
+}
+
+.manual-complete-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.manual-complete-image {
+  width: 72px;
+  height: 72px;
+  border-radius: 6px;
 }
 
 .status-warning {

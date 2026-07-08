@@ -243,6 +243,20 @@ const fillClientInfo = (client = {}) => {
   formState.companyAddress = client.companyAddress || ''
 }
 
+const clientOptionId = (item = {}) =>
+  item.id ?? item.cooperativeClientId ?? item.clientId ?? item.customerId ?? item.companyId ?? item.unitId ?? item.companyName
+
+const clientOptionName = (item = {}) =>
+  item.companyName
+  || item.cooperativeClientName
+  || item.clientName
+  || item.customerName
+  || item.unitName
+  || item.tenantName
+  || item.memberName
+  || item.name
+  || ''
+
 const normalizeClientOptions = (data) => {
   const list = Array.isArray(data)
     ? data
@@ -252,8 +266,8 @@ const normalizeClientOptions = (data) => {
   const normalizedList = list
     .map((item) => ({
       ...item,
-      id: item.id || item.cooperativeClientId || item.clientId || item.companyName,
-      companyName: item.companyName || item.name || '',
+      id: clientOptionId(item),
+      companyName: clientOptionName(item),
       companyNamePinyin: item.companyNamePinyin || item.pinyin || ''
     }))
     .filter((item) => item.companyName)
@@ -311,9 +325,9 @@ const selectClient = (id) => {
 }
 
 const seedClientOption = (record = {}) => {
-  const companyName = record.companyName || ''
+  const companyName = clientOptionName(record)
   if (!companyName) return
-  const id = record.cooperativeClientId || companyName
+  const id = clientOptionId(record) || companyName
   formState.cooperativeClientId = id
   formState.companyName = companyName
   formState.linkman = record.linkman || ''
@@ -515,20 +529,36 @@ const selectExternalTenant = (row = {}) => {
   externalTenantVisible.value = false
 }
 
+const craftOptionId = (item = {}) =>
+  item.id ?? item.craftId ?? item.craftIdList ?? item.processId ?? item.technologyId ?? item.craftName ?? item.name
+
+const craftRowCraftId = (item = {}) =>
+  item.craftId ?? item.craftIdList ?? item.processId ?? item.technologyId ?? item.id
+
+const craftOptionName = (item = {}) =>
+  item.craftName
+  || item.name
+  || item.craft
+  || item.processName
+  || item.technologyName
+  || item.craftTitle
+  || item.craftTypeName
+  || ''
+
 const normalizeCraftOptions = (data) => {
   const list = Array.isArray(data) ? data : data?.records || data?.list || []
   return list.map((item) => ({
     ...item,
-    id: item.id ?? item.craftId ?? item.craftName ?? item.name,
-    craftName: item.craftName || item.name || item.craft || ''
+    id: craftOptionId(item),
+    craftName: craftOptionName(item)
   }))
 }
 
 const seedCraftOptions = (crafts = []) => {
   const current = Array.isArray(craftOptions.value) ? [...craftOptions.value] : []
   ;(crafts || []).forEach((item) => {
-    const id = item.craftId ?? item.craftIdList ?? item.id
-    const craftName = item.craftName || item.name || item.craft || ''
+    const id = craftRowCraftId(item)
+    const craftName = craftOptionName(item)
     if (id === '' || id === null || id === undefined || !craftName) return
     if (!current.some((option) => String(option.id) === String(id))) {
       current.push({ ...item, id, craftName })
@@ -539,7 +569,8 @@ const seedCraftOptions = (crafts = []) => {
 
 const hydrateCraftNames = (crafts = []) => {
   ;(crafts || []).forEach((item) => {
-    const option = craftOptions.value.find((craft) => String(craft.id) === String(item.craftId))
+    const id = craftRowCraftId(item)
+    const option = craftOptions.value.find((craft) => String(craft.id) === String(id))
     if (option?.craftName) item.craftName = option.craftName
   })
 }
@@ -629,7 +660,8 @@ const normalizeCraftRow = (item = {}, product = {}) => ({
     ...item,
     productId: item.productId || product.id || undefined,
     productName: item.productName || product.productName || product.name || item.productInfo || '',
-    craftName: item.craftName || item.name || '',
+    craftId: craftRowCraftId(item) || '',
+    craftName: craftOptionName(item),
     spec: item.spec || item.specification || '',
     openNum: item.openNum ?? item.formatSize ?? '',
     numberPerBoard: item.numberPerBoard ?? '',
@@ -967,6 +999,19 @@ const currentProductCraftRows = computed(() => {
   if (!orderFormVisible.value || !activeProductRow.value) return []
   return craftRows.value.filter((craft) => isCraftOfProduct(craft, activeProductRow.value))
 })
+const handleCraftTableWheel = (event) => {
+  const root = event.currentTarget
+  const scrollWrap = root?.querySelector('.el-scrollbar__wrap') || root?.querySelector('.el-table__body-wrapper')
+  if (!scrollWrap) return
+  const maxScrollLeft = scrollWrap.scrollWidth - scrollWrap.clientWidth
+  if (maxScrollLeft <= 0) return
+  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+  if (!delta) return
+  const nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, scrollWrap.scrollLeft + delta))
+  if (nextScrollLeft === scrollWrap.scrollLeft) return
+  event.preventDefault()
+  scrollWrap.scrollLeft = nextScrollLeft
+}
 const selectProductRow = (row = {}) => {
   activeProductKey.value = ensureProductRowKey(row)
 }
@@ -1048,12 +1093,12 @@ const craftRows = computed(() => {
 })
 const addCraftRow = () => {
   if (!savedProductOptions.value.length) {
-    ElMessage.warning('请先添加并保存产品信息')
+    ElMessage.warning('请先添加产品信息')
     return
   }
   const product = activeProductRow.value
-  if (!product || product._isEditing) {
-    ElMessage.warning('请先选择并保存产品')
+  if (!product) {
+    ElMessage.warning('请先选择产品')
     return
   }
   if (!Array.isArray(formState.craftList)) formState.craftList = []
@@ -1142,21 +1187,21 @@ const selectCraftName = async (row, id) => {
 const saveCraftRow = (row) => {
   if (!row.productName || !row.craftName) {
     ElMessage.warning('请选择产品名称和工艺名称')
-    return
+    return false
   }
   if (isFoilingCraft(row)) {
     syncFoilingFormula(row)
     if (!row.foilingPointList.length) {
       ElMessage.warning('请填写烫金点位')
-      return
+      return false
     }
     if (row.foilingPointList.some((item) => formulaValue(item.formula) === null)) {
       ElMessage.warning('烫金点位只能填写数字、括号和四则运算符')
-      return
+      return false
     }
   } else if (row.formula && formulaValue(row.formula) === null) {
     ElMessage.warning('公式只能填写数字、括号和四则运算符')
-    return
+    return false
   }
   row.startPrice = zeroIfEmpty(row.startPrice)
   row.priceBase = zeroIfEmpty(row.priceBase)
@@ -1167,6 +1212,7 @@ const saveCraftRow = (row) => {
   syncAllProductAmounts()
   row._isEditing = false
   row._isNew = false
+  return true
 }
 const cancelCraftRow = (row, index) => {
   if (row._isNew) {
@@ -1538,13 +1584,19 @@ const saveOrder = async () => {
     ElMessage.warning('请选择需要转外协的工艺')
     return
   }
-  if (formState.productList?.some((item) => item._isEditing)) {
-    ElMessage.warning('请先保存产品信息')
-    return
+  for (const product of formState.productList || []) {
+    if (!product.productName || !product.quantity) {
+      ElMessage.warning('请填写产品名称和订货数量')
+      return
+    }
+    product.quantity = Number(product.quantity)
+    ensureProductRowKey(product)
+    syncProductAmount(product)
+    product._isEditing = false
+    product._isNew = false
   }
-  if (formState.craftList?.some((item) => item._isEditing)) {
-    ElMessage.warning('请先保存工艺信息')
-    return
+  for (const craft of formState.craftList || []) {
+    if (!saveCraftRow(craft)) return
   }
   saving.value = true
   try {
@@ -2077,7 +2129,7 @@ watch(
       :close-on-click-modal="false"
     >
       <section class="order-flow">
-      <PageBlock class="form-panel">
+      <PageBlock class="form-panel order-edit-panel">
         <div v-if="formMode === 'outsource'" class="order-form-section">
           <h3>外协单位</h3>
           <div class="outsource-search">
@@ -2114,10 +2166,10 @@ watch(
             <el-table-column prop="contact" label="联系人" min-width="240" />
           </el-table>
         </div>
-        <div class="order-form-section">
+        <div class="order-form-section order-info-section">
           <h3>订单信息</h3>
-          <div class="form-grid design-form-grid">
-            <label class="full-span">
+          <div class="form-grid design-form-grid order-info-grid">
+            <label class="span-2">
               <span><em>*</em>单位名称</span>
               <el-select
                 v-model="formState.cooperativeClientId"
@@ -2147,7 +2199,7 @@ watch(
               <span><em>*</em>联系方式</span>
               <el-input v-model="formState.phone" placeholder="请输入联系方式" />
             </label>
-            <label class="full-span">
+            <label class="span-2">
               <span><em>*</em>送货地址</span>
               <el-input v-model="formState.companyAddress" placeholder="请输入送货地址" />
             </label>
@@ -2166,13 +2218,13 @@ watch(
                 <el-option v-for="item in deliveryTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </label>
-            <label class="full-span">
+            <label class="span-2">
               <span>印刷要求</span>
               <el-input v-model="formState.printingRequirements" placeholder="请输入印刷要求" />
             </label>
-            <label class="full-span">
+            <label class="span-2">
               <span>备注</span>
-              <el-input v-model="formState.remark" type="textarea" :rows="4" placeholder="请输入备注" />
+              <el-input v-model="formState.remark" type="textarea" :rows="2" placeholder="请输入备注" />
             </label>
           </div>
         </div>
@@ -2189,26 +2241,22 @@ watch(
           >
             <el-table-column prop="productName" label="产品名称" min-width="460">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.productName" placeholder="请输入产品名称" />
-                <span v-else>{{ row.productName || '' }}</span>
+                <el-input v-model="row.productName" placeholder="请输入产品名称" />
               </template>
             </el-table-column>
             <el-table-column prop="finishedSpec" label="成品规格" min-width="150">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.finishedSpec" placeholder="请输入成品规格" />
-                <span v-else>{{ row.finishedSpec || '' }}</span>
+                <el-input v-model="row.finishedSpec" placeholder="请输入成品规格" />
               </template>
             </el-table-column>
             <el-table-column prop="quantity" label="订货数量" min-width="150">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.quantity" placeholder="请输入数量" />
-                <span v-else>{{ row.quantity || '' }}</span>
+                <el-input v-model="row.quantity" placeholder="请输入数量" />
               </template>
             </el-table-column>
             <el-table-column prop="unit" label="单位" min-width="130">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.unit" placeholder="请输入单位" />
-                <span v-else>{{ row.unit || '' }}</span>
+                <el-input v-model="row.unit" placeholder="请输入单位" />
               </template>
             </el-table-column>
             <el-table-column prop="amount" label="金额" min-width="160">
@@ -2216,17 +2264,10 @@ watch(
                 <span>{{ formatMoney4(productCraftAmount(row)) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" min-width="150" fixed="right">
-              <template #default="{ row, $index }">
+            <el-table-column label="操作" min-width="90" fixed="right">
+              <template #default="{ $index }">
                 <div class="table-actions">
-                  <template v-if="row._isEditing">
-                    <button type="button" @click="saveProductRow(row)">保存</button>
-                    <button type="button" @click="cancelProductRow(row, $index)">取消</button>
-                  </template>
-                  <template v-else>
-                    <button type="button" @click="editProductRow(row)">编辑</button>
-                    <button type="button" @click="removeProductRow($index)">删除</button>
-                  </template>
+                  <button type="button" @click="removeProductRow($index)">删除</button>
                 </div>
               </template>
             </el-table-column>
@@ -2234,13 +2275,18 @@ watch(
           </div>
 
           <div class="order-billing-section order-billing-section--craft">
-            <div class="billing-toolbar">
+            <div class="billing-toolbar billing-toolbar--craft">
               <div class="billing-current-product">
                 当前产品：<strong>{{ activeProductRow?.productName || '请选择产品' }}</strong>
               </div>
-              <el-button type="primary" class="flow-add-button" :disabled="!activeProductRow || activeProductRow._isEditing" @click="addCraftRow">新增工艺</el-button>
+              <el-button type="primary" class="flow-add-button" :disabled="!activeProductRow" @click="addCraftRow">新增工艺</el-button>
             </div>
-          <el-table :data="currentProductCraftRows" class="design-table billing-craft-table" empty-text="当前产品暂无工艺">
+          <el-table
+            :data="currentProductCraftRows"
+            class="design-table billing-craft-table"
+            empty-text="当前产品暂无工艺"
+            @wheel="handleCraftTableWheel"
+          >
             <el-table-column v-if="formMode === 'outsource'" label="外协" width="70" fixed="left">
               <template #default="{ row }">
                 <el-checkbox v-model="row.outsourceChecked" />
@@ -2249,7 +2295,6 @@ watch(
             <el-table-column prop="craftName" label="工艺名称" min-width="150">
               <template #default="{ row }">
                 <el-select
-                  v-if="row._isEditing"
                   v-model="row.craftId"
                   filterable
                   remote
@@ -2268,78 +2313,66 @@ watch(
                     :value="item.id"
                   />
                 </el-select>
-                <span v-else>{{ row.craftName || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="spec" label="规格" min-width="120">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.spec" placeholder="请输入规格" />
-                <span v-else>{{ row.spec || '' }}</span>
+                <el-input v-model="row.spec" placeholder="请输入规格" />
               </template>
             </el-table-column>
             <el-table-column prop="openNum" label="开数" min-width="120">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.openNum" placeholder="请输入开数" />
-                <span v-else>{{ row.openNum || '' }}</span>
+                <el-input v-model="row.openNum" placeholder="请输入开数" />
               </template>
             </el-table-column>
             <el-table-column prop="numberPerBoard" label="每板个数" min-width="130">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.numberPerBoard" placeholder="请输入每板个数" />
-                <span v-else>{{ row.numberPerBoard || '' }}</span>
+                <el-input v-model="row.numberPerBoard" placeholder="请输入每板个数" />
               </template>
             </el-table-column>
             <el-table-column prop="singleDouble" label="单双面" min-width="160">
               <template #default="{ row }">
-                <el-select v-if="row._isEditing" v-model="row.singleDouble" placeholder="请选择单双面">
+                <el-select v-model="row.singleDouble" placeholder="请选择单双面">
                   <el-option v-for="item in singleDoubleOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
-                <span v-else>{{ singleDoubleText(row.singleDouble) }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="startPrice" label="起价" min-width="120">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.startPrice" placeholder="请输入起步价" />
-                <span v-else>{{ row.startPrice === '' || row.startPrice === undefined || row.startPrice === null ? '' : row.startPrice }}</span>
+                <el-input v-model="row.startPrice" placeholder="请输入起步价" />
               </template>
             </el-table-column>
             <el-table-column prop="spotColors" label="专色" min-width="120">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.spotColors" placeholder="请输入专色" />
-                <span v-else>{{ row.spotColors || '' }}</span>
+                <el-input v-model="row.spotColors" placeholder="请输入专色" />
               </template>
             </el-table-column>
             <el-table-column prop="colour" label="颜色" min-width="120">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.colour" placeholder="请输入颜色" />
-                <span v-else>{{ row.colour || '' }}</span>
+                <el-input v-model="row.colour" placeholder="请输入颜色" />
               </template>
             </el-table-column>
             <el-table-column prop="finishNum" label="成品数量" min-width="150">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.finishNum" placeholder="请输入成品数" />
-                <span v-else>{{ row.finishNum === '' || row.finishNum === undefined || row.finishNum === null ? '' : row.finishNum }}</span>
+                <el-input v-model="row.finishNum" placeholder="请输入成品数" />
               </template>
             </el-table-column>
             <el-table-column prop="unit" label="单位" min-width="120">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.unit" placeholder="请输入单位" />
-                <span v-else>{{ row.unit || '' }}</span>
+                <el-input v-model="row.unit" placeholder="请输入单位" />
               </template>
             </el-table-column>
             <el-table-column prop="price" label="单价" min-width="120">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.price" placeholder="请输入价格" />
-                <span v-else>{{ formatMoney(row.price) }}</span>
+                <el-input v-model="row.price" placeholder="请输入价格" />
               </template>
             </el-table-column>
             <el-table-column prop="formula" label="公式" min-width="240">
               <template #default="{ row }">
-                <div v-if="row._isEditing" class="formula-editor">
+                <div class="formula-editor">
                   <el-input v-model="row.formula" :disabled="isFoilingCraft(row)" placeholder="请输入公式" />
                   <el-button v-if="isFoilingCraft(row)" type="primary" link @click="openFoilingPointDialog(row)">+ 点位</el-button>
                 </div>
-                <span v-else>{{ row.formula || '' }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="customerAmount" label="客户金额" min-width="150">
@@ -2349,21 +2382,13 @@ watch(
             </el-table-column>
             <el-table-column prop="remark" label="备注" min-width="150">
               <template #default="{ row }">
-                <el-input v-if="row._isEditing" v-model="row.remark" placeholder="请输入备注" />
-                <span v-else>{{ row.remark || '' }}</span>
+                <el-input v-model="row.remark" placeholder="请输入备注" />
               </template>
             </el-table-column>
-            <el-table-column label="操作" min-width="120" fixed="right">
+            <el-table-column label="操作" min-width="90" fixed="right">
               <template #default="{ row, $index }">
                 <div class="table-actions">
-                  <template v-if="row._isEditing">
-                    <button type="button" @click="saveCraftRow(row)">保存</button>
-                    <button type="button" @click="cancelCraftRow(row, $index)">取消</button>
-                  </template>
-                  <template v-else>
-                    <button type="button" @click="editCraftRow(row)">编辑</button>
-                    <button type="button" @click="removeCraftRow(row, $index)">删除</button>
-                  </template>
+                  <button type="button" @click="removeCraftRow(row, $index)">删除</button>
                 </div>
               </template>
             </el-table-column>
@@ -3092,17 +3117,17 @@ watch(
 }
 
 :deep(.order-form-dialog.el-dialog) {
-  width: calc(100vw - 48px) !important;
-  max-width: calc(100vw - 48px) !important;
-  height: calc(100vh - 48px);
-  max-height: calc(100vh - 48px) !important;
+  width: calc(100vw - 24px) !important;
+  max-width: calc(100vw - 24px) !important;
+  height: calc(100vh - 32px);
+  max-height: calc(100vh - 32px) !important;
   display: flex;
   flex-direction: column;
 }
 
 :deep(.order-form-dialog .el-dialog__header),
 :deep(.order-detail-dialog .el-dialog__header) {
-  padding: 16px 20px 12px;
+  padding: 12px 18px 10px;
   margin: 0;
   border-bottom: 1px solid #ebeef5;
 }
@@ -3110,7 +3135,7 @@ watch(
 :deep(.order-form-dialog .el-dialog__title),
 :deep(.order-detail-dialog .el-dialog__title) {
   color: #303133;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -3126,12 +3151,13 @@ watch(
   flex: 1;
   max-height: none;
   min-height: 0;
-  padding: 16px 20px 0;
+  padding: 10px 16px 0;
+  background: #ffffff;
 }
 
 :deep(.order-form-dialog) .order-flow,
 :deep(.order-detail-dialog) .order-detail-page {
-  gap: 16px;
+  gap: 8px;
 }
 
 :deep(.order-form-dialog) .order-flow {
@@ -3235,12 +3261,16 @@ watch(
 }
 
 :deep(.order-form-dialog) .form-panel {
-  min-height: calc(100vh - 300px);
+  min-height: calc(100vh - 160px);
+}
+
+:deep(.order-form-dialog) .order-edit-panel :deep(.page-block__body) {
+  padding: 10px 12px 0;
 }
 
 .form-panel h3 {
-  margin: 0 0 20px;
-  font-size: 18px;
+  margin: 0 0 8px;
+  font-size: 15px;
   line-height: 1.2;
 }
 
@@ -3310,6 +3340,28 @@ watch(
   gap: 12px 20px;
 }
 
+.order-info-section {
+  margin-bottom: 12px;
+}
+
+.order-info-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 14px;
+  align-items: end;
+}
+
+.order-info-grid label {
+  gap: 4px;
+}
+
+.order-info-grid label span {
+  font-size: 13px;
+}
+
+.order-info-grid .span-2 {
+  grid-column: span 2;
+}
+
 .design-form-grid label span em {
   color: #ff3b30;
   font-style: normal;
@@ -3329,24 +3381,24 @@ watch(
 }
 
 .flow-add-button {
-  min-width: 120px;
-  height: 40px;
+  min-width: 96px;
+  height: 32px;
   margin-bottom: 16px;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .order-billing-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .order-billing-section + .order-billing-section {
-  margin-top: 24px;
+  margin-top: 18px;
 }
 
 .order-billing-section--craft {
-  min-height: 320px;
+  min-height: 280px;
 }
 
 .billing-toolbar {
@@ -3354,6 +3406,10 @@ watch(
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+}
+
+.billing-toolbar--craft {
+  justify-content: flex-start;
 }
 
 .billing-toolbar .flow-add-button {
@@ -3371,6 +3427,18 @@ watch(
 
 .design-table {
   width: 100%;
+}
+
+:deep(.order-form-dialog) .design-table :deep(.el-table__header th) {
+  height: 38px;
+}
+
+:deep(.order-form-dialog) .design-table :deep(.el-table__body td.el-table__cell) {
+  height: 40px;
+}
+
+:deep(.order-form-dialog) .design-table :deep(.cell) {
+  line-height: 1.25;
 }
 
 .billing-product-table :deep(.el-table__row) {
@@ -3485,9 +3553,9 @@ watch(
 :deep(.order-form-dialog) .sticky-total {
   position: sticky;
   bottom: 0;
-  margin: 0 -20px;
-  min-height: 72px;
-  padding: 16px 20px;
+  margin: 0 -16px;
+  min-height: 56px;
+  padding: 10px 16px;
 }
 
 .sticky-total strong {
