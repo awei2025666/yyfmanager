@@ -58,6 +58,16 @@ const moneyText = (value) =>
 
 const sumRows = (rows, key) => rows.reduce((total, row) => total + Number(row[key] || 0), 0)
 
+const productText = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => item.productInfo || item.productName || item.name || '')
+      .filter(Boolean)
+      .join('、') || '-'
+  }
+  return value || '-'
+}
+
 export const billingPerformanceConfig = {
   title: '开单绩效',
   searchFields: [
@@ -102,8 +112,11 @@ export const deliveryPerformanceConfig = {
     }
   ],
   columns: [
-    { prop: 'pendingOrders', label: '待配送订单', minWidth: 130 },
-    { prop: 'completedOrders', label: '已配送订单', minWidth: 130 }
+    { prop: 'name', label: '人员姓名', minWidth: 130 },
+    { prop: 'phone', label: '联系电话', minWidth: 150 },
+    { prop: 'companyName', label: '客户名称', minWidth: 180 },
+    { prop: 'productsText', label: '产品信息', minWidth: 220 },
+    { prop: 'totalMoneyText', label: '订单金额', minWidth: 130 }
   ],
   listApi: getTenantPerformanceDriverList,
   exportApi: exportTenantPerformanceDriver,
@@ -113,11 +126,12 @@ export const deliveryPerformanceConfig = {
     id: row.id || row.userId || index + 1,
     name: row.name || row.userName || '-',
     phone: row.phone || row.userPhone || '-',
-    pendingOrders: row.pendingCount ?? row.pendingOrders ?? 0,
-    completedOrders: row.completedCount ?? row.completedOrders ?? 0
+    companyName: row.companyName || row.customerName || '-',
+    productsText: productText(row.products || row.productList || row.productInfo),
+    totalMoney: row.totalMoney ?? row.orderMoney ?? row.money ?? 0,
+    totalMoneyText: moneyText(row.totalMoney ?? row.orderMoney ?? row.money ?? 0)
   }),
-  summary: (rows = []) =>
-    `待配送订单合计：${numberText(sumRows(rows, 'pendingOrders'))}    已配送订单合计：${numberText(sumRows(rows, 'completedOrders'))}`
+  summary: (rows = []) => `订单金额合计：${moneyText(sumRows(rows, 'totalMoney'))}`
 }
 
 export const craftStatsConfig = {
