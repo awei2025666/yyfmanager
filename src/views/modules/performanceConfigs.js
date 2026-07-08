@@ -116,7 +116,8 @@ export const deliveryPerformanceConfig = {
     { prop: 'phone', label: '联系电话', minWidth: 150 },
     { prop: 'companyName', label: '客户名称', minWidth: 180 },
     { prop: 'productsText', label: '产品信息', minWidth: 220 },
-    { prop: 'totalMoneyText', label: '订单金额', minWidth: 130 }
+    { prop: 'totalMoneyText', label: '订单金额', minWidth: 130 },
+    { prop: 'completionTime', label: '完成时间', minWidth: 130 }
   ],
   listApi: getTenantPerformanceDriverList,
   exportApi: exportTenantPerformanceDriver,
