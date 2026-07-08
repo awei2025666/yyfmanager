@@ -72,6 +72,50 @@ const goHome = () => {
 	})
 }
 
+const wxLogin = () => new Promise((resolve, reject) => {
+	uni.login({
+		provider: 'weixin',
+		success: res => {
+			if (res.code) {
+				resolve(res.code)
+				return
+			}
+			reject(new Error(res.errMsg || 'wx.login 未返回 code'))
+		},
+		fail: err => reject(err)
+	})
+})
+
+const showBindWxDebugInfo = (code, token) => {
+	const data = JSON.stringify({ code, token })
+	console.log('bindWx params:', { code, token })
+	uni.setClipboardData({
+		data,
+		showToast: false,
+		fail: err => console.log('copy bindWx params failed:', err)
+	})
+	return new Promise(resolve => {
+		uni.showModal({
+			title: '微信绑定参数',
+			content: `${data}\n\n已复制到剪贴板`,
+			showCancel: false,
+			complete: resolve
+		})
+	})
+}
+
+const bindWxAfterLogin = async token => {
+	try {
+		const code = await wxLogin()
+		await showBindWxDebugInfo(code, token)
+		const result = await uni.$api.bindWx({ code, token })
+		console.log('bindWx result:', result)
+	} catch (e) {
+		console.log('bindWx failed:', e)
+		uni.showToast({ title: e?.message || '微信绑定失败', icon: 'none' })
+	}
+}
+
 const togglePrivacy = () => {
 	privacyAccepted.value = !privacyAccepted.value
 }
@@ -109,6 +153,7 @@ const submit = async () => {
 		}
 		uni.setStorageSync('Authorization', token)
 		uni.setStorageSync('token', token)
+		await bindWxAfterLogin(token)
 		uni.showToast({ title: '登录成功', icon: 'none' })
 		setTimeout(goHome, 400)
 	} catch (e) {

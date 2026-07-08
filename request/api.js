@@ -3,6 +3,7 @@ import { http, uploadFile } from './index.js'
 const api = {
 	uploadFile,
 	login: (params) => http('/api/user/login', 'POST', params),
+	bindWx: (params) => http('/api/user/login/bindWx', 'POST', params),
 	selfInfo: () => http('/api/user/tenantUser/info', 'GET'),
 	editAvatar: (params) => http('/api/user/tenantUser/editAvatar', 'POST', params),
 	editPassword: (params) => http('/api/user/tenantUser/editPassword', 'POST', params),
