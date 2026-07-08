@@ -46,7 +46,6 @@
 					<view class="corner lb"></view>
 					<view class="corner rb"></view>
 				</view>
-				<view v-if="toBeDeliveredNum" class="badge">{{ toBeDeliveredNum }}</view>
 				<view class="desc">
 					配送绑定
 				</view>

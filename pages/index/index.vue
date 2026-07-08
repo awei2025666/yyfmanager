@@ -89,7 +89,6 @@ const showList = computed(() => [
 	{ num: performance.value.orderNum || 0, title: '订单数' },
 	{ num: performance.value.productionNum || 0, title: '生产数' },
 	{ num: performance.value.handKeptNum || 0, title: '手工数' },
-	{ num: performance.value.dispatchNum || 0, title: '调度数' },
 	{ num: performance.value.deliveryNum || 0, title: '配送数' }
 ])
 	

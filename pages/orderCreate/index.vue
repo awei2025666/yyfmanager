@@ -42,6 +42,21 @@
 				</view>
 			</view>
 
+			<view class="form-row">
+				<text class="label required">联系人</text>
+				<input v-model="form.linkman" placeholder="请输入联系人" placeholder-class="placeholder" />
+			</view>
+
+			<view class="form-row">
+				<text class="label required">联系方式</text>
+				<input v-model="form.phone" placeholder="请输入联系方式" placeholder-class="placeholder" />
+			</view>
+
+			<view class="form-row">
+				<text class="label required">送货地址</text>
+				<input v-model="form.companyAddress" placeholder="请输入送货地址" placeholder-class="placeholder" />
+			</view>
+
 			<picker mode="date" :value="deliveryDateValue" @change="handleDeliveryDateChange">
 				<view class="form-row">
 					<text class="label required">交货日期</text>
@@ -429,12 +444,70 @@ const formulaValue = (formula = '') => {
 	const text = String(formula || '').trim()
 	if (!text) return null
 	if (!/^[\d\s.+\-*/()]+$/.test(text)) return null
-	try {
-		const result = Function(`"use strict"; return (${text})`)()
-		return Number.isFinite(Number(result)) ? Number(result) : null
-	} catch (e) {
-		return null
+	let index = 0
+	const skipSpaces = () => {
+		while (/\s/.test(text[index] || '')) index += 1
 	}
+	const parseNumber = () => {
+		skipSpaces()
+		const start = index
+		while (/[\d.]/.test(text[index] || '')) index += 1
+		if (start === index) return null
+		const raw = text.slice(start, index)
+		if (!/^\d*\.?\d+$/.test(raw)) return null
+		const value = Number(raw)
+		return Number.isFinite(value) ? value : null
+	}
+	const parseFactor = () => {
+		skipSpaces()
+		const char = text[index]
+		if (char === '+' || char === '-') {
+			index += 1
+			const value = parseFactor()
+			return value === null ? null : (char === '-' ? -value : value)
+		}
+		if (char === '(') {
+			index += 1
+			const value = parseExpression()
+			skipSpaces()
+			if (text[index] !== ')') return null
+			index += 1
+			return value
+		}
+		return parseNumber()
+	}
+	const parseTerm = () => {
+		let value = parseFactor()
+		if (value === null) return null
+		while (true) {
+			skipSpaces()
+			const operator = text[index]
+			if (operator !== '*' && operator !== '/') break
+			index += 1
+			const next = parseFactor()
+			if (next === null) return null
+			value = operator === '*' ? value * next : value / next
+			if (!Number.isFinite(value)) return null
+		}
+		return value
+	}
+	function parseExpression() {
+		let value = parseTerm()
+		if (value === null) return null
+		while (true) {
+			skipSpaces()
+			const operator = text[index]
+			if (operator !== '+' && operator !== '-') break
+			index += 1
+			const next = parseTerm()
+			if (next === null) return null
+			value = operator === '+' ? value + next : value - next
+		}
+		return value
+	}
+	const result = parseExpression()
+	skipSpaces()
+	return result !== null && index === text.length && Number.isFinite(result) ? result : null
 }
 const stripOuterParentheses = (text = '') => {
 	let value = String(text || '').trim()
@@ -724,11 +797,11 @@ const handleSingleDoubleChange = event => {
 }
 
 const fillClientForm = client => {
-	form.cooperativeClientId = client.id
+	form.cooperativeClientId = client.id || client.cooperativeClientId || client.clientId || ''
 	form.companyName = client.companyName || client.name || ''
-	form.linkman = client.linkman || client.contact || ''
-	form.phone = client.phone || ''
-	form.companyAddress = client.companyAddress || client.address || ''
+	form.linkman = client.linkman || client.contact || client.userName || client.contacts || ''
+	form.phone = client.phone || client.mobile || client.linkPhone || client.contactPhone || ''
+	form.companyAddress = client.companyAddress || client.deliveryAddress || client.address || ''
 }
 
 const submitClientCreate = async () => {
@@ -777,10 +850,14 @@ const openClientPicker = async () => {
 			clientOptions.value = getRecords(await uni.$api.cooperativeClientAll({ companyName: '' }))
 		}
 		openPicker('client', '选择单位名称', clientOptions.value.map(item => ({
-			key: item.id,
+			key: item.id || item.cooperativeClientId || item.clientId || item.companyName,
 			value: item,
 			label: item.companyName || item.name || '-',
-			subLabel: [item.linkman, item.phone].filter(Boolean).join('  ')
+			subLabel: [
+				item.linkman || item.contact || item.userName || item.contacts,
+				item.phone || item.mobile || item.linkPhone || item.contactPhone,
+				item.companyAddress || item.deliveryAddress || item.address
+			].filter(Boolean).join('  ')
 		})))
 	} catch (e) {
 		openPicker('client', '选择单位名称', [])
