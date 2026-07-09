@@ -266,7 +266,7 @@ const normalizeClientOptions = (data) => {
     : Array.isArray(data?.data)
       ? data.data
       : data?.records || data?.list || data?.data?.records || data?.data?.list || []
-const normalizedList = list
+  const normalizedList = list
     .map((item) => ({
       ...item,
       id: clientOptionId(item) === null || clientOptionId(item) === undefined ? '' : String(clientOptionId(item)),
