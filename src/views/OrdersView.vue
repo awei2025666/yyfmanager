@@ -236,7 +236,7 @@ const productInfoLines = (item = {}) => {
 }
 
 const fillClientInfo = (client = {}) => {
-  formState.cooperativeClientId = client.id || ''
+  formState.cooperativeClientId = client.id === null || client.id === undefined ? '' : String(client.id)
   formState.companyName = client.companyName || ''
   formState.linkman = client.linkman || ''
   formState.phone = client.phone || ''
@@ -266,10 +266,10 @@ const normalizeClientOptions = (data) => {
     : Array.isArray(data?.data)
       ? data.data
       : data?.records || data?.list || data?.data?.records || data?.data?.list || []
-  const normalizedList = list
+const normalizedList = list
     .map((item) => ({
       ...item,
-      id: clientOptionId(item),
+      id: clientOptionId(item) === null || clientOptionId(item) === undefined ? '' : String(clientOptionId(item)),
       companyName: clientOptionName(item),
       companyNamePinyin: item.companyNamePinyin || item.pinyin || ''
     }))
@@ -330,7 +330,7 @@ const selectClient = (id) => {
 const seedClientOption = (record = {}) => {
   const companyName = clientOptionName(record)
   if (!companyName) return
-  const id = orderClientId(record) || companyName
+  const id = orderClientId(record) === null || orderClientId(record) === undefined ? companyName : String(orderClientId(record))
   formState.cooperativeClientId = id
   formState.companyName = companyName
   formState.linkman = record.linkman || ''
@@ -552,7 +552,7 @@ const normalizeCraftOptions = (data) => {
   const list = Array.isArray(data) ? data : data?.records || data?.list || []
   return list.map((item) => ({
     ...item,
-    id: craftOptionId(item),
+    id: craftOptionId(item) === null || craftOptionId(item) === undefined ? '' : String(craftOptionId(item)),
     craftName: craftOptionName(item)
   }))
 }
@@ -560,7 +560,7 @@ const normalizeCraftOptions = (data) => {
 const seedCraftOptions = (crafts = []) => {
   const current = Array.isArray(craftOptions.value) ? [...craftOptions.value] : []
   ;(crafts || []).forEach((item) => {
-    const id = craftRowCraftId(item)
+    const id = craftRowCraftId(item) === null || craftRowCraftId(item) === undefined ? '' : String(craftRowCraftId(item))
     const craftName = craftOptionName(item)
     if (id === '' || id === null || id === undefined || !craftName) return
     if (!current.some((option) => String(option.id) === String(id))) {
@@ -572,7 +572,7 @@ const seedCraftOptions = (crafts = []) => {
 
 const hydrateCraftNames = (crafts = []) => {
   ;(crafts || []).forEach((item) => {
-    const id = craftRowCraftId(item)
+    const id = craftRowCraftId(item) === null || craftRowCraftId(item) === undefined ? '' : String(craftRowCraftId(item))
     const option = craftOptions.value.find((craft) => String(craft.id) === String(id))
     if (option?.craftName) item.craftName = option.craftName
   })
@@ -663,7 +663,7 @@ const normalizeCraftRow = (item = {}, product = {}) => ({
     ...item,
     productId: item.productId || product.id || undefined,
     productName: item.productName || product.productName || product.name || item.productInfo || '',
-    craftId: craftRowCraftId(item) || '',
+    craftId: craftRowCraftId(item) === null || craftRowCraftId(item) === undefined ? '' : String(craftRowCraftId(item)),
     craftName: craftOptionName(item),
     spec: item.spec || item.specification || '',
     openNum: item.openNum ?? item.formatSize ?? '',
@@ -1165,7 +1165,7 @@ const selectCraftName = async (row, id) => {
     customerAmount: 0,
     remark: ''
   })
-  row.craftId = craft.id
+  row.craftId = craft.id === null || craft.id === undefined ? '' : String(craft.id)
   row.craftName = craft.craftName
   row.spec = craft.spec || craft.specification || craft.formatSize || ''
   row.openNum = craft.openNum ?? craft.openCount ?? craft.formatSize ?? ''
@@ -1254,9 +1254,9 @@ const cleanCraftRow = (row = {}) => {
   payload.foilingPointList = isFoilingCraft(payload) ? normalizeFoilingPointList(payload.foilingPointList, payload.formula) : []
   if (payload.foilingPointList.length) payload.formula = formatFoilingFormula(payload.foilingPointList)
   payload.finishNum = zeroIfEmpty(payload.finishNum)
-  payload.orderQuantity = zeroIfEmpty(payload.orderQuantity ?? payload.finishNum)
+  payload.orderQuantity = payload.finishNum
   payload.price = zeroIfEmpty(payload.price)
-  payload.unitPrice = zeroIfEmpty(payload.unitPrice ?? payload.price)
+  payload.unitPrice = payload.price
   payload.customerAmount = customerAmount
   payload.customerMoney = customerAmount
   return payload
@@ -1265,7 +1265,7 @@ const normalizeOrderProductPayload = (product = {}) => ({
   id: product.id || undefined,
   name: product.name || product.productName,
   productName: product.productName || product.name,
-  orderQuantity: product.orderQuantity ?? product.quantity ?? product.num,
+  orderQuantity: product.quantity ?? product.orderQuantity ?? product.num,
   quantity: product.quantity ?? product.orderQuantity ?? product.num,
   trimmedSize: product.trimmedSize || product.finishedSpec,
   finishedSpec: product.finishedSpec || product.trimmedSize,
@@ -1296,10 +1296,10 @@ const normalizeOrderCraftPayload = (craft = {}) => ({
   foilingPointPrice: craft.foilingPointPrice,
   foilingSheetPrice: craft.foilingSheetPrice,
   foilingPointList: isFoilingCraft(craft) ? normalizeFoilingPointList(craft.foilingPointList, craft.formula) : [],
-  orderQuantity: craft.orderQuantity ?? craft.finishNum,
+  orderQuantity: craft.finishNum ?? craft.orderQuantity,
   finishNum: craft.finishNum ?? craft.orderQuantity,
   unit: craft.unit,
-  unitPrice: craft.unitPrice ?? craft.price,
+  unitPrice: craft.price ?? craft.unitPrice,
   price: craft.price ?? craft.unitPrice,
   customerMoney: craft.customerMoney ?? craft.customerAmount,
   customerAmount: craft.customerAmount ?? craft.customerMoney,
