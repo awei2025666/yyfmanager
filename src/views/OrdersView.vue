@@ -246,6 +246,9 @@ const fillClientInfo = (client = {}) => {
 const clientOptionId = (item = {}) =>
   item.id ?? item.cooperativeClientId ?? item.clientId ?? item.customerId ?? item.companyId ?? item.unitId ?? item.companyName
 
+const orderClientId = (item = {}) =>
+  item.cooperativeClientId ?? item.clientId ?? item.customerId ?? item.companyId ?? item.unitId ?? item.companyName
+
 const clientOptionName = (item = {}) =>
   item.companyName
   || item.cooperativeClientName
@@ -327,7 +330,7 @@ const selectClient = (id) => {
 const seedClientOption = (record = {}) => {
   const companyName = clientOptionName(record)
   if (!companyName) return
-  const id = clientOptionId(record) || companyName
+  const id = orderClientId(record) || companyName
   formState.cooperativeClientId = id
   formState.companyName = companyName
   formState.linkman = record.linkman || ''
@@ -973,6 +976,7 @@ const hasStoredCraftAmount = (craft = {}) =>
   || craft.customerMoney !== '' && craft.customerMoney !== null && craft.customerMoney !== undefined
 const storedCraftAmount = (craft = {}) => Number(zeroIfEmpty(craft.customerAmount ?? craft.customerMoney))
 const displayCraftCustomerAmount = (craft = {}) => {
+  if (orderFormVisible.value) return computedCraftCustomerAmount(craft)
   if (!craft._isEditing && hasStoredCraftAmount(craft)) return storedCraftAmount(craft)
   return computedCraftCustomerAmount(craft)
 }
