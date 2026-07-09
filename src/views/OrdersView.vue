@@ -780,7 +780,7 @@ const productRows = computed(() => {
 })
 const savedProductOptions = computed(() =>
   (formState.productList || [])
-    .filter((item) => !item._isEditing && item.productName)
+    .filter((item) => item.productName)
     .map((item, index) => ({
       ...item,
       _rowKey: ensureProductRowKey(item),
@@ -1092,13 +1092,13 @@ const craftRows = computed(() => {
   return []
 })
 const addCraftRow = () => {
-  if (!savedProductOptions.value.length) {
-    ElMessage.warning('请先添加产品信息')
-    return
-  }
   const product = activeProductRow.value
   if (!product) {
     ElMessage.warning('请先选择产品')
+    return
+  }
+  if (!product.productName) {
+    ElMessage.warning('请先填写当前产品名称')
     return
   }
   if (!Array.isArray(formState.craftList)) formState.craftList = []
