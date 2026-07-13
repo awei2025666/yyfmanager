@@ -28,11 +28,13 @@ import {
   getTenantOrderProcess,
   getTenantOrderErrorInfo,
   outsourceTenantOrder,
-  returnTenantOrder,
+  outsourceTenantOrderAll,
   getTenantClientUsers,
   searchTenantClients,
   getTenantOutsourceTenants,
   searchTenantCrafts,
+  startTenantOrder,
+  stopTenantOrder,
   uploadTenantFile
 } from '../api/tenant'
 
@@ -80,6 +82,8 @@ const manualCompleteVisible = ref(false)
 const manualCompleteSaving = ref(false)
 const errorVisible = ref(false)
 const errorSaving = ref(false)
+const outsourceAllVisible = ref(false)
+const outsourceAllSaving = ref(false)
 const errorDetailVisible = ref(false)
 const errorDetailLoading = ref(false)
 const errorDetail = ref(null)
@@ -88,6 +92,7 @@ const approvalRemark = ref('')
 const rejectRemark = ref('')
 const manualCompleteTarget = ref(null)
 const errorTarget = ref(null)
+const outsourceAllTarget = ref(null)
 const userOptions = ref([])
 const viewMode = ref(route.query.mode === 'detail' ? 'detail' : 'list')
 const activeProductKey = ref('')
@@ -164,7 +169,8 @@ const statusMap = {
   5: { label: '配送中', type: 'primary', tone: 'delivering' },
   6: { label: '已完成', type: 'success', tone: 'completed' },
   7: { label: '已驳回', type: 'danger', tone: 'rejected' },
-  8: { label: '差错单', type: 'danger', tone: 'error' }
+  8: { label: '差错单', type: 'danger', tone: 'error' },
+  9: { label: '暂停', type: 'info', tone: 'paused' }
 }
 const statusOptions = computed(() =>
   Object.entries(statusMap)
@@ -187,8 +193,18 @@ const deliveryTypeText = (value) =>
 const singleDoubleText = (value) =>
   singleDoubleOptions.find((item) => String(item.value) === String(value))?.label || ''
 const statusToneClass = (status) => `order-status--${statusMap[status]?.tone || 'outsourced'}`
-const craftStatusText = (value) => (Number(value) === 2 ? '已完成' : '待生产')
-const craftStatusClass = (value) => (Number(value) === 2 ? 'craft-status-success' : 'craft-status-warning')
+const craftStatusText = (value) => {
+  const status = Number(value)
+  if (status === 2) return '已生产'
+  if (status === 3) return '生产中'
+  return '待生产'
+}
+const craftStatusClass = (value) => {
+  const status = Number(value)
+  if (status === 2) return 'craft-status-success'
+  if (status === 3) return 'craft-status-running'
+  return 'craft-status-warning'
+}
 const orderSourceText = (value) => (Number(value) === 2 ? '外协' : '本厂')
 const orderSourceClass = (value) => (Number(value) === 2 ? 'order-source-outsourced' : 'order-source-local')
 const shouldShowManualComplete = (row = {}) => Number(row.manual) === 1 && Number(row.craftStatus) === 1
@@ -233,6 +249,48 @@ const productInfoLines = (item = {}) => {
     if (lines.length) return lines
   }
   return [item.productInfo || item.productName || item.vipName || '--']
+}
+
+const productRowId = (product = {}) =>
+  product.id ?? product.productId ?? product.productsId ?? product.orderProductId ?? product.productName ?? product.name
+
+const craftProductId = (craft = {}) =>
+  craft.productsId ?? craft.productId ?? craft.productID ?? craft.orderProductId ?? craft.productName
+
+const orderCraftName = (craft = {}) => craft.name || craft.craftName || craft.processName || '-'
+
+const orderCraftStatusGroups = (row = {}) => {
+  const products = Array.isArray(row.products || row.productList) ? row.products || row.productList : []
+  const crafts = Array.isArray(row.crafts || row.craftList) ? row.crafts || row.craftList : []
+  if (!crafts.length) return []
+  const productMap = new Map(
+    products.map((product, index) => [
+      String(productRowId(product) ?? index),
+      {
+        id: String(productRowId(product) ?? index),
+        name: product.productName || product.name || product.productInfo || `产品${index + 1}`,
+        crafts: []
+      }
+    ])
+  )
+  const fallbackGroups = []
+  crafts.forEach((craft) => {
+    const id = craftProductId(craft)
+    const key = id === undefined || id === null || id === '' ? '' : String(id)
+    let group = key ? productMap.get(key) : null
+    if (!group) {
+      group = {
+        id: key || `unknown-${fallbackGroups.length}`,
+        name: craft.productName || craft.productsName || craft.productInfo || (products.length ? '其他产品' : '产品'),
+        crafts: []
+      }
+      fallbackGroups.push(group)
+      if (key) productMap.set(key, group)
+    }
+    group.crafts.push(craft)
+  })
+  return [...productMap.values(), ...fallbackGroups.filter((group) => !productMap.has(group.id))]
+    .filter((group) => group.crafts.length)
 }
 
 const fillClientInfo = (client = {}) => {
@@ -525,6 +583,11 @@ const selectOutsourceUnit = (row = {}) => {
   formState.outsourceSupplierContact = row.contact || row.linkman || ''
 }
 
+const selectedOutsourceUnitName = computed(() => {
+  if (!formState.outsourceSupplierId) return '未选择'
+  return formState.outsourceSupplierName || outsourceOptions.value.find((item) => String(item.memberId) === String(formState.outsourceSupplierId))?.tenantName || '已选择'
+})
+
 const selectExternalTenant = (row = {}) => {
   formState.outsourceSupplierId = row.id || ''
   formState.outsourceSupplierName = row.tenantName || ''
@@ -578,6 +641,14 @@ const hydrateCraftNames = (crafts = []) => {
   })
 }
 
+const appendCraftOptions = (options = []) => {
+  const optionMap = new Map((craftOptions.value || []).map((item) => [String(item.id), item]))
+  options.forEach((item) => {
+    if (item?.id !== undefined && item?.id !== null && item.id !== '') optionMap.set(String(item.id), item)
+  })
+  craftOptions.value = Array.from(optionMap.values())
+}
+
 const searchCrafts = async (keyword = '') => {
   const craftName = String(keyword || '').trim()
   if (craftSearching.value && lastCraftKeyword.value === craftName) return craftSearchPromise
@@ -599,6 +670,20 @@ const searchCrafts = async (keyword = '') => {
       craftSearching.value = false
       craftSearchPromise = null
     }
+  }
+}
+
+const findCutPaperCraft = async () => {
+  const localCraft = (craftOptions.value || []).find((item) => String(item.craftName || item.name || '').includes('切纸'))
+  if (localCraft) return localCraft
+  try {
+    const data = await searchTenantCrafts({ name: '切纸' })
+    const options = normalizeCraftOptions(data)
+    appendCraftOptions(options)
+    return options.find((item) => String(item.craftName || item.name || '').includes('切纸')) || null
+  } catch (error) {
+    ElMessage.error(error?.message || '切纸工艺加载失败')
+    return null
   }
 }
 
@@ -661,6 +746,7 @@ const normalizeProductRow = (item = {}) => ({
 
 const normalizeCraftRow = (item = {}, product = {}) => ({
     ...item,
+    _rowKey: item._rowKey || item.id || item.productsCraftId || createLocalRowKey(),
     productId: item.productId || product.id || undefined,
     productName: item.productName || product.productName || product.name || item.productInfo || '',
     craftId: craftRowCraftId(item) === null || craftRowCraftId(item) === undefined ? '' : String(craftRowCraftId(item)),
@@ -684,6 +770,7 @@ const normalizeCraftRow = (item = {}, product = {}) => ({
     finishNum: item.finishNum ?? item.orderQuantity ?? 0,
     unit: item.unit || '',
     price: item.price ?? item.unitPrice ?? 0,
+    ploidy: item.ploidy ?? 1,
     customerAmount: item.customerAmount ?? item.customerMoney ?? null,
     remark: item.remark || '',
     craftStatus: item.craftStatus ?? item.status ?? 1,
@@ -748,6 +835,73 @@ const normalizeDetailRow = (detail = {}, base = {}, processList = []) => {
     crafts,
     timeline: timeline.length ? timeline : base.timeline
   })
+}
+
+const removeRepeatIdentityFields = (row = {}) => {
+  const next = { ...row }
+  delete next.id
+  delete next.orderId
+  delete next.orderNo
+  delete next.orderRecordId
+  delete next.productId
+  delete next.productsId
+  delete next.productsCraftId
+  delete next.outTenantId
+  delete next.createTime
+  delete next.updateTime
+  return next
+}
+
+const buildRepeatOrderRecord = (record = {}) => {
+  const sourceProducts = record.products || record.productList || []
+  const productKeyMap = new Map()
+  const productList = sourceProducts.map((product) => {
+    const rowKey = createLocalRowKey()
+    const next = {
+      ...removeRepeatIdentityFields(product),
+      _rowKey: rowKey,
+      _isEditing: false,
+      _isNew: false
+    }
+    ;[product._rowKey, product.id, product.productId, product.productsId, product.productName, product.name]
+      .map((value) => String(value || ''))
+      .filter(Boolean)
+      .forEach((value) => productKeyMap.set(value, rowKey))
+    return next
+  })
+
+  const sourceCrafts = record.crafts || record.craftList || []
+  const craftList = sourceCrafts.map((craft) => {
+    const matchKey = [craft._productRowKey, craft.productId, craft.productsId, craft.productName, craft.name]
+      .map((value) => String(value || ''))
+      .find((value) => productKeyMap.has(value))
+    return {
+      ...removeRepeatIdentityFields(craft),
+      _rowKey: createLocalRowKey(),
+      _productRowKey: matchKey ? productKeyMap.get(matchKey) : '',
+      productId: '',
+      outTenantId: '',
+      outsourceChecked: false,
+      _isEditing: false,
+      _isNew: false
+    }
+  })
+
+  return {
+    ...record,
+    id: null,
+    orderId: '',
+    orderNo: '',
+    orderRecordId: '',
+    productList,
+    products: [],
+    craftList,
+    crafts: [],
+    outsourceSupplierId: '',
+    outsourceSupplierName: '',
+    outsourceSupplierContact: '',
+    status: autoApprove.value ? 2 : 1
+  }
 }
 
 const stats = computed(() => {
@@ -939,6 +1093,7 @@ const computedCraftCustomerAmount = (craft = {}) => {
   let price = Number(zeroIfEmpty(craft.price ?? craft.unitPrice))
   let startPrice = Number(zeroIfEmpty(craft.startPrice ?? craft.basePrice))
   const priceBase = Number(zeroIfEmpty(craft.priceBase1))
+  const ploidy = Number(zeroIfEmpty(craft.ploidy)) || 1
 
   if (type === 2 || type === 3) {
     finishNum *= 2
@@ -947,6 +1102,11 @@ const computedCraftCustomerAmount = (craft = {}) => {
     price *= 2
     startPrice *= 2
   }
+  if (String(craft.unit || '').includes('千印')) {
+    finishNum = Math.round(finishNum / 1000)
+  }
+
+  const withPloidy = (amount) => toFixed4Number(amount * ploidy)
 
   if (isFoilingCraft(craft)) {
     const points = normalizeFoilingPointList(craft.foilingPointList, craft.formula)
@@ -958,19 +1118,19 @@ const computedCraftCustomerAmount = (craft = {}) => {
         if (pointValue === null) return sum
         return sum + Math.max(pointValue * price, pointStartPrice)
       }, 0)
-      return toFixed4Number(Math.max(pointTotal, sheetStartPrice) * finishNum)
+      return withPloidy(Math.max(pointTotal, sheetStartPrice) * finishNum)
     }
   }
 
   const formula = formulaValue(craft.formula)
   if (formula !== null) {
-    return toFixed4Number(formula * finishNum * price)
+    return withPloidy(formula * finishNum * price)
   }
 
   if (priceBase === 0) {
-    return toFixed4Number(Math.max(finishNum * price, startPrice))
+    return withPloidy(Math.max(finishNum * price, startPrice))
   }
-  return toFixed4Number(((finishNum - priceBase) * price) + startPrice)
+  return withPloidy(((finishNum - priceBase) * price) + startPrice)
 }
 const hasStoredCraftAmount = (craft = {}) =>
   craft.customerAmount !== '' && craft.customerAmount !== null && craft.customerAmount !== undefined
@@ -1096,6 +1256,38 @@ const craftRows = computed(() => {
   if (!orderFormVisible.value && currentRecord.value?.crafts?.length) return currentRecord.value.crafts
   return []
 })
+const createCraftRow = (product = {}) => ({
+  _rowKey: createLocalRowKey(),
+  _productRowKey: ensureProductRowKey(product),
+  productId: product.id || product.productId || '',
+  productName: product.productName || product.name || '',
+  craftId: '',
+  craftName: '',
+  spec: '',
+  openNum: '',
+  numberPerBoard: '',
+  singleDouble: '',
+  spotColors: '',
+  colour: '',
+  formula: '',
+  startPrice: 0,
+  priceBase: 0,
+  priceBase1: 0,
+  foilingStartingPrice: null,
+  foilingPointPrice: null,
+  foilingSheetPrice: null,
+  foilingPointList: [],
+  finishNum: 0,
+  unit: '',
+  price: 0,
+  ploidy: 1,
+  customerAmount: 0,
+  remark: '',
+  outsourceChecked: formMode.value === 'outsource',
+  outTenantId: formMode.value === 'outsource' ? formState.outsourceSupplierId : '',
+  _isEditing: true,
+  _isNew: true
+})
 const addCraftRow = () => {
   const product = activeProductRow.value
   if (!product) {
@@ -1107,36 +1299,7 @@ const addCraftRow = () => {
     return
   }
   if (!Array.isArray(formState.craftList)) formState.craftList = []
-  formState.craftList.push({
-    _productRowKey: ensureProductRowKey(product),
-    productId: product.id || product.productId || '',
-    productName: product.productName || product.name || '',
-    craftId: '',
-    craftName: '',
-    spec: '',
-    openNum: '',
-    numberPerBoard: '',
-    singleDouble: '',
-    spotColors: '',
-    colour: '',
-    formula: '',
-    startPrice: 0,
-    priceBase: 0,
-    priceBase1: 0,
-    foilingStartingPrice: null,
-    foilingPointPrice: null,
-    foilingSheetPrice: null,
-    foilingPointList: [],
-    finishNum: 0,
-    unit: '',
-    price: 0,
-    customerAmount: 0,
-    remark: '',
-    outsourceChecked: formMode.value === 'outsource',
-    outTenantId: formMode.value === 'outsource' ? formState.outsourceSupplierId : '',
-    _isEditing: true,
-    _isNew: true
-  })
+  formState.craftList.push(createCraftRow(product))
 }
 const selectCraftProduct = (row) => {
   const product = savedProductOptions.value.find((item) => item.productName === row.productName)
@@ -1144,9 +1307,7 @@ const selectCraftProduct = (row) => {
   row._productRowKey = ensureProductRowKey(product)
   row.productId = product.id || ''
 }
-const selectCraftName = async (row, id) => {
-  const craft = craftOptions.value.find((item) => String(item.id) === String(id))
-  if (!craft) return
+const applyCraftToRow = (row, craft) => {
   Object.assign(row, {
     spec: '',
     openNum: '',
@@ -1165,6 +1326,7 @@ const selectCraftName = async (row, id) => {
     finishNum: 0,
     unit: '',
     price: 0,
+    ploidy: 1,
     customerAmount: 0,
     remark: ''
   })
@@ -1187,10 +1349,44 @@ const selectCraftName = async (row, id) => {
   if (isFoilingCraft(row)) syncFoilingFormula(row)
   row.unit = craft.unit || ''
   row.price = zeroIfEmpty(craft.price ?? craft.unitPrice)
+  row.ploidy = zeroIfEmpty(craft.ploidy ?? 1) || 1
   row.remark = craft.remark || ''
   if (isFoilingCraft(row) && !row.foilingPointList.length) {
     openFoilingPointDialog(row)
   }
+}
+const removeAutoCutPaperFor = (row) => {
+  if (!row?._rowKey || !Array.isArray(formState.craftList)) return
+  const index = formState.craftList.findIndex((item) => item._autoCutPaperFor === row._rowKey)
+  if (index > -1) formState.craftList.splice(index, 1)
+}
+const ensureCutPaperCraftAfter = async (row) => {
+  if (!String(row.craftName || '').includes('全套')) return
+  if (!Array.isArray(formState.craftList)) return
+  if (!row._rowKey) row._rowKey = createLocalRowKey()
+  const rowIndex = formState.craftList.indexOf(row)
+  if (rowIndex < 0) return
+  const nextRow = formState.craftList[rowIndex + 1]
+  if (nextRow?._autoCutPaperFor === row._rowKey || String(nextRow?.craftName || '').includes('切纸')) return
+  const cutPaperCraft = await findCutPaperCraft()
+  if (!cutPaperCraft) return
+  const cutPaperRow = createCraftRow({
+    _rowKey: row._productRowKey,
+    id: row.productId,
+    productId: row.productId,
+    productName: row.productName
+  })
+  cutPaperRow._autoCutPaperFor = row._rowKey
+  applyCraftToRow(cutPaperRow, cutPaperCraft)
+  formState.craftList.splice(rowIndex + 1, 0, cutPaperRow)
+  syncAllProductAmounts()
+}
+const selectCraftName = async (row, id) => {
+  const craft = craftOptions.value.find((item) => String(item.id) === String(id))
+  if (!craft) return
+  removeAutoCutPaperFor(row)
+  applyCraftToRow(row, craft)
+  await ensureCutPaperCraftAfter(row)
 }
 const saveCraftRow = (row) => {
   if (!row.productName || !row.craftName) {
@@ -1216,6 +1412,7 @@ const saveCraftRow = (row) => {
   row.priceBase1 = zeroIfEmpty(row.priceBase1)
   row.finishNum = zeroIfEmpty(row.finishNum)
   row.price = zeroIfEmpty(row.price)
+  row.ploidy = zeroIfEmpty(row.ploidy) || 1
   row.singleDouble = row.singleDouble || ''
   row.customerAmount = computedCraftCustomerAmount(row)
   syncAllProductAmounts()
@@ -1243,7 +1440,7 @@ const removeCraftRow = (row, index) => {
   syncAllProductAmounts()
 }
 const cleanCraftRow = (row = {}) => {
-  const { _isEditing, _isNew, ...payload } = row
+  const { _isEditing, _isNew, _rowKey, _autoCutPaperFor, ...payload } = row
   const customerAmount = displayCraftCustomerAmount(row)
   payload.startPrice = zeroIfEmpty(payload.startPrice)
   payload.priceBase = payload.startPrice
@@ -1263,6 +1460,7 @@ const cleanCraftRow = (row = {}) => {
   payload.orderQuantity = payload.finishNum
   payload.price = zeroIfEmpty(payload.price)
   payload.unitPrice = payload.price
+  payload.ploidy = zeroIfEmpty(payload.ploidy) || 1
   payload.customerAmount = customerAmount
   payload.customerMoney = customerAmount
   return payload
@@ -1308,6 +1506,7 @@ const normalizeOrderCraftPayload = (craft = {}) => ({
   unit: craft.unit,
   unitPrice: craft.price ?? craft.unitPrice,
   price: craft.price ?? craft.unitPrice,
+  ploidy: craft.ploidy ?? 1,
   customerMoney: craft.customerMoney ?? craft.customerAmount,
   customerAmount: craft.customerAmount ?? craft.customerMoney,
   outTenantId: craft.outTenantId || undefined,
@@ -1857,58 +2056,89 @@ const confirmManualComplete = async () => {
 
 const reapplyOrder = async (row) => {
   formMode.value = 'create'
-  sourceOrderId.value = row.id
+  sourceOrderId.value = null
   let record = JSON.parse(JSON.stringify(row))
   if (row?.id) {
     detailLoading.value = true
     try {
-      const detail = await getTenantOrderDetail(row.id)
+      const detail = await getTenantOrderEditInfo(row.id)
       record = normalizeDetailRow(detail || {}, row, row.timeline || [])
     } catch (error) {
-      ElMessage.error(error?.message || '订单详情加载失败')
+      ElMessage.error(error?.message || '返单回显加载失败')
     } finally {
       detailLoading.value = false
     }
   }
-  Object.assign(formState, {
-    ...record,
-    id: null,
-    orderId: '',
-    productList: (record.products || record.productList || []).map((item) => ({ ...item, _isEditing: false, _isNew: false })),
-    products: [],
-    craftList: (record.crafts || record.craftList || []).map((item) => ({ ...item, _isEditing: false, _isNew: false })),
-    crafts: [],
-    outsourceSupplierId: '',
-    outsourceSupplierName: '',
-    outsourceSupplierContact: '',
-    status: autoApprove.value ? 2 : 1
-  })
+  Object.assign(formState, buildRepeatOrderRecord(record))
   seedClientOption(record)
   craftOptions.value = []
   lastCraftKeyword.value = null
+  await searchCrafts('')
+  seedCraftOptions(formState.craftList)
+  hydrateCraftNames(formState.craftList)
+  activeProductKey.value = formState.productList[0] ? ensureProductRowKey(formState.productList[0]) : ''
   orderFormVisible.value = true
 }
 
 const repeatOrder = async (row) => {
   const orderId = row?.id || row?.orderPrimaryId || row?.orderDbId
   if (!orderId) return ElMessage.error('缺少订单ID，无法返单')
-  try {
-    await returnTenantOrder(orderId)
-    ElMessage.success('返单成功')
-    await loadData()
-  } catch (error) {
-    ElMessage.error(error?.message || '返单失败')
-  }
+  return reapplyOrder({ ...row, id: orderId })
 }
 
 const outsourceOrder = (row) => {
   openOutsource(row)
 }
 
+const openOutsourceAll = (row) => {
+  outsourceAllTarget.value = row
+  formState.outsourceSupplierId = ''
+  formState.outsourceSupplierName = ''
+  formState.outsourceSupplierContact = ''
+  outsourceFilters.memberId = ''
+  outsourceFilters.memberName = ''
+  outsourceAllVisible.value = true
+  loadOutsourceUnits()
+}
+
+const confirmOutsourceAll = async () => {
+  const orderId = outsourceAllTarget.value?.id || outsourceAllTarget.value?.orderPrimaryId || outsourceAllTarget.value?.orderDbId
+  if (!orderId) return ElMessage.error('缺少订单ID，无法整单外协')
+  if (!formState.outsourceSupplierId) return ElMessage.warning('请选择外协单位')
+  outsourceAllSaving.value = true
+  try {
+    await outsourceTenantOrderAll({
+      id: orderId,
+      outTenantId: formState.outsourceSupplierId
+    })
+    outsourceAllVisible.value = false
+    ElMessage.success('订单已整单外协')
+    await loadData()
+  } catch (error) {
+    ElMessage.error(error?.message || '整单外协失败')
+  } finally {
+    outsourceAllSaving.value = false
+  }
+}
+
+const toggleOrderProduction = async (row, paused = true) => {
+  const orderId = row?.id || row?.orderPrimaryId || row?.orderDbId
+  if (!orderId) return ElMessage.error('缺少订单ID，无法操作')
+  try {
+    await (paused ? stopTenantOrder(orderId) : startTenantOrder(orderId))
+    ElMessage.success(paused ? '订单已暂停' : '订单已恢复生产')
+    await loadData()
+  } catch (error) {
+    ElMessage.error(error?.message || (paused ? '暂停失败' : '恢复生产失败'))
+  }
+}
+
 const rowActions = (row) => {
   if (row.status === 1) return ['审批', '编辑', '删除']
   if (row.status === 7) return ['重新申请', '删除']
-  if (row.status === 2) return ['详情','编辑', '差错单']
+  if (row.status === 2) return ['详情', '编辑', '整单外协', '差错单', '暂停']
+  if (row.status === 3) return ['详情', '差错单', '暂停']
+  if (row.status === 9) return ['详情', '差错单', '恢复生产']
   if (row.status === 8) return ['详情', '差错详情']
   if (row.status === 6) return ['详情', '返单','差错单']
   return ['详情','差错单']
@@ -1922,6 +2152,9 @@ const handleAction = (row, action) => {
   if (action === '差错单') return openErrorOrder(row)
   if (action === '差错详情') return openErrorDetail(row)
   if (action === '返单') return repeatOrder(row)
+  if (action === '整单外协') return openOutsourceAll(row)
+  if (action === '暂停') return toggleOrderProduction(row, true)
+  if (action === '恢复生产') return toggleOrderProduction(row, false)
   return openDetail(row)
 }
 
@@ -2057,33 +2290,70 @@ watch(
       <el-table
           v-loading="loading"
           :data="rows"
+          class="order-list-table"
           empty-text="当前筛选下暂无订单数据"
           :cell-style="({ row }) => row.status === 8 ? { color: 'red' } : {}"
       >
-        <el-table-column prop="orderId" label="订单号" min-width="150" />
-        <el-table-column prop="companyName" label="单位名称" min-width="180" />
-        <el-table-column prop="orderTime" label="订单时间" min-width="160" />
-        <el-table-column prop="fillUserName" label="业务员" min-width="100" />
-        <el-table-column label="产品信息" min-width="220">
+        <el-table-column prop="orderId" label="订单号" min-width="120" />
+        <el-table-column prop="companyName" label="单位名称" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="orderTime" label="订单时间" min-width="140" />
+        <el-table-column prop="fillUserName" label="业务员" min-width="80" show-overflow-tooltip />
+        <el-table-column label="产品信息" min-width="190">
           <template #default="{ row }">
-            <div class="product-info-lines">
+            <el-popover
+              v-if="orderCraftStatusGroups(row).length"
+              trigger="hover"
+              placement="top-start"
+              popper-class="order-craft-popover"
+              :width="420"
+            >
+              <template #reference>
+                <div class="product-info-lines product-info-lines--hoverable">
+                  <span v-for="(item, index) in productInfoLines(row)" :key="`${row.id || row.orderId}-${index}`">
+                    {{ item }}
+                  </span>
+                </div>
+              </template>
+              <div class="order-craft-status-panel">
+                <div
+                  v-for="group in orderCraftStatusGroups(row)"
+                  :key="group.id"
+                  class="order-craft-status-product"
+                >
+                  <div class="order-craft-status-product__name">{{ group.name }}</div>
+                  <div class="order-craft-status-list">
+                    <div
+                      v-for="(craft, index) in group.crafts"
+                      :key="`${group.id}-${craft.id || craft.craftId || index}`"
+                      class="order-craft-status-item"
+                    >
+                      <span class="order-craft-status-item__name">{{ orderCraftName(craft) }}</span>
+                      <span class="order-craft-status-item__status" :class="craftStatusClass(craft.status)">
+                        {{ craftStatusText(craft.status) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </el-popover>
+            <div v-else class="product-info-lines">
               <span v-for="(item, index) in productInfoLines(row)" :key="`${row.id || row.orderId}-${index}`">
                 {{ item }}
               </span>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="totalMoney" label="订单金额" min-width="130">
+        <el-table-column prop="totalMoney" label="订单金额" min-width="95">
           <template #default="{ row }">{{ formatMoney(row.totalMoney) }}</template>
         </el-table-column>
-        <el-table-column label="类型" min-width="110">
+        <el-table-column label="类型" min-width="80">
           <template #default="{ row }">
             <el-tag class="order-source-tag" :class="orderSourceClass(row.orderSource)" effect="plain">
               {{ orderSourceText(row.orderSource) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="订单状态" min-width="110">
+        <el-table-column prop="status" label="订单状态" min-width="90">
           <template #default="{ row }">
             <button type="button" class="status-link" @click="openDetail(row)">
               <el-tag class="order-status-tag" :class="statusToneClass(row.status)" effect="plain">
@@ -2092,14 +2362,14 @@ watch(
             </button>
           </template>
         </el-table-column>
-        <el-table-column label="操作" min-width="220">
+        <el-table-column label="操作" min-width="150">
           <template #default="{ row }">
             <el-space wrap>
               <el-button
                 v-for="action in rowActions(row)"
                 :key="action"
                 link
-                :type="['删除', '驳回', '差错单'].includes(action) ? 'danger' : 'primary'"
+                :type="['删除', '驳回', '差错单', '暂停'].includes(action) ? 'danger' : 'primary'"
                 @click="handleAction(row, action)"
               >
                 {{ action }}
@@ -2107,12 +2377,12 @@ watch(
             </el-space>
           </template>
         </el-table-column>
-        <el-table-column label="配送单打印" min-width="110" fixed="right">
+        <el-table-column label="配送单打印" min-width="90">
           <template #default="{ row }">
             <el-button type="primary" plain :icon="Printer" @click="printDelivery(row)">打印</el-button>
           </template>
         </el-table-column>
-        <el-table-column label="工单打印" min-width="110" fixed="right">
+        <el-table-column label="工单打印" min-width="90">
           <template #default="{ row }">
             <el-button type="primary" plain :icon="Printer" @click="printOrder(row)">打印</el-button>
           </template>
@@ -2230,10 +2500,6 @@ watch(
               </el-select>
             </label>
             <label class="span-2">
-              <span>印刷要求</span>
-              <el-input v-model="formState.printingRequirements" placeholder="请输入印刷要求" />
-            </label>
-            <label class="span-2">
               <span>备注</span>
               <el-input v-model="formState.remark" type="textarea" :rows="2" placeholder="请输入备注" />
             </label>
@@ -2250,32 +2516,32 @@ watch(
             :row-class-name="productTableRowClassName"
             @row-click="selectProductRow"
           >
-            <el-table-column prop="productName" label="产品名称" min-width="460">
+            <el-table-column prop="productName" label="产品名称" min-width="340">
               <template #default="{ row }">
                 <el-input v-model="row.productName" placeholder="请输入产品名称" />
               </template>
             </el-table-column>
-            <el-table-column prop="finishedSpec" label="成品规格" min-width="150">
+            <el-table-column prop="finishedSpec" label="成品规格" min-width="120">
               <template #default="{ row }">
                 <el-input v-model="row.finishedSpec" placeholder="请输入成品规格" />
               </template>
             </el-table-column>
-            <el-table-column prop="quantity" label="订货数量" min-width="150">
+            <el-table-column prop="quantity" label="订货数量" min-width="110">
               <template #default="{ row }">
                 <el-input v-model="row.quantity" placeholder="请输入数量" />
               </template>
             </el-table-column>
-            <el-table-column prop="unit" label="单位" min-width="130">
+            <el-table-column prop="unit" label="单位" min-width="80">
               <template #default="{ row }">
                 <el-input v-model="row.unit" placeholder="请输入单位" />
               </template>
             </el-table-column>
-            <el-table-column prop="amount" label="金额" min-width="160">
+            <el-table-column prop="amount" label="金额" min-width="100">
               <template #default="{ row }">
                 <span>{{ formatMoney4(productCraftAmount(row)) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" min-width="90" fixed="right">
+            <el-table-column label="操作" min-width="70">
               <template #default="{ $index }">
                 <div class="table-actions">
                   <button type="button" @click="removeProductRow($index)">删除</button>
@@ -2298,12 +2564,12 @@ watch(
             empty-text="当前产品暂无工艺"
             @wheel="handleCraftTableWheel"
           >
-            <el-table-column v-if="formMode === 'outsource'" label="外协" width="70" fixed="left">
+            <el-table-column v-if="formMode === 'outsource'" label="外协" width="56">
               <template #default="{ row }">
                 <el-checkbox v-model="row.outsourceChecked" />
               </template>
             </el-table-column>
-            <el-table-column prop="craftName" label="工艺名称" min-width="150">
+            <el-table-column prop="craftName" label="工艺名称" min-width="130">
               <template #default="{ row }">
                 <el-select
                   v-model="row.craftId"
@@ -2326,59 +2592,59 @@ watch(
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column prop="spec" label="规格" min-width="120">
-              <template #default="{ row }">
-                <el-input v-model="row.spec" placeholder="请输入规格" />
-              </template>
-            </el-table-column>
-            <el-table-column prop="openNum" label="开数" min-width="120">
+            <el-table-column prop="openNum" label="开数" min-width="70">
               <template #default="{ row }">
                 <el-input v-model="row.openNum" placeholder="请输入开数" />
               </template>
             </el-table-column>
-            <el-table-column prop="numberPerBoard" label="每板个数" min-width="130">
+            <el-table-column prop="numberPerBoard" label="每板个数" min-width="82">
               <template #default="{ row }">
                 <el-input v-model="row.numberPerBoard" placeholder="请输入每板个数" />
               </template>
             </el-table-column>
-            <el-table-column prop="singleDouble" label="单双面" min-width="160">
+            <el-table-column prop="singleDouble" label="单双面" min-width="92">
               <template #default="{ row }">
                 <el-select v-model="row.singleDouble" placeholder="请选择单双面">
                   <el-option v-for="item in singleDoubleOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column prop="startPrice" label="起价" min-width="120">
+            <el-table-column prop="startPrice" label="起价" min-width="78">
               <template #default="{ row }">
                 <el-input v-model="row.startPrice" placeholder="请输入起步价" />
               </template>
             </el-table-column>
-            <el-table-column prop="spotColors" label="专色" min-width="120">
+            <el-table-column prop="spotColors" label="专色" min-width="78">
               <template #default="{ row }">
                 <el-input v-model="row.spotColors" placeholder="请输入专色" />
               </template>
             </el-table-column>
-            <el-table-column prop="colour" label="颜色" min-width="120">
+            <el-table-column prop="colour" label="颜色" min-width="78">
               <template #default="{ row }">
                 <el-input v-model="row.colour" placeholder="请输入颜色" />
               </template>
             </el-table-column>
-            <el-table-column prop="finishNum" label="成品数量" min-width="150">
+            <el-table-column prop="finishNum" label="成品数量" min-width="92">
               <template #default="{ row }">
                 <el-input v-model="row.finishNum" placeholder="请输入成品数" />
               </template>
             </el-table-column>
-            <el-table-column prop="unit" label="单位" min-width="120">
+            <el-table-column prop="unit" label="单位" min-width="70">
               <template #default="{ row }">
                 <el-input v-model="row.unit" placeholder="请输入单位" />
               </template>
             </el-table-column>
-            <el-table-column prop="price" label="单价" min-width="120">
+            <el-table-column prop="price" label="单价" min-width="78">
               <template #default="{ row }">
                 <el-input v-model="row.price" placeholder="请输入价格" />
               </template>
             </el-table-column>
-            <el-table-column prop="formula" label="公式" min-width="240">
+            <el-table-column prop="ploidy" label="套数" min-width="70">
+              <template #default="{ row }">
+                <el-input v-model="row.ploidy" placeholder="套数" />
+              </template>
+            </el-table-column>
+            <el-table-column prop="formula" label="公式" min-width="150">
               <template #default="{ row }">
                 <div class="formula-editor">
                   <el-input v-model="row.formula" :disabled="isFoilingCraft(row)" placeholder="请输入公式" />
@@ -2386,17 +2652,17 @@ watch(
                 </div>
               </template>
             </el-table-column>
-            <el-table-column prop="customerAmount" label="客户金额" min-width="150">
+            <el-table-column prop="customerAmount" label="客户金额" min-width="92">
               <template #default="{ row }">
                 <span>{{ formatMoney4(displayCraftCustomerAmount(row)) }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="remark" label="备注" min-width="150">
+            <el-table-column prop="remark" label="备注" min-width="100">
               <template #default="{ row }">
                 <el-input v-model="row.remark" placeholder="请输入备注" />
               </template>
             </el-table-column>
-            <el-table-column label="操作" min-width="90" fixed="right">
+            <el-table-column label="操作" min-width="64">
               <template #default="{ row, $index }">
                 <div class="table-actions">
                   <button type="button" @click="removeCraftRow(row, $index)">删除</button>
@@ -2416,6 +2682,59 @@ watch(
         </div>
       </div>
       </section>
+    </el-dialog>
+
+    <el-dialog
+      v-model="outsourceAllVisible"
+      title="整单外协"
+      width="860px"
+      class="outsource-all-dialog"
+      :close-on-click-modal="false"
+    >
+      <div class="outsource-all-panel">
+        <div class="outsource-all-head">
+          <strong>选择外协单位</strong>
+          <span>{{ selectedOutsourceUnitName }}</span>
+        </div>
+        <div class="outsource-search">
+          <label>
+            <span>会员名称</span>
+            <el-input v-model="outsourceFilters.memberName" placeholder="请输入会员名称" />
+          </label>
+          <div class="outsource-search__actions">
+            <el-button type="primary" @click="loadOutsourceUnits">
+              <el-icon><Search /></el-icon>
+              <span>查询</span>
+            </el-button>
+            <el-button :icon="Refresh" @click="resetOutsourceFilters">重置</el-button>
+            <el-button type="danger" plain @click="openExternalTenantDialog">非本系统会员</el-button>
+          </div>
+        </div>
+        <el-table
+          v-loading="outsourceLoading"
+          :data="outsourceOptions"
+          class="design-table outsource-table"
+          height="300"
+          empty-text="暂无外协单位"
+          @row-click="selectOutsourceUnit"
+        >
+          <el-table-column width="70">
+            <template #default="{ row }">
+              <el-radio
+                :model-value="formState.outsourceSupplierId"
+                :label="row.memberId"
+                @change="selectOutsourceUnit(row)"
+              />
+            </template>
+          </el-table-column>
+          <el-table-column prop="tenantName" label="会员名称" min-width="240" />
+          <el-table-column prop="contact" label="联系人" min-width="160" />
+        </el-table>
+      </div>
+      <template #footer>
+        <el-button :disabled="outsourceAllSaving" @click="outsourceAllVisible = false">取消</el-button>
+        <el-button type="primary" :loading="outsourceAllSaving" @click="confirmOutsourceAll">确定</el-button>
+      </template>
     </el-dialog>
 
     <el-dialog
@@ -2662,6 +2981,9 @@ watch(
             <el-table-column prop="unit" label="单位" min-width="110" />
             <el-table-column prop="price" label="单价" min-width="110">
               <template #default="{ row }">{{ formatMoney(row.price) }}</template>
+            </el-table-column>
+            <el-table-column prop="ploidy" label="套数" min-width="90">
+              <template #default="{ row }">{{ row.ploidy || 1 }}</template>
             </el-table-column>
             <el-table-column prop="formula" label="公式" min-width="160" show-overflow-tooltip>
               <template #default="{ row }">{{ row.formula || '-' }}</template>
@@ -3028,14 +3350,77 @@ watch(
   background: #fff1f0 !important;
 }
 
+.order-status--paused {
+  color: #595959 !important;
+  border-color: #d9d9d9 !important;
+  background: #f5f5f5 !important;
+}
+
 .craft-status-warning {
   color: #fa8c16;
+  font-weight: 700;
+}
+
+.craft-status-running {
+  color: #9254de;
   font-weight: 700;
 }
 
 .craft-status-success {
   color: #52c41a;
   font-weight: 700;
+}
+
+.product-info-lines--hoverable {
+  cursor: default;
+}
+
+.product-info-lines--hoverable:hover {
+  color: #1677ff;
+}
+
+:global(.order-craft-popover) {
+  padding: 14px !important;
+}
+
+.order-craft-status-panel {
+  display: flex;
+  align-items: flex-start;
+  gap: 26px;
+  max-width: 620px;
+}
+
+.order-craft-status-product {
+  min-width: 140px;
+}
+
+.order-craft-status-product__name {
+  margin-bottom: 10px;
+  color: #303133;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.order-craft-status-list {
+  display: grid;
+  gap: 8px;
+}
+
+.order-craft-status-item {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  white-space: nowrap;
+}
+
+.order-craft-status-item__name {
+  color: #303133;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.order-craft-status-item__status {
+  font-size: 14px;
 }
 
 .manual-complete-upload {
@@ -3325,6 +3710,33 @@ watch(
   display: none;
 }
 
+.outsource-all-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.outsource-all-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.outsource-all-head strong {
+  color: #303133;
+  font-size: 16px;
+}
+
+.outsource-all-head span {
+  color: #8b8f99;
+  font-size: 14px;
+}
+
+.outsource-all-dialog .outsource-search {
+  grid-template-columns: minmax(260px, 1fr) auto;
+}
+
 .external-tenant-panel {
   display: flex;
   flex-direction: column;
@@ -3440,16 +3852,39 @@ watch(
   width: 100%;
 }
 
+.order-list-table :deep(.el-table__cell) {
+  padding: 8px 0;
+}
+
+.order-list-table :deep(.cell) {
+  padding: 0 10px;
+  line-height: 1.35;
+}
+
+.order-list-table :deep(.el-button) {
+  padding: 6px 10px;
+}
+
+.order-list-table :deep(.el-space) {
+  gap: 4px 8px !important;
+}
+
 :deep(.order-form-dialog) .design-table :deep(.el-table__header th) {
-  height: 38px;
+  height: 36px;
 }
 
 :deep(.order-form-dialog) .design-table :deep(.el-table__body td.el-table__cell) {
-  height: 40px;
+  height: 38px;
+  padding: 4px 0;
 }
 
 :deep(.order-form-dialog) .design-table :deep(.cell) {
+  padding: 0 6px;
   line-height: 1.25;
+}
+
+:deep(.order-form-dialog) .design-table :deep(.el-table__header .cell) {
+  white-space: nowrap;
 }
 
 .billing-product-table :deep(.el-table__row) {
@@ -3466,10 +3901,21 @@ watch(
 }
 
 .design-table :deep(.el-input__wrapper) {
-  min-height: 40px;
+  min-height: 32px;
   border-radius: 0;
   background: #f5f6f8;
   box-shadow: none;
+}
+
+.billing-product-table :deep(.el-input),
+.billing-craft-table :deep(.el-input),
+.billing-craft-table :deep(.el-select) {
+  --el-input-height: 32px;
+  font-size: 13px;
+}
+
+.billing-craft-table :deep(.el-button) {
+  padding: 0 4px;
 }
 
 .formula-editor {

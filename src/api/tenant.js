@@ -61,6 +61,8 @@ export const getWorkbenchLargeScreenOrderList = (payload = {}) =>
   tenantHttp.get('/api/tenant/workbench/largeScreenOrderList', { params: payload })
 export const getWorkbenchLargeScreenOrderStatistics = () =>
   tenantHttp.get('/api/tenant/workbench/largeScreenOrderStatistics')
+export const getWorkbenchHdpiConf = () => tenantHttp.get('/api/tenant/workbench/hdpiConf')
+export const updateWorkbenchHdpiContent = (payload = {}) => tenantHttp.post('/api/tenant/workbench/content', payload)
 
 export const getTenantOrderList = (payload) => tenantHttp.post('/api/tenant/order/list', payload)
 export const getTenantOrderDetail = (id) => tenantHttp.get('/api/tenant/order/info', { params: { id } })
@@ -77,6 +79,8 @@ export const changeTenantOrderAutoApprove = (payload = {}) => tenantHttp.post('/
 export const approveTenantOrder = (payload = {}) => tenantHttp.post('/api/tenant/order/approve', payload)
 export const returnTenantOrder = (id) => tenantHttp.get('/api/tenant/order/returnOrder', { params: { id } })
 export const deleteTenantOrder = (id) => tenantHttp.get('/api/tenant/order/del', { params: { id } })
+export const stopTenantOrder = (id) => tenantHttp.get('/api/tenant/order/orderStop', { params: { id } })
+export const startTenantOrder = (id) => tenantHttp.get('/api/tenant/order/orderStart', { params: { id } })
 export const addTenantOrderError = (payload = {}) => tenantHttp.post('/api/tenant/order/orderError', payload)
 export const getTenantOrderErrorInfo = (id) => tenantHttp.get('/api/tenant/order/orderErrorInfo', { params: { orderId: id } })
 export const getTenantOutsourceTenants = (payload = {}) => tenantHttp.post('/api/tenant/order/tenants', payload)
@@ -84,6 +88,7 @@ export const getTenantOutsourceTenantsAll = (payload = {}) => tenantHttp.post('/
 export const outsourceTenantOrder = (payload = {}) => tenantHttp.post('/api/tenant/order/outsource', payload)
 export const completeTenantOrderProduction = (payload = {}) => tenantHttp.post('/api/tenant/order/completeProduction', payload)
 export const getTenantOrderOutsourceInfo = (id) => tenantHttp.get('/api/tenant/order/outsourceInfo', { params: { id } })
+export const outsourceTenantOrderAll = (payload = {}) => tenantHttp.post('/api/tenant/order/outsourceAll', payload)
 export const getTenantExternalTenantList = (payload = {}) => tenantHttp.post('/api/tenant/tenant/list', payload)
 export const addTenantExternalTenant = (payload = {}) => tenantHttp.post('/api/tenant/tenant/add', payload)
 export const editTenantExternalTenant = (payload = {}) => tenantHttp.post('/api/tenant/tenant/edit', payload)

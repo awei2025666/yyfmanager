@@ -1,9 +1,12 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
+  getTenantUserInfo,
+  getWorkbenchHdpiConf,
   getWorkbenchLargeScreenOrderList,
-  getWorkbenchLargeScreenOrderStatistics
+  getWorkbenchLargeScreenOrderStatistics,
+  updateWorkbenchHdpiContent
 } from '../api/tenant'
 import largeScreenHeader from '../assets/large-screen-header-tight.png'
 import statusCardBg from '../assets/large-screen-status-card-bg-design.png'
@@ -22,6 +25,7 @@ const clockParts = reactive({
   second: '00'
 })
 const tenantName = ref('')
+const bannerContent = ref('欢迎使用印刷ERP数据大屏')
 const rows = ref([])
 const stats = reactive({
   total: 0,
@@ -94,10 +98,6 @@ const normalizeOrder = (row = {}) => ({
   statusValue: Number(row.status || row.orderStatus)
 })
 
-const orderDigits = computed(() =>
-  String(Math.max(0, Number(stats.total || 0))).padStart(6, '0').split('')
-)
-
 const statusCards = computed(() => [
   { key: 'pendingApproval', label: '待审批', value: stats.pendingApproval },
   { key: 'pendingProduction', label: '待生产', value: stats.pendingProduction },
@@ -128,12 +128,6 @@ const orderStatusClass = (row = {}) => ({
   'status-warning': [1, 2].includes(row.statusValue) || ['待审批', '待生产'].includes(row.status)
 })
 
-const moneyText = (value) =>
-  `¥${Number(value || 0).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  })}`
-
 const updateClock = () => {
   const now = new Date()
   const week = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'][now.getDay()]
@@ -151,14 +145,70 @@ const updateScreenScale = () => {
   screenScale.y = window.innerHeight / 1080
 }
 
+const resolveTenantName = (data = {}) =>
+  data.tenantName
+  || data.companyName
+  || data.name
+  || data.tenant?.tenantName
+  || localStorage.getItem('platform_tenant_name')
+  || ''
+
 const applyStatistics = (data = {}) => {
-  tenantName.value = data.tenantName || data.companyName || data.name || ''
+  tenantName.value = resolveTenantName(data)
   stats.pendingApproval = pickNumber(data, ['waitApprovalTotal', 'pendingApproval', 'waitApprove', 'waitApproval', 'auditCount', 'approvalCount'])
   stats.pendingProduction = pickNumber(data, ['waitProductionTotal', 'pendingProduction', 'waitProduction', 'waitProduce', 'productionCount'])
   stats.pendingDelivery = pickNumber(data, ['waitDeliveryTotal', 'pendingDelivery', 'waitDelivery', 'deliveryWaitCount'])
   stats.delivering = pickNumber(data, ['inDeliveryTotal', 'delivering', 'deliverying', 'deliveryCount', 'inDeliveryCount'])
   stats.completed = pickNumber(data, ['completeTotal', 'completed', 'finish', 'finished', 'completedCount', 'finishCount'])
   stats.overdue = pickNumber(data, ['overdueTotal', 'overdue', 'expired', 'timeout', 'overdueCount', 'expiredCount'])
+}
+
+const applyHdpiContent = (data) => {
+  if (typeof data === 'string') {
+    bannerContent.value = data || bannerContent.value
+    return
+  }
+  bannerContent.value = data?.content || data?.text || data?.value || bannerContent.value
+}
+
+const loadTenantName = async () => {
+  if (tenantName.value) return
+  try {
+    const info = await getTenantUserInfo()
+    tenantName.value = resolveTenantName(info)
+    if (tenantName.value) localStorage.setItem('platform_tenant_name', tenantName.value)
+  } catch (error) {
+    tenantName.value = localStorage.getItem('platform_tenant_name') || tenantName.value
+  }
+}
+
+const loadHdpiContent = async () => {
+  try {
+    const data = await getWorkbenchHdpiConf()
+    applyHdpiContent(data)
+  } catch (error) {
+    ElMessage.error(error?.message || '大屏文字加载失败')
+  }
+}
+
+const editBannerContent = async () => {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入大屏横幅文字', '编辑大屏文字', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputValue: bannerContent.value,
+      inputType: 'textarea',
+      inputPlaceholder: '请输入横幅文字'
+    })
+    const content = String(value || '').trim()
+    if (!content) return ElMessage.warning('请输入大屏文字')
+    await updateWorkbenchHdpiContent({ content })
+    bannerContent.value = content
+    ElMessage.success('大屏文字已更新')
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(error?.message || '大屏文字保存失败')
+  }
 }
 
 const loadScreen = async () => {
@@ -178,12 +228,14 @@ const loadScreen = async () => {
   } finally {
     loading.value = false
   }
+  loadTenantName()
 }
 
 onMounted(() => {
   updateScreenScale()
   updateClock()
   loadScreen()
+  loadHdpiContent()
   window.addEventListener('resize', updateScreenScale)
   clockTimer = window.setInterval(updateClock, 1000)
   refreshTimer = window.setInterval(loadScreen, 60 * 1000)
@@ -207,18 +259,12 @@ onBeforeUnmount(() => {
         <h1>{{ tenantName || '印刷ERP数据大屏' }}</h1>
       </header>
 
-      <div class="total-panel">
-        <span>订单总数量</span>
-        <div class="digit-list">
-          <strong v-for="(digit, index) in orderDigits" :key="`${digit}-${index}`">{{ digit }}</strong>
-          <em>单</em>
+      <button type="button" class="screen-banner" @click="editBannerContent">
+        <div class="screen-banner__track">
+          <span>{{ bannerContent }}</span>
+          <span aria-hidden="true">{{ bannerContent }}</span>
         </div>
-      </div>
-      <div class="total-decor" aria-hidden="true">
-        <i></i><i></i><i></i><i></i><i></i>
-        <span></span>
-        <i></i><i></i><i></i><i></i><i></i>
-      </div>
+      </button>
 
       <div class="status-grid">
         <article
@@ -237,11 +283,9 @@ onBeforeUnmount(() => {
       <section class="screen-table">
         <div class="screen-table__head">
           <span>订单号</span>
-          <span>单位名称</span>
           <span>订单时间</span>
           <span>填单员</span>
           <span>产品信息</span>
-          <span>订单金额</span>
           <span>订单状态</span>
         </div>
         <div v-if="rows.length" class="screen-table__body">
@@ -252,11 +296,9 @@ onBeforeUnmount(() => {
               class="screen-table__row"
             >
               <span>{{ row.orderNo }}</span>
-              <span>{{ row.customer }}</span>
               <span>{{ row.orderTime }}</span>
               <span>{{ row.filler }}</span>
               <span>{{ row.productInfo }}</span>
-              <span>{{ moneyText(row.amount) }}</span>
               <span class="order-status" :class="orderStatusClass(row)">{{ row.status }}</span>
             </div>
           </div>
@@ -312,15 +354,15 @@ onBeforeUnmount(() => {
 
 .screen-header h1 {
   position: absolute;
-  top: 48px;
+  top: 42px;
   left: 50%;
-  z-index: 2;
+  z-index: 4;
   margin: 0;
-  width: 760px;
-  max-width: 42%;
-  padding: 0 40px;
+  width: 860px;
+  max-width: 46%;
+  padding: 0 36px;
   color: #ffffff;
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 900;
   letter-spacing: 0;
   text-shadow: 0 0 18px rgba(83, 165, 255, 0.7);
@@ -344,80 +386,73 @@ onBeforeUnmount(() => {
   text-shadow: 0 0 12px rgba(89, 159, 255, 0.28);
 }
 
-.total-panel {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin: 18px 0 10px;
-}
-
-.total-panel > span,
-.digit-list strong,
-.digit-list em {
-  display: inline-grid;
-  place-items: center;
-  min-width: 52px;
-  height: 58px;
-  border: 1px solid rgba(82, 163, 255, 0.65);
-  background:
-    linear-gradient(180deg, rgba(34, 113, 196, 0.86), rgba(11, 57, 122, 0.95)),
-    radial-gradient(circle at 50% 0, rgba(75, 172, 255, 0.3), transparent 68%);
-  color: #ffffff;
-  box-shadow: inset 0 0 18px rgba(65, 158, 255, 0.28);
-}
-
-.total-panel > span {
-  min-width: 170px;
-  padding: 0 20px;
-  font-size: 25px;
-  font-weight: 900;
-}
-
-.digit-list {
-  display: flex;
-  gap: 9px;
-}
-
-.digit-list strong {
-  font-size: 42px;
-  line-height: 1;
-  font-family: Impact, "Arial Narrow", "PingFang SC", sans-serif;
-  font-weight: 900;
-  text-shadow: 0 0 12px rgba(152, 211, 255, 0.46);
-}
-
-.digit-list em {
-  min-width: 50px;
-  font-style: normal;
-  font-size: 24px;
-  font-weight: 800;
-}
-
-.total-decor {
-  display: grid;
-  grid-template-columns: repeat(5, 26px) minmax(360px, 560px) repeat(5, 26px);
-  justify-content: center;
-  align-items: center;
-  gap: 5px;
-  margin: 0 auto 40px;
-}
-
-.total-decor i,
-.total-decor span {
+.screen-banner {
+  position: relative;
   display: block;
-  height: 4px;
-  background: #1e82ca;
+  width: calc(100% - 84px);
+  height: 106px;
+  margin: 22px 42px 34px;
+  padding: 0;
+  border: 2px solid rgba(95, 191, 255, 0.82);
+  border-radius: 4px;
+  background:
+    linear-gradient(90deg, rgba(0, 12, 42, 0.96), rgba(6, 52, 112, 0.9) 18%, rgba(3, 26, 76, 0.96) 50%, rgba(6, 52, 112, 0.9) 82%, rgba(0, 12, 42, 0.96)),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 2px, transparent 2px 14px);
+  color: #fff7b0;
+  box-shadow:
+    0 0 22px rgba(26, 155, 255, 0.42),
+    inset 0 0 26px rgba(65, 179, 255, 0.34),
+    inset 0 -10px 22px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+  cursor: pointer;
 }
 
-.total-decor i:nth-child(-n + 2),
-.total-decor i:nth-last-child(-n + 2) {
-  background: #fff25b;
+.screen-banner::before,
+.screen-banner::after {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border-top: 3px solid rgba(255, 237, 91, 0.84);
+  border-bottom: 3px solid rgba(255, 237, 91, 0.84);
+  pointer-events: none;
 }
 
-.total-decor span {
-  height: 2px;
-  background: linear-gradient(90deg, rgba(40, 126, 217, 0.2), #2d6cd4 18%, #2d6cd4 82%, rgba(40, 126, 217, 0.2));
+.screen-banner::after {
+  inset: 0;
+  border: 0;
+  background:
+    linear-gradient(90deg, rgba(4, 10, 35, 0.96), transparent 14%, transparent 86%, rgba(4, 10, 35, 0.96)),
+    radial-gradient(circle at 8% 50%, rgba(255, 246, 160, 0.32), transparent 10%),
+    radial-gradient(circle at 92% 50%, rgba(255, 246, 160, 0.32), transparent 10%);
+}
+
+.screen-banner__track {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  width: max-content;
+  min-width: 200%;
+  height: 100%;
+  animation: banner-marquee 24s linear infinite;
+}
+
+.screen-banner__track span {
+  min-width: 50%;
+  padding: 0 88px;
+  color: #fff7b0;
+  font-size: 42px;
+  font-weight: 900;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-align: center;
+  text-shadow:
+    0 0 10px rgba(255, 226, 80, 0.68),
+    0 0 22px rgba(255, 103, 28, 0.45);
+}
+
+.screen-banner:hover .screen-banner__track {
+  animation-play-state: paused;
 }
 
 .status-grid {
@@ -496,7 +531,7 @@ onBeforeUnmount(() => {
 .screen-table__head,
 .screen-table__row {
   display: grid;
-  grid-template-columns: 1.2fr 1.7fr 1.25fr 0.9fr 2.4fr 1fr 0.8fr;
+  grid-template-columns: 1.35fr 1.35fr 0.95fr 2.6fr 0.8fr;
   align-items: center;
 }
 
@@ -581,6 +616,16 @@ onBeforeUnmount(() => {
 
   to {
     transform: translateY(-50%);
+  }
+}
+
+@keyframes banner-marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
   }
 }
 

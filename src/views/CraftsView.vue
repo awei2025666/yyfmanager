@@ -9,7 +9,8 @@ import {
   changeTenantCraftStatus,
   deleteTenantCraft,
   editTenantCraft,
-  getTenantCraftList
+  getTenantCraftList,
+  getTenantDepartmentOptions
 } from '../api/tenant'
 
 const router = useRouter()
@@ -26,10 +27,12 @@ const filters = reactive({
 const state = reactive({
   loading: false,
   saving: false,
+  optionLoading: false,
   records: [],
   total: 0
 })
 
+const departmentOptions = ref([])
 const formPageVisible = ref(false)
 const form = reactive({
   id: null,
@@ -39,11 +42,45 @@ const form = reactive({
   foilingStartingPrice: '',
   formatSize: '',
   spotColors: '',
+  ploidy: '',
   sort: '',
+  deptIds: [],
   remark: ''
 })
 
 const isEdit = computed(() => Boolean(form.id))
+
+const listRows = (payload) => {
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.data)) return payload.data
+  return payload?.records || payload?.list || payload?.rows || payload?.data?.records || payload?.data?.list || payload?.data?.rows || []
+}
+
+const normalizeIdList = (value) => {
+  if (Array.isArray(value)) return value.map((item) => item?.deptId ?? item?.id ?? item).filter((item) => item !== undefined && item !== null && item !== '')
+  if (value === undefined || value === null || value === '') return []
+  return String(value).split(/[,，、]/).map((item) => item.trim()).filter(Boolean)
+}
+
+const normalizeDepts = (row = {}) => {
+  const depts = Array.isArray(row.depts) ? row.depts : Array.isArray(row.deptList) ? row.deptList : []
+  const ids = depts.length ? depts.map((item) => item.deptId ?? item.id).filter((item) => item !== undefined && item !== null && item !== '') : normalizeIdList(row.deptIds || row.deptId)
+  const names = depts
+    .map((item) => item.deptName || item.name)
+    .filter(Boolean)
+  return {
+    deptIds: ids,
+    deptNames: names.join('、') || row.deptNames || row.deptName || '-'
+  }
+}
+
+const normalizeDepartmentOptions = (payload = []) =>
+  listRows(payload)
+    .map((item) => ({
+      label: item.deptName || item.name || item.label,
+      value: item.deptId ?? item.id ?? item.value
+    }))
+    .filter((item) => item.label && item.value !== undefined && item.value !== null && item.value !== '')
 
 const normalizeCraft = (row = {}, index = 0) => ({
   id: row.id || row.craftId || index + 1,
@@ -55,6 +92,8 @@ const normalizeCraft = (row = {}, index = 0) => ({
   remark: row.remark || row.description || '',
   formatSize: row.formatSize ?? row.openCount ?? '--',
   spotColors: row.spotColors || row.spotColor || row.specialColor || '--',
+  ploidy: row.ploidy ?? 1,
+  ...normalizeDepts(row),
   status: Number(row.status ?? 1)
 })
 
@@ -87,6 +126,19 @@ const loadData = async () => {
   }
 }
 
+const loadDepartmentOptions = async () => {
+  state.optionLoading = true
+  try {
+    const data = await getTenantDepartmentOptions({ name: '' })
+    departmentOptions.value = normalizeDepartmentOptions(data)
+  } catch (error) {
+    departmentOptions.value = []
+    ElMessage.error(error?.message || '部门列表加载失败')
+  } finally {
+    state.optionLoading = false
+  }
+}
+
 const searchData = () => {
   filters.pageNum = 1
   loadData()
@@ -112,7 +164,9 @@ const resetForm = () => {
     foilingStartingPrice: '',
     formatSize: '',
     spotColors: '',
+    ploidy: '',
     sort: '',
+    deptIds: [],
     remark: ''
   })
 }
@@ -129,7 +183,8 @@ const openEdit = (row) => {
     priceBase: row.priceBase === 0 ? 0 : row.priceBase || '',
     foilingStartingPrice: row.foilingStartingPrice ?? '',
     formatSize: row.formatSize === '--' ? '' : row.formatSize,
-    spotColors: row.spotColors === '--' ? '' : row.spotColors
+    spotColors: row.spotColors === '--' ? '' : row.spotColors,
+    deptIds: normalizeIdList(row.deptIds)
   })
   formPageVisible.value = true
   router.push({ name: 'crafts', query: { mode: 'edit', id: row.id } })
@@ -155,7 +210,9 @@ const submit = async () => {
       foilingStartingPrice: form.foilingStartingPrice === '' ? null : form.foilingStartingPrice,
       formatSize: form.formatSize,
       spotColors: form.spotColors,
+      ploidy: form.ploidy === '' ? 1 : form.ploidy,
       sort: form.sort,
+      deptIds: form.deptIds,
       remark: form.remark
     }
     await (isEdit.value ? editTenantCraft(payload) : addTenantCraft(payload))
@@ -200,6 +257,7 @@ watch(
 
 onMounted(() => {
   formPageVisible.value = ['create', 'edit'].includes(route.query.mode)
+  loadDepartmentOptions()
   loadData()
 })
 </script>
@@ -245,8 +303,10 @@ onMounted(() => {
           <el-table-column prop="unit" label="单位" min-width="100" />
           <el-table-column prop="sort" label="排序" min-width="100" />
           <el-table-column prop="remark" label="描述" min-width="190" show-overflow-tooltip />
+          <el-table-column prop="deptNames" label="操作部门" min-width="150" show-overflow-tooltip />
           <el-table-column prop="formatSize" label="开数" min-width="100" />
           <el-table-column prop="spotColors" label="专色" min-width="100" />
+          <el-table-column prop="ploidy" label="套数" min-width="100" />
           <el-table-column prop="status" label="状态" min-width="120">
             <template #default="{ row }">
               <el-switch
@@ -306,8 +366,31 @@ onMounted(() => {
             <el-input v-model="form.spotColors" placeholder="请输入专色" />
           </label>
           <label>
+            <span>套数</span>
+            <el-input v-model="form.ploidy" placeholder="请输入套数" />
+          </label>
+          <label>
             <span>排序</span>
             <el-input v-model="form.sort" placeholder="请输入排序" />
+          </label>
+          <label>
+            <span>操作部门</span>
+            <el-select
+              v-model="form.deptIds"
+              multiple
+              clearable
+              collapse-tags
+              collapse-tags-tooltip
+              :loading="state.optionLoading"
+              placeholder="请选择操作部门"
+            >
+              <el-option
+                v-for="item in departmentOptions"
+                :key="String(item.value)"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
           </label>
           <label class="craft-form-remark">
             <span>描述</span>
@@ -373,6 +456,7 @@ onMounted(() => {
 }
 
 .craft-form-card :deep(.el-input__wrapper),
+.craft-form-card :deep(.el-select__wrapper),
 .craft-form-card :deep(.el-textarea__inner) {
   border-radius: 4px;
   background: #ffffff;
@@ -466,7 +550,8 @@ onMounted(() => {
   font-style: normal;
 }
 
-.craft-form-card :deep(.el-input) {
+.craft-form-card :deep(.el-input),
+.craft-form-card :deep(.el-select) {
   --el-input-height: 32px;
   font-size: 14px;
 }
