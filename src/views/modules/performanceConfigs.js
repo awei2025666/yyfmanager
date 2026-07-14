@@ -6,6 +6,7 @@ import {
   exportTenantPerformanceOrder,
   getTenantCraftPerformanceList,
   getTenantClientUsers,
+  getTenantMachineOptions,
   getTenantPerformanceCraftList,
   getTenantPerformanceDriverList,
   getTenantPerformanceOrderList
@@ -48,6 +49,13 @@ const userOptions = (payload, listRows) =>
     .map((item) => ({
       label: item.name || item.userName || item.tenantUserName || '',
       value: item.id || item.userId || item.tenantUserId
+    }))
+    .filter((item) => item.label && item.value !== undefined && item.value !== null)
+const machineOptions = (payload, listRows) =>
+  listRows(payload)
+    .map((item) => ({
+      label: item.name || item.machineName || item.label || '',
+      value: item.id || item.machineId || item.value
     }))
     .filter((item) => item.label && item.value !== undefined && item.value !== null)
 const moneyText = (value) =>
@@ -109,6 +117,15 @@ export const deliveryPerformanceConfig = {
       optionsApi: getTenantClientUsers,
       optionsPayload: { name: '' },
       normalizeOptions: userOptions
+    },
+    {
+      key: 'machineId',
+      label: '机器类型',
+      type: 'select',
+      placeholder: '请选择机器类型',
+      optionsApi: getTenantMachineOptions,
+      optionsPayload: { name: '' },
+      normalizeOptions: machineOptions
     }
   ],
   columns: [
@@ -193,6 +210,7 @@ export const craftPerformanceConfig = {
     { prop: 'craftNum', label: '完成数量' },
     { prop: 'spotColors', label: '专色' },
     { prop: 'colour', label: '颜色' },
+    { prop: 'fryText', label: '过油' },
     { prop: 'singleDoubleText', label: '单双面', minWidth: 130 },
     { prop: 'createTime', label: '完成时间', minWidth: 160 }
   ],
@@ -206,6 +224,7 @@ export const craftPerformanceConfig = {
     return {
       ...listQuery(payload),
       userId: payload.userId || undefined,
+      machineId: payload.machineId || undefined,
       startTime: start || undefined,
       endTime: end || start || undefined
     }
@@ -223,6 +242,7 @@ export const craftPerformanceConfig = {
       craftNum,
       spotColors: row.spotColors || '-',
       colour: row.colour || row.color || '-',
+      fryText: Number(row.fry) === 1 ? '过油' : '',
       singleDoubleText: singleDoubleText(row.singleDouble),
       createTime: row.create_time || row.createTime || '-'
     }

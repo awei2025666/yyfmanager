@@ -74,6 +74,7 @@ export const getTenantOrderConsumables = (id) => tenantHttp.get('/api/tenant/ord
 export const getTenantOrderHandKept = (id) => tenantHttp.get('/api/tenant/order/handKeptInfo', { params: { id } })
 export const getTenantOrderPrintUrl = (id) => tenantHttp.get('/api/tenant/order/printUrl', { params: { id } })
 export const getTenantOrderPrintUrlInto = (id) => tenantHttp.get('/api/tenant/order/printUrlInto', { params: { id } })
+export const getTenantOrderPrintLabelUrl = (id) => tenantHttp.get('/api/tenant/order/printLabelUrl', { params: { id } })
 export const getTenantOrderAutoApprove = () => tenantHttp.get('/api/tenant/order/autoApproval')
 export const changeTenantOrderAutoApprove = (payload = {}) => tenantHttp.post('/api/tenant/order/changeAutoApproval', payload)
 export const approveTenantOrder = (payload = {}) => tenantHttp.post('/api/tenant/order/approve', payload)

@@ -154,7 +154,7 @@ const resolveTenantName = (data = {}) =>
   || ''
 
 const applyStatistics = (data = {}) => {
-  tenantName.value = resolveTenantName(data)
+  tenantName.value = resolveTenantName(data) || tenantName.value
   stats.pendingApproval = pickNumber(data, ['waitApprovalTotal', 'pendingApproval', 'waitApprove', 'waitApproval', 'auditCount', 'approvalCount'])
   stats.pendingProduction = pickNumber(data, ['waitProductionTotal', 'pendingProduction', 'waitProduction', 'waitProduce', 'productionCount'])
   stats.pendingDelivery = pickNumber(data, ['waitDeliveryTotal', 'pendingDelivery', 'waitDelivery', 'deliveryWaitCount'])
@@ -336,7 +336,8 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 116px;
+  min-height: 104px;
+  overflow: visible;
 }
 
 .header-frame-image {
@@ -354,28 +355,34 @@ onBeforeUnmount(() => {
 
 .screen-header h1 {
   position: absolute;
-  top: 42px;
+  top: 38px;
   left: 50%;
   z-index: 4;
   margin: 0;
   width: 860px;
   max-width: 46%;
-  padding: 0 36px;
+  min-height: 42px;
+  padding: 4px 36px;
+  border: 1px solid rgba(75, 174, 255, 0.38);
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(5, 17, 54, 0.18), rgba(10, 44, 105, 0.58), rgba(5, 17, 54, 0.18));
   color: #ffffff;
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 900;
   letter-spacing: 0;
   text-shadow: 0 0 18px rgba(83, 165, 255, 0.7);
   text-align: center;
   line-height: 1.28;
   white-space: nowrap;
-  transform: translate(-50%, -50%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: translateX(-50%);
 }
 
 .screen-time {
   position: absolute;
   left: 72px;
-  top: 84px;
+  top: 72px;
   z-index: 1;
   color: #ffffff;
   font-size: 28px;

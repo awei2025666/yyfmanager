@@ -24,6 +24,7 @@ import {
   getTenantOrderEditInfo,
   getTenantOrderHandKept,
   getTenantOrderList,
+  getTenantOrderPrintLabelUrl,
   getTenantOrderPrintUrl,
   getTenantOrderProcess,
   getTenantOrderErrorInfo,
@@ -1896,6 +1897,25 @@ const printDelivery = async (row) => {
   }
 }
 
+const printLabel = async (row) => {
+  const orderId = row?.id || row?.orderPrimaryId || row?.orderDbId
+  if (!orderId) {
+    ElMessage.error('缺少订单ID，无法打印标签')
+    return
+  }
+  try {
+    const result = await getTenantOrderPrintLabelUrl(orderId)
+    const url = typeof result === 'string' ? result : result?.url || result?.printUrl || result?.fileUrl
+    if (!url) {
+      ElMessage.error('标签打印地址为空')
+      return
+    }
+    window.open(url, '_blank')
+  } catch (error) {
+    ElMessage.error(error?.message || '标签打印地址获取失败')
+  }
+}
+
 const openErrorOrder = async (row) => {
   errorTarget.value = row
   errorForm.tenantUserId = ''
@@ -2140,7 +2160,7 @@ const rowActions = (row) => {
   if (row.status === 3) return ['详情', '差错单', '暂停']
   if (row.status === 9) return ['详情', '差错单', '恢复生产']
   if (row.status === 8) return ['详情', '差错详情']
-  if (row.status === 6) return ['详情', '返单','差错单']
+  if (row.status === 6) return ['详情', '返单', '打印标签', '差错单']
   return ['详情','差错单']
 }
 
@@ -2152,6 +2172,7 @@ const handleAction = (row, action) => {
   if (action === '差错单') return openErrorOrder(row)
   if (action === '差错详情') return openErrorDetail(row)
   if (action === '返单') return repeatOrder(row)
+  if (action === '打印标签') return printLabel(row)
   if (action === '整单外协') return openOutsourceAll(row)
   if (action === '暂停') return toggleOrderProduction(row, true)
   if (action === '恢复生产') return toggleOrderProduction(row, false)
@@ -2305,7 +2326,7 @@ watch(
               trigger="hover"
               placement="top-start"
               popper-class="order-craft-popover"
-              :width="420"
+              :width="620"
             >
               <template #reference>
                 <div class="product-info-lines product-info-lines--hoverable">
@@ -3380,47 +3401,62 @@ watch(
 }
 
 :global(.order-craft-popover) {
-  padding: 14px !important;
+  padding: 12px !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 6px !important;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14) !important;
 }
 
 .order-craft-status-panel {
-  display: flex;
-  align-items: flex-start;
-  gap: 26px;
-  max-width: 620px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  max-width: 596px;
 }
 
 .order-craft-status-product {
-  min-width: 140px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #edf0f5;
+  border-radius: 6px;
+  background: #fafcff;
 }
 
 .order-craft-status-product__name {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #eef2f7;
   color: #303133;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
+  line-height: 1.3;
 }
 
 .order-craft-status-list {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .order-craft-status-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 18px;
-  white-space: nowrap;
+  gap: 10px;
+  min-height: 24px;
 }
 
 .order-craft-status-item__name {
   color: #303133;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .order-craft-status-item__status {
-  font-size: 14px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .manual-complete-upload {
