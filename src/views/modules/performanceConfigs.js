@@ -117,15 +117,6 @@ export const deliveryPerformanceConfig = {
       optionsApi: getTenantClientUsers,
       optionsPayload: { name: '' },
       normalizeOptions: userOptions
-    },
-    {
-      key: 'machineId',
-      label: '机器类型',
-      type: 'select',
-      placeholder: '请选择机器类型',
-      optionsApi: getTenantMachineOptions,
-      optionsPayload: { name: '' },
-      normalizeOptions: machineOptions
     }
   ],
   columns: [
@@ -198,6 +189,15 @@ export const craftPerformanceConfig = {
       optionsApi: getTenantClientUsers,
       optionsPayload: { name: '' },
       normalizeOptions: userOptions
+    },
+    {
+      key: 'machineId',
+      label: '机器类型',
+      type: 'select',
+      placeholder: '请选择机器类型',
+      optionsApi: getTenantMachineOptions,
+      optionsPayload: { name: '' },
+      normalizeOptions: machineOptions
     }
   ],
   columns: [

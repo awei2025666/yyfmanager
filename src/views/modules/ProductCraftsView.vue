@@ -5,6 +5,7 @@ import { Plus, Printer, Refresh, Search, Switch, View } from '@element-plus/icon
 import PageBlock from '../../components/PageBlock.vue'
 import {
   addTenantExternalTenant,
+  changeTenantProductCraftOrderQuantity,
   completeTenantOrderProduction,
   deleteTenantExternalTenant,
   editTenantExternalTenant,
@@ -383,6 +384,35 @@ const confirmManualComplete = async () => {
   }
 }
 
+const changeReportQuantity = async (row = {}) => {
+  if (!row.id) {
+    ElMessage.error('缺少工艺ID，无法修改报工数量')
+    return
+  }
+  try {
+    const { value } = await ElMessageBox.prompt('请输入报工数量', '修改报工数量', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputValue: String(row.quantity ?? ''),
+      inputPlaceholder: '请输入报工数量',
+      inputValidator: (value) => {
+        if (String(value).trim() === '') return '请输入报工数量'
+        const quantity = Number(value)
+        return (Number.isFinite(quantity) && quantity >= 0) || '请输入大于等于 0 的数字'
+      }
+    })
+    await changeTenantProductCraftOrderQuantity({
+      id: row.id,
+      num: Number(value)
+    })
+    ElMessage.success('报工数量已修改')
+    await Promise.all([loadData(), loadStatistics()])
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(error?.message || '修改报工数量失败')
+  }
+}
+
 const normalizeRow = (row = {}) => ({
   ...row,
   id: row.id || row.productsCraftId,
@@ -619,10 +649,9 @@ onMounted(() => {
         <el-table-column prop="customer" label="单位名称" min-width="150" show-overflow-tooltip />
         <el-table-column prop="orderTime" label="订单时间" min-width="160" />
         <el-table-column prop="productInfo" label="产品信息" min-width="170" show-overflow-tooltip />
-        <el-table-column prop="quantity" label="产品数量" min-width="100" />
+        <el-table-column prop="quantity" label="报工数量" min-width="100" />
         <el-table-column prop="craftName" label="工艺名称" min-width="120" />
         <el-table-column prop="remark" label="备注" min-width="130" show-overflow-tooltip />
-        <el-table-column prop="unitPrice" label="产品单价" min-width="110" />
         <el-table-column label="客户金额" min-width="120">
           <template #default="{ row }">{{ moneyText(row.amount) }}</template>
         </el-table-column>
@@ -642,10 +671,11 @@ onMounted(() => {
         <el-table-column prop="outRemark" label="外协备注" min-width="110" />
 
         <el-table-column prop="operator" label="操作员" min-width="100" />
-        <el-table-column label="操作" width="230" fixed="right">
+        <el-table-column label="操作" width="290" fixed="right">
           <template #default="{ row }">
             <el-space wrap>
               <el-button type="primary" link :icon="View" @click="openDetail(row)">详情</el-button>
+              <el-button type="primary" link @click="changeReportQuantity(row)">修改报工数量</el-button>
               <el-button v-if="shouldShowManualComplete(row)" type="primary" link @click="openManualComplete(row)">
                 手动完成
               </el-button>

@@ -252,6 +252,8 @@ const productInfoLines = (item = {}) => {
   return [item.productInfo || item.productName || item.vipName || '--']
 }
 
+const productInfoInlineText = (item = {}) => productInfoLines(item).join('，') || '--'
+
 const productRowId = (product = {}) =>
   product.id ?? product.productId ?? product.productsId ?? product.orderProductId ?? product.productName ?? product.name
 
@@ -2330,12 +2332,11 @@ watch(
             >
               <template #reference>
                 <div class="product-info-lines product-info-lines--hoverable">
-                  <span v-for="(item, index) in productInfoLines(row)" :key="`${row.id || row.orderId}-${index}`">
-                    {{ item }}
-                  </span>
+                  {{ productInfoInlineText(row) }}
                 </div>
               </template>
               <div class="order-craft-status-panel">
+                <div class="order-craft-status-summary">{{ productInfoInlineText(row) }}</div>
                 <div
                   v-for="group in orderCraftStatusGroups(row)"
                   :key="group.id"
@@ -2357,11 +2358,9 @@ watch(
                 </div>
               </div>
             </el-popover>
-            <div v-else class="product-info-lines">
-              <span v-for="(item, index) in productInfoLines(row)" :key="`${row.id || row.orderId}-${index}`">
-                {{ item }}
-              </span>
-            </div>
+            <el-tooltip v-else :content="productInfoInlineText(row)" placement="top-start">
+              <div class="product-info-lines">{{ productInfoInlineText(row) }}</div>
+            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column prop="totalMoney" label="订单金额" min-width="95">
@@ -3182,13 +3181,12 @@ watch(
 }
 
 .product-info-lines {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  display: block;
+  overflow: hidden;
   padding: 4px 0;
   line-height: 1.45;
-  white-space: normal;
-  word-break: break-word;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .filter-grid,
@@ -3412,6 +3410,14 @@ watch(
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 10px;
   max-width: 596px;
+}
+
+.order-craft-status-summary {
+  grid-column: 1 / -1;
+  color: #606266;
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
 }
 
 .order-craft-status-product {

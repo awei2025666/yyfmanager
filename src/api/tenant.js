@@ -100,6 +100,8 @@ export const getTenantProductCraftList = (payload) => tenantHttp.post('/api/tena
 export const getTenantProductCraftDetail = (id) =>
   tenantHttp.get('/api/tenant/productsCraft/detail', { params: { id } })
 export const getTenantProductCraftStatistics = () => tenantHttp.get('/api/tenant/productsCraft/statistics')
+export const changeTenantProductCraftOrderQuantity = (payload = {}) =>
+  tenantHttp.post('/api/tenant/productsCraft/changeOrderQuantity', payload)
 export const outsourceTenantProductCraft = (payload = {}) => tenantHttp.post('/api/tenant/productsCraft/outsource', payload)
 export const getTenantProductCraftOutsourcePrintUrl = (id) =>
   tenantHttp.get('/api/tenant/productsCraft/printUrlOut', { params: { id } })
