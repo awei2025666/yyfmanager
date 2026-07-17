@@ -2242,7 +2242,18 @@ watch(
         </label>
         <label>
           <span>业务员</span>
-          <el-input v-model="filters.fillUserName" placeholder="请输入业务员" />
+          <el-select
+            v-model="filters.fillUserName"
+            filterable
+            remote
+            clearable
+            reserve-keyword
+            placeholder="请选择业务员"
+            :remote-method="loadUserOptions"
+            @visible-change="(visible) => visible && loadUserOptions()"
+          >
+            <el-option v-for="item in userOptions" :key="item.id" :label="item.name" :value="item.name" />
+          </el-select>
         </label>
         <label>
           <span>订单号</span>
@@ -2949,7 +2960,7 @@ watch(
     <el-dialog
       v-model="detailVisible"
       title="订单详情"
-      width="1280px"
+      width="min(1960px, calc(100vw - 48px))"
       class="order-detail-dialog"
       :close-on-click-modal="false"
     >
@@ -2979,53 +2990,53 @@ watch(
         </PageBlock>
 
         <PageBlock title="工艺信息">
-          <el-table :data="craftRows" class="design-table">
-            <el-table-column prop="productName" label="产品名称" min-width="320" />
-            <el-table-column prop="craftName" label="工艺名称" min-width="150" />
-            <el-table-column prop="spec" label="规格" min-width="110" />
-            <el-table-column prop="openNum" label="开数" min-width="110" />
-            <el-table-column prop="numberPerBoard" label="每板个数" min-width="120">
+          <el-table :data="craftRows" class="design-table detail-craft-table">
+            <el-table-column prop="productName" label="产品名称" min-width="220" show-overflow-tooltip />
+            <el-table-column prop="craftName" label="工艺名称" min-width="130" show-overflow-tooltip />
+            <el-table-column prop="spec" label="规格" min-width="90" show-overflow-tooltip />
+            <el-table-column prop="openNum" label="开数" min-width="60" />
+            <el-table-column prop="numberPerBoard" label="每板个数" min-width="80">
               <template #default="{ row }">{{ row.numberPerBoard || '-' }}</template>
             </el-table-column>
-            <el-table-column label="单双面" min-width="130">
+            <el-table-column label="单双面" min-width="90">
               <template #default="{ row }">{{ singleDoubleText(row.singleDouble) || '-' }}</template>
             </el-table-column>
-            <el-table-column prop="startPrice" label="起价" min-width="110" />
-            <el-table-column prop="spotColors" label="专色" min-width="110" show-overflow-tooltip>
+            <el-table-column prop="startPrice" label="起价" min-width="65" />
+            <el-table-column prop="spotColors" label="专色" min-width="70" show-overflow-tooltip>
               <template #default="{ row }">{{ row.spotColors || '-' }}</template>
             </el-table-column>
-            <el-table-column prop="colour" label="颜色" min-width="110" show-overflow-tooltip>
+            <el-table-column prop="colour" label="颜色" min-width="70" show-overflow-tooltip>
               <template #default="{ row }">{{ row.colour || '-' }}</template>
             </el-table-column>
-            <el-table-column prop="finishNum" label="成品数量" min-width="140" />
-            <el-table-column prop="unit" label="单位" min-width="110" />
-            <el-table-column prop="price" label="单价" min-width="110">
+            <el-table-column prop="finishNum" label="成品数量" min-width="90" />
+            <el-table-column prop="unit" label="单位" min-width="60" />
+            <el-table-column prop="price" label="单价" min-width="70">
               <template #default="{ row }">{{ formatMoney(row.price) }}</template>
             </el-table-column>
-            <el-table-column prop="ploidy" label="套数" min-width="90">
+            <el-table-column prop="ploidy" label="套数" min-width="60">
               <template #default="{ row }">{{ row.ploidy || 1 }}</template>
             </el-table-column>
-            <el-table-column prop="formula" label="公式" min-width="160" show-overflow-tooltip>
+            <el-table-column prop="formula" label="公式" min-width="110" show-overflow-tooltip>
               <template #default="{ row }">{{ row.formula || '-' }}</template>
             </el-table-column>
-            <el-table-column prop="customerAmount" label="客户金额" min-width="150">
+            <el-table-column prop="customerAmount" label="客户金额" min-width="110">
               <template #default="{ row }">{{ formatMoney4(displayCraftCustomerAmount(row)) }}</template>
             </el-table-column>
-            <el-table-column prop="remark" label="备注" min-width="120" />
-            <el-table-column label="工艺状态" min-width="110">
+            <el-table-column prop="remark" label="备注" min-width="100" show-overflow-tooltip />
+            <el-table-column label="工艺状态" min-width="85">
               <template #default="{ row }">
                 <span :class="craftStatusClass(row.craftStatus)">{{ craftStatusText(row.craftStatus) }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="operator" label="操作人" min-width="120" />
-            <el-table-column label="类型" min-width="110">
+            <el-table-column prop="operator" label="操作人" min-width="90" show-overflow-tooltip />
+            <el-table-column label="类型" min-width="70">
               <template #default="{ row }">
                 <el-tag class="order-source-tag" :class="orderSourceClass(row.orderSource)" effect="plain">
                   {{ orderSourceText(row.orderSource) }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" min-width="120" fixed="right">
+            <el-table-column label="操作" min-width="100" fixed="right">
               <template #default="{ row }">
                 <el-button v-if="shouldShowManualComplete(row)" type="primary" link @click="openManualComplete(row)">
                   手动完成
@@ -3547,9 +3558,14 @@ watch(
   gap: 12px;
 }
 
-:deep(.order-form-dialog.el-dialog),
-:deep(.order-detail-dialog.el-dialog) {
+:deep(.order-form-dialog.el-dialog) {
   width: min(1280px, calc(100vw - 88px)) !important;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+:deep(.order-detail-dialog.el-dialog) {
+  width: min(1960px, calc(100vw - 48px)) !important;
   border-radius: 4px;
   overflow: hidden;
 }
@@ -4032,6 +4048,10 @@ watch(
 
 .design-table :deep(.el-table__header th) {
   background: #f0f1f3;
+}
+
+:deep(.order-detail-dialog) .detail-craft-table :deep(.cell) {
+  padding: 0 5px;
 }
 
 .sticky-total {

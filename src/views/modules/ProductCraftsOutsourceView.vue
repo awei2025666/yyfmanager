@@ -386,7 +386,7 @@ onMounted(() => {
         <el-table-column prop="transferUnit" label="转单单位" min-width="150" show-overflow-tooltip />
         <el-table-column prop="orderTime" label="订单时间" min-width="160" />
         <el-table-column prop="productInfo" label="产品信息" min-width="170" show-overflow-tooltip />
-        <el-table-column prop="quantity" label="产品数量" min-width="100" />
+        <el-table-column prop="quantity" label="报工数量" min-width="100" />
         <el-table-column prop="craftName" label="工艺名称" min-width="120" />
         <el-table-column prop="remark" label="备注" min-width="130" show-overflow-tooltip />
         <el-table-column label="工艺状态" min-width="110">
@@ -433,13 +433,10 @@ onMounted(() => {
           <el-tab-pane label="外协工艺信息" name="crafts">
             <el-table :data="currentRow?.craftRows || []" border>
               <el-table-column prop="craftName" label="工艺名称" />
-              <el-table-column prop="specification" label="规格" />
               <el-table-column prop="openCount" label="开数" />
               <el-table-column prop="basePrice" label="起价" />
               <el-table-column prop="finishedCount" label="成品数量" />
               <el-table-column prop="unit" label="单位" />
-              <el-table-column prop="unitPrice" label="单价" />
-              <el-table-column prop="amount" label="客户金额" />
               <el-table-column prop="remark" label="备注" />
             </el-table>
           </el-tab-pane>
@@ -449,7 +446,6 @@ onMounted(() => {
               <el-table-column prop="finishedSpec" label="成品规格" />
               <el-table-column prop="orderQuantity" label="订货数量" />
               <el-table-column prop="unit" label="单位" />
-              <el-table-column prop="amount" label="金额" />
             </el-table>
           </el-tab-pane>
           <el-tab-pane label="生产记录" name="production">

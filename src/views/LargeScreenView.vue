@@ -114,11 +114,8 @@ const scrollStyle = computed(() => ({
 }))
 
 const screenShellStyle = computed(() => {
-  const scale = Math.min(screenScale.x, screenScale.y)
-  const offsetX = 0
-  const offsetY = 0
   return {
-    transform: `translate(${offsetX}px, ${offsetY}px) scale(${scale})`
+    transform: `scale(${screenScale.x}, ${screenScale.y})`
   }
 })
 
