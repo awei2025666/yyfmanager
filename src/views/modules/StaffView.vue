@@ -11,6 +11,7 @@ import {
   getTenantDepartmentOptions,
   getTenantMachineOptions,
   getTenantRoleList,
+  getTenantTenantRoleOptions,
   getTenantStaffList,
   resetTenantStaffPassword
 } from '../../api/tenant'
@@ -42,6 +43,7 @@ const form = reactive({
   deptId: '',
   jobNo: '',
   roleIdList: [],
+  tenantRoleIdList: [],
   machineIdList: [],
   remark: '',
   status: '1'
@@ -57,6 +59,7 @@ const state = reactive({
 const rows = ref([])
 const departments = ref([])
 const roles = ref([])
+const tenantRoles = ref([])
 const machines = ref([])
 const formVisible = ref(false)
 const treeRef = ref(null)
@@ -84,6 +87,7 @@ const statusValue = (value) => (statusText(value) === '启用' ? '1' : '0')
 
 const departmentNameMap = computed(() => new Map(departments.value.map((item) => [String(item.value), item.label])))
 const roleNameMap = computed(() => new Map(roles.value.map((item) => [String(item.value), item.label])))
+const tenantRoleNameMap = computed(() => new Map(tenantRoles.value.map((item) => [String(item.value), item.label])))
 const machineNameMap = computed(() => new Map(machines.value.map((item) => [String(item.value), item.label])))
 
 const normalizeIdList = (value) => {
@@ -101,6 +105,7 @@ const normalizeStaff = (row = {}) => {
         ? String(row.roleId || row.roleIds).split(',')
         : []
   const machineIds = normalizeIdList(row.machineIdList || row.machineIds || row.machineId)
+  const tenantRoleIds = normalizeIdList(row.tenantRoleIdList || row.tenantRoleIds || row.tenantRoleId)
   return {
     ...row,
     id: row.id || row.userId,
@@ -116,12 +121,18 @@ const normalizeStaff = (row = {}) => {
     jobNo: row.jobNumber || row.jobNo || '',
     hireDate: row.hiredate || row.hireDate || '',
     roleIdList: roleIds.map((item) => String(item)),
+    tenantRoleIdList: tenantRoleIds,
     machineIdList: machineIds,
     roleText:
       row.roleText ||
       row.roleName ||
       row.menuName ||
       roleIds.map((id) => roleNameMap.value.get(String(id))).filter(Boolean).join('、') ||
+      '-',
+    tenantRoleText:
+      row.tenantRoleName ||
+      row.tenantRoleText ||
+      tenantRoleIds.map((id) => tenantRoleNameMap.value.get(String(id))).filter(Boolean).join('、') ||
       '-',
     machineText:
       row.machineText ||
@@ -167,6 +178,7 @@ const savePayload = () => {
     deptId: form.deptId || undefined,
     jobNumber: form.jobNo || undefined,
     roleIdList: form.roleIdList,
+    tenantRoleIdList: form.tenantRoleIdList,
     machineIdList: form.machineIdList,
     remark: form.remark,
     status: form.status
@@ -229,13 +241,15 @@ const loadMachineOptions = async (name = '') => {
 const loadOptions = async () => {
   state.optionLoading = true
   try {
-    const [deptData, roleData, machineData] = await Promise.all([
+    const [deptData, roleData, tenantRoleData, machineData] = await Promise.all([
       getTenantDepartmentOptions({ name: '' }).catch(() => []),
       getTenantRoleList({ pageNum: 1, pageSize: 100 }).catch(() => []),
+      getTenantTenantRoleOptions().catch(() => []),
       getTenantMachineOptions({ name: '' }).catch(() => [])
     ])
     departments.value = normalizeDepartmentOptions(deptData)
     roles.value = normalizeRoleOptions(roleData)
+    tenantRoles.value = normalizeRoleOptions(tenantRoleData)
     machines.value = normalizeMachineOptions(machineData)
   } finally {
     state.optionLoading = false
@@ -296,6 +310,7 @@ const resetForm = () => {
     deptId: '',
     jobNo: '',
     roleIdList: [],
+    tenantRoleIdList: [],
     machineIdList: [],
     remark: '',
     status: '1'
@@ -323,6 +338,7 @@ const openEdit = (row) => {
     deptId: String(row.deptId || ''),
     jobNo: row.jobNo,
     roleIdList: row.roleIdList || [],
+    tenantRoleIdList: row.tenantRoleIdList || [],
     machineIdList: row.machineIdList || [],
     remark: row.remark,
     status: row.statusValue
@@ -441,6 +457,7 @@ onMounted(async () => {
             <el-table-column prop="name" label="用户姓名" min-width="110" />
             <el-table-column prop="phone" label="联系方式（账号）" min-width="150" />
             <el-table-column prop="department" label="所在部门" min-width="130" />
+            <el-table-column prop="tenantRoleText" label="后台角色" min-width="180" show-overflow-tooltip />
             <el-table-column prop="roleText" label="用户角色" min-width="180" show-overflow-tooltip />
             <el-table-column prop="machineText" label="绑定机器" min-width="180" show-overflow-tooltip />
             <el-table-column label="状态" width="100">
@@ -531,6 +548,20 @@ onMounted(async () => {
             placeholder="请选择角色"
           >
             <el-option v-for="item in roles" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="后台角色" class="full">
+          <el-select
+            v-model="form.tenantRoleIdList"
+            multiple
+            clearable
+            filterable
+            collapse-tags
+            collapse-tags-tooltip
+            :loading="state.optionLoading"
+            placeholder="请选择后台角色"
+          >
+            <el-option v-for="item in tenantRoles" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="机器绑定" class="full">

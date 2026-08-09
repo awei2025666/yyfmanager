@@ -22,6 +22,7 @@ import {
   getTenantOrderConsumables,
   getTenantOrderDetail,
   getTenantOrderEditInfo,
+  getTenantOrderFiles,
   getTenantOrderHandKept,
   getTenantOrderList,
   getTenantOrderPrintLabelUrl,
@@ -87,6 +88,9 @@ const outsourceAllVisible = ref(false)
 const outsourceAllSaving = ref(false)
 const errorDetailVisible = ref(false)
 const errorDetailLoading = ref(false)
+const attachmentVisible = ref(false)
+const attachmentLoading = ref(false)
+const attachmentFiles = ref([])
 const errorDetail = ref(null)
 const currentRecord = ref(null)
 const approvalRemark = ref('')
@@ -152,7 +156,8 @@ const formState = reactive({
   outsourceSupplierContact: '',
   status: 1,
   printCode: '',
-  remark: ''
+  remark: '',
+  files: []
 })
 
 let localRowSeq = 0
@@ -731,6 +736,7 @@ const enrichOrderRow = (item = {}) => {
     status: Number(item.status ?? 1),
     printCode: item.printCode || '',
     remark: item.remark || '',
+    files: Array.isArray(item.files) ? item.files : [],
     products,
     crafts,
     timeline
@@ -1555,6 +1561,9 @@ const buildOrderRequestPayload = (options = {}) => {
     printingRequirements: formState.printingRequirements,
     status: formState.status,
     remark: formState.remark,
+    files: (formState.files || [])
+      .map((file) => ({ fileId: file?.fileId ?? file?.id ?? file }))
+      .filter((file) => file.fileId !== undefined && file.fileId !== null && file.fileId !== ''),
     payMoney: total,
     totalMoney: total,
     productList: normalizedProducts,
@@ -1708,7 +1717,8 @@ const openAdd = () => {
     outsourceSupplierContact: '',
     status: autoApprove.value ? 2 : 1,
     printCode: '',
-    remark: ''
+    remark: '',
+    files: []
   })
   lastClientKeyword.value = null
   searchClients('')
@@ -1735,6 +1745,7 @@ const openEdit = async (row) => {
   }
   Object.assign(formState, {
     ...record,
+    files: Array.isArray(record.files) ? record.files : [],
     productList: record.products || record.productList || [],
     craftList: record.crafts || record.craftList || []
   })
@@ -1824,11 +1835,17 @@ const saveOrder = async () => {
       if (formState.id) {
         await editTenantOrder(payload)
       } else {
-        await addTenantOrder(payload)
+        const result = await addTenantOrder(payload)
+        const orderId = result?.id ?? result?.orderId ?? result?.order?.id ?? result
+        if (orderId === undefined || orderId === null || orderId === '') {
+          throw new Error('新增订单成功，但未返回订单ID')
+        }
+        formState.id = orderId
+        formMode.value = 'edit'
       }
     }
-    orderFormVisible.value = false
-    ElMessage.success(formMode.value === 'outsource' ? '订单已转外协' : '订单已保存')
+    if (formMode.value === 'outsource') orderFormVisible.value = false
+    ElMessage.success(formMode.value === 'outsource' ? '订单已转外协' : '订单已保存，可继续编辑')
     await loadData()
   } catch (error) {
     ElMessage.error(error?.message || '订单保存失败')
@@ -2048,6 +2065,48 @@ const uploadManualCompleteImage = async ({ file }) => {
     ElMessage.success('上传成功')
   } catch (error) {
     ElMessage.error(error?.message || '上传失败')
+  }
+}
+
+const uploadOrderAttachment = async ({ file }) => {
+  try {
+    const data = await uploadTenantFile(file)
+    const fileId = data?.fileId ?? data?.id ?? data
+    if (fileId === undefined || fileId === null || fileId === '') throw new Error('上传返回缺少文件ID')
+    formState.files.push({
+      fileId,
+      url: data?.url || data?.fileUrl || data?.path || URL.createObjectURL(file),
+      name: file.name
+    })
+    ElMessage.success('附件上传成功')
+  } catch (error) {
+    ElMessage.error(error?.message || '附件上传失败')
+  }
+}
+
+const removeOrderAttachment = (index) => {
+  formState.files.splice(index, 1)
+}
+
+const attachmentUrl = (file = {}) => file.url || file.fileUrl || file.path || ''
+
+const openOrderAttachments = async (row) => {
+  const id = row?.id || row?.orderId
+  if (!id) return ElMessage.error('缺少订单ID，无法查看附件')
+  attachmentVisible.value = true
+  attachmentLoading.value = true
+  attachmentFiles.value = []
+  try {
+    const files = await getTenantOrderFiles(id)
+    attachmentFiles.value = listRows(files).map((file) => ({
+      ...file,
+      fileId: file.fileId ?? file.id,
+      url: attachmentUrl(file)
+    })).filter((file) => file.url)
+  } catch (error) {
+    ElMessage.error(error?.message || '附件加载失败')
+  } finally {
+    attachmentLoading.value = false
   }
 }
 
@@ -2405,6 +2464,7 @@ watch(
               >
                 {{ action }}
               </el-button>
+              <el-button link type="primary" @click="openOrderAttachments(row)">查看附件</el-button>
             </el-space>
           </template>
         </el-table-column>
@@ -2533,6 +2593,27 @@ watch(
             <label class="span-2">
               <span>备注</span>
               <el-input v-model="formState.remark" type="textarea" :rows="2" placeholder="请输入备注" />
+            </label>
+            <label class="span-2 order-attachment-field">
+              <span>订单附件</span>
+              <div class="order-attachment-upload">
+                <el-upload action="#" accept="image/*" multiple :show-file-list="false" :http-request="uploadOrderAttachment">
+                  <el-button>选择文件</el-button>
+                </el-upload>
+                <span class="order-attachment-upload__hint">支持图片上传</span>
+                <div v-if="formState.files.length" class="order-attachment-list">
+                  <div v-for="(file, index) in formState.files" :key="file.fileId || index" class="order-attachment-item">
+                    <el-image
+                      :src="attachmentUrl(file)"
+                      :preview-src-list="formState.files.map(attachmentUrl).filter(Boolean)"
+                      :initial-index="index"
+                      fit="cover"
+                      preview-teleported
+                    />
+                    <button type="button" @click="removeOrderAttachment(index)">删除</button>
+                  </div>
+                </div>
+              </div>
             </label>
           </div>
         </div>
@@ -2713,6 +2794,23 @@ watch(
         </div>
       </div>
       </section>
+    </el-dialog>
+
+    <el-dialog v-model="attachmentVisible" title="订单附件" width="720px" class="order-attachments-dialog">
+      <div v-loading="attachmentLoading" class="order-attachments-viewer">
+        <template v-if="attachmentFiles.length">
+          <el-image
+            v-for="(file, index) in attachmentFiles"
+            :key="file.fileId || index"
+            :src="file.url"
+            :preview-src-list="attachmentFiles.map((item) => item.url)"
+            :initial-index="index"
+            fit="cover"
+            preview-teleported
+          />
+        </template>
+        <el-empty v-else-if="!attachmentLoading" description="暂无附件" />
+      </div>
     </el-dialog>
 
     <el-dialog
@@ -3486,6 +3584,63 @@ watch(
   width: 72px;
   height: 72px;
   border-radius: 6px;
+}
+
+.order-attachment-upload {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+
+.order-attachment-upload__hint {
+  align-self: center;
+  color: #909399;
+  font-size: 13px;
+}
+
+.order-attachment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+}
+
+.order-attachment-item {
+  display: grid;
+  gap: 6px;
+  width: 88px;
+}
+
+.order-attachment-item :deep(.el-image) {
+  width: 88px;
+  height: 88px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  cursor: zoom-in;
+}
+
+.order-attachment-item button {
+  padding: 0;
+  border: 0;
+  color: #f56c6c;
+  background: transparent;
+  cursor: pointer;
+}
+
+.order-attachments-viewer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  min-height: 160px;
+}
+
+.order-attachments-viewer :deep(.el-image) {
+  width: 130px;
+  height: 130px;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  cursor: zoom-in;
 }
 
 .order-error-summary {

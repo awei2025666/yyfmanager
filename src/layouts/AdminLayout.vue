@@ -181,6 +181,7 @@ const menuRouteAliases = {
   人员管理: 'staff',
   staff: 'staff',
   role: 'roles',
+  sysRole: 'roles',
   角色管理: 'roles',
   roles: 'roles',
   dept: 'organization',

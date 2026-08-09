@@ -6,7 +6,8 @@ import {
   getWorkbenchHdpiConf,
   getWorkbenchLargeScreenOrderList,
   getWorkbenchLargeScreenOrderStatistics,
-  updateWorkbenchHdpiContent
+  updateWorkbenchHdpiContent,
+  updateWorkbenchLargeScreenTitle
 } from '../api/tenant'
 import largeScreenHeader from '../assets/large-screen-header-tight.png'
 import statusCardBg from '../assets/large-screen-status-card-bg-design.png'
@@ -25,6 +26,7 @@ const clockParts = reactive({
   second: '00'
 })
 const tenantName = ref('')
+const screenTitle = ref('印刷ERP数据大屏')
 const bannerContent = ref('欢迎使用印刷ERP数据大屏')
 const rows = ref([])
 const stats = reactive({
@@ -166,6 +168,7 @@ const applyHdpiContent = (data) => {
     return
   }
   bannerContent.value = data?.content || data?.text || data?.value || bannerContent.value
+  screenTitle.value = data?.title || screenTitle.value
 }
 
 const loadTenantName = async () => {
@@ -205,6 +208,25 @@ const editBannerContent = async () => {
   } catch (error) {
     if (error === 'cancel' || error === 'close') return
     ElMessage.error(error?.message || '大屏文字保存失败')
+  }
+}
+
+const editScreenTitle = async () => {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入大屏标题', '编辑大屏标题', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputValue: screenTitle.value,
+      inputPlaceholder: '请输入大屏标题'
+    })
+    const title = String(value || '').trim()
+    if (!title) return ElMessage.warning('请输入大屏标题')
+    await updateWorkbenchLargeScreenTitle({ title })
+    screenTitle.value = title
+    ElMessage.success('大屏标题已更新')
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(error?.message || '大屏标题保存失败')
   }
 }
 
@@ -253,7 +275,9 @@ onBeforeUnmount(() => {
         <div class="screen-time" :aria-label="clockText">
           {{ clockText }}
         </div>
-        <h1>{{ tenantName || '印刷ERP数据大屏' }}</h1>
+        <button type="button" class="screen-title" @click="editScreenTitle">
+          {{ screenTitle }}
+        </button>
       </header>
 
       <button type="button" class="screen-banner" @click="editBannerContent">
@@ -308,6 +332,9 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .screen-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   width: 100vw;
   height: 100vh;
   padding: 0;
@@ -317,6 +344,8 @@ onBeforeUnmount(() => {
 }
 
 .screen-shell {
+  box-sizing: border-box;
+  flex: 0 0 1920px;
   width: 1920px;
   min-height: 1080px;
   padding: 0 92px 0;
@@ -325,7 +354,7 @@ onBeforeUnmount(() => {
     radial-gradient(circle at 50% 4%, rgba(26, 91, 214, 0.26), transparent 26%),
     linear-gradient(180deg, #061843 0%, #050b2a 46%, #03051d 100%);
   box-shadow: inset 0 0 72px rgba(0, 107, 255, 0.16);
-  transform-origin: left top;
+  transform-origin: center top;
 }
 
 .screen-header {
@@ -350,7 +379,7 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-.screen-header h1 {
+.screen-title {
   position: absolute;
   top: 38px;
   left: 50%;
@@ -374,6 +403,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   transform: translateX(-50%);
+  cursor: pointer;
 }
 
 .screen-time {
