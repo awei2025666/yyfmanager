@@ -50,6 +50,17 @@
 					配送绑定
 				</view>
 			</view>
+			<view class="item" @click="scanTo('pack')">
+				<view class="quick-icon scan-icon">
+					<view class="corner lt"></view>
+					<view class="corner rt"></view>
+					<view class="corner lb"></view>
+					<view class="corner rb"></view>
+				</view>
+				<view class="desc">
+					打包
+				</view>
+			</view>
 			<view class="item" @click="toPage('/pages/deliveryTransit/index')">
 				<image src="/static/home/sending.png"></image>
 				<view v-if="inTransitNum" class="badge">{{ inTransitNum }}</view>
@@ -127,7 +138,8 @@ const openScannedPage = (type, result) => {
 	const pageMap = {
 		production: '/pages/production/index',
 		handRecord: '/pages/handRecord/index',
-		deliveryBinding: '/pages/deliveryPending/index'
+		deliveryBinding: '/pages/deliveryPending/index',
+		pack: '/pages/pack/index'
 	}
 	const page = pageMap[type] || '/pages/handRecord/index'
 	uni.navigateTo({
@@ -221,9 +233,11 @@ const scanTo = type => {
 			}
 		}
 		.quick-grid{
-			display: flex;
-			justify-content: space-between;
-			align-items: center;
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			row-gap: 42rpx;
+			column-gap: 14rpx;
+			align-items: start;
 			margin-top: 66rpx;
 		}
 		.item{
@@ -235,6 +249,7 @@ const scanTo = type => {
 			gap: 24rpx;
 			color: #fff;
 			font-size: 27rpx;
+			text-align: center;
 			.quick-icon{
 				position: relative;
 				width: 60rpx;

@@ -80,11 +80,14 @@ const orderStatusMap = {
 	4: '待配送',
 	5: '配送中',
 	6: '已完成',
-	7: '已驳回'
+	7: '已驳回',
+	8: '差错',
+	9: '暂停'
 }
 const craftStatusMap = {
 	1: '待生产',
-	2: '已生产'
+	2: '已完成',
+	3: '生产中'
 }
 const deliveryStatusMap = {
 	1: '待配送',
@@ -204,9 +207,9 @@ const getDesc = item => {
 const getMeta = item => item.orderTime || item.createTime || ''
 
 const getStatusText = item => {
-	if (props.type === 0) return orderStatusMap[item.status] || ''
-	if (props.type === 1) return craftStatusMap[item.craftStatus] || ''
-	if (props.type === 2) return deliveryStatusMap[item.status] || ''
+	if (props.type === 0) return orderStatusMap[Number(item.status ?? item.orderStatus)] || ''
+	if (props.type === 1) return craftStatusMap[Number(item.craftStatus ?? item.productionStatus)] || ''
+	if (props.type === 2) return deliveryStatusMap[Number(item.status ?? item.deliveryStatus)] || ''
 	return ''
 }
 

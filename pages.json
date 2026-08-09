@@ -81,6 +81,12 @@
 					}
 				},
 				{
+					"path": "pages/pack/index",
+					"style": {
+						"navigationStyle": "custom"
+					}
+				},
+				{
 					"path": "pages/handRecord/index",
 					"style": {
 						"navigationStyle": "custom"

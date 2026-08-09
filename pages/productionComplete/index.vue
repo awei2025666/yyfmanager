@@ -62,6 +62,18 @@
 		<view class="gap"></view>
 
 		<view class="partner-section">
+			<view class="section-title debugger-title">
+				<view class="title-left"><view class="mark"></view><text>调试人</text></view>
+				<view class="add-icon" @click="openDebuggerPopup">+</view>
+			</view>
+			<view v-if="debuggerUser.id" class="partner-card debugger-card">
+				<view class="avatar"></view>
+				<view class="partner-info">
+					<view><text class="name">{{ debuggerUser.name }}</text><text class="phone">{{ debuggerUser.phone }}</text></view>
+				</view>
+				<view class="delete" @click="deleteDebugger">删</view>
+			</view>
+
 			<view class="section-title">
 				<view class="title-left"><view class="mark"></view><text>合作人员</text></view>
 				<view class="add-icon" @click="openPartnerPopup">+</view>
@@ -70,7 +82,6 @@
 				<view class="avatar"></view>
 				<view class="partner-info">
 					<view><text class="name">{{ item.name }}</text><text class="phone">{{ item.phone }}</text></view>
-					<view class="num">合作数量： {{ item.num }}</view>
 				</view>
 				<view class="delete" @click="deletePartner(item.id)">删</view>
 			</view>
@@ -80,30 +91,60 @@
 			<button class="confirm-btn" @click="submit">确认完成</button>
 		</view>
 
+		<view v-if="showDebuggerPopup" class="popup-mask" @click="closeDebuggerPopup">
+			<view class="partner-popup" @click.stop>
+				<view class="section-title popup-title">
+					<view class="title-left"><view class="mark"></view><text>选择调试人</text></view>
+				</view>
+				<view class="search-box">
+					<input
+						v-model="debuggerKeyword"
+						class="search-input"
+						placeholder="搜索调试人"
+						placeholder-class="placeholder"
+						@input="handleDebuggerSearch"
+					/>
+				</view>
+				<view class="select-user-card" v-for="item in debuggerOptions" :key="item.id" :class="{ selected: String(selectedDebuggerId) === String(item.id) }" @click="selectDebugger(item)">
+					<view class="user-main">
+						<view class="avatar user-avatar"></view>
+						<view>
+							<view class="select-name">{{ item.name }}</view>
+							<view class="select-phone">{{ item.phone }}</view>
+						</view>
+					</view>
+					<view v-if="String(selectedDebuggerId) === String(item.id)" class="check">✓</view>
+				</view>
+				<view v-if="!debuggerOptions.length" class="empty-state">{{ debuggerLoading ? '加载中...' : '暂无人员' }}</view>
+				<button class="popup-confirm" @click="confirmDebugger">确认添加</button>
+			</view>
+		</view>
+
 		<view v-if="showPartnerPopup" class="popup-mask" @click="closePartnerPopup">
 			<view class="partner-popup" @click.stop>
 				<view class="section-title popup-title">
 					<view class="title-left"><view class="mark"></view><text>添加合作人员</text></view>
 				</view>
-				<view class="select-user-card" v-for="item in userOptions" :key="item.id" :class="{ selected: selectedUserId === item.id }" @click="selectUser(item)">
+				<view class="search-box">
+					<input
+						v-model="partnerKeyword"
+						class="search-input"
+						placeholder="搜索合作人员"
+						placeholder-class="placeholder"
+						@input="handlePartnerSearch"
+					/>
+				</view>
+				<view class="select-user-card" v-for="item in userOptions" :key="item.id" :class="{ selected: String(selectedUserId) === String(item.id) }" @click="selectUser(item)">
 					<view class="user-main">
 						<view class="avatar user-avatar"></view>
 						<view>
 							<view class="select-name">{{ item.name }}</view>
-							<view v-if="selectedUserId !== item.id" class="select-phone">{{ item.phone }}</view>
+							<view class="select-phone">{{ item.phone }}</view>
 						</view>
 					</view>
-					<view v-if="selectedUserId === item.id" class="check">✓</view>
-					<input
-						v-if="selectedUserId === item.id"
-						v-model="selectedNum"
-						class="num-input"
-						type="number"
-						placeholder="请输入合作数量"
-						placeholder-class="placeholder"
-						@click.stop
-					/>
+					<view v-if="String(selectedUserId) === String(item.id)" class="check">✓</view>
 				</view>
+				<view v-if="!userOptions.length" class="empty-state">{{ partnerLoading ? '加载中...' : '暂无人员' }}</view>
 				<button class="popup-confirm" @click="confirmPartner">确认添加</button>
 			</view>
 		</view>
@@ -140,12 +181,21 @@ const form = ref({
 const images = ref([])
 const maxImages = 1
 const partners = ref([])
+const debuggerUser = ref({})
 const machineOptions = ref([])
 const showMachinePopup = ref(false)
 const showPartnerPopup = ref(false)
+const showDebuggerPopup = ref(false)
+const debuggerOptions = ref([])
+const selectedDebuggerId = ref('')
+const debuggerKeyword = ref('')
+const debuggerLoading = ref(false)
 const userOptions = ref([])
 const selectedUserId = ref('')
-const selectedNum = ref('')
+const partnerKeyword = ref('')
+const partnerLoading = ref(false)
+let debuggerSearchTimer = null
+let partnerSearchTimer = null
 
 const imageSlots = computed(() => Math.max(0, maxImages - images.value.length - (images.value.length < maxImages ? 1 : 0)))
 
@@ -209,15 +259,80 @@ const selectMachine = (item, close = true) => {
 	if (close) closeMachinePopup()
 }
 
+const normalizeUser = item => ({
+	...item,
+	id: item.id ?? item.userId ?? item.tenantUserId,
+	name: item.name || item.tenantUserName || item.userName || '-',
+	phone: item.phone || item.tenantUserPhone || item.mobile || ''
+})
+
+const openDebuggerPopup = async () => {
+	showDebuggerPopup.value = true
+	selectedDebuggerId.value = debuggerUser.value.id || ''
+	debuggerKeyword.value = ''
+	loadDebuggerUsers()
+}
+
+const loadDebuggerUsers = async () => {
+	debuggerLoading.value = true
+	try {
+		const users = await uni.$api.userAll({ name: debuggerKeyword.value })
+		const records = users?.records || users
+		debuggerOptions.value = Array.isArray(records) ? records.map(normalizeUser) : []
+	} catch (e) {
+		debuggerOptions.value = []
+	} finally {
+		debuggerLoading.value = false
+	}
+}
+
+const closeDebuggerPopup = () => {
+	showDebuggerPopup.value = false
+}
+
+const selectDebugger = item => {
+	selectedDebuggerId.value = item.id
+}
+
+const handleDebuggerSearch = () => {
+	if (debuggerSearchTimer) clearTimeout(debuggerSearchTimer)
+	debuggerSearchTimer = setTimeout(() => {
+		selectedDebuggerId.value = ''
+		loadDebuggerUsers()
+	}, 300)
+}
+
+const confirmDebugger = () => {
+	const user = debuggerOptions.value.find(item => String(item.id) === String(selectedDebuggerId.value))
+	if (!user) {
+		uni.showToast({ title: '请选择调试人', icon: 'none' })
+		return
+	}
+	debuggerUser.value = { ...user }
+	closeDebuggerPopup()
+}
+
+const deleteDebugger = () => {
+	debuggerUser.value = {}
+}
+
 const openPartnerPopup = async () => {
 	showPartnerPopup.value = true
 	selectedUserId.value = ''
-	selectedNum.value = ''
+	partnerKeyword.value = ''
+	loadPartnerUsers()
+}
+
+const loadPartnerUsers = async () => {
+	partnerLoading.value = true
 	try {
-		const users = await uni.$api.productionUserList()
-		userOptions.value = Array.isArray(users) ? users : []
+		const users = await uni.$api.selfDeptUser({ name: partnerKeyword.value })
+		const records = users?.records || users
+		userOptions.value = Array.isArray(records) ? records.map(normalizeUser) : []
 	} catch (e) {
 		userOptions.value = []
+	} finally {
+		partnerLoading.value = false
 	}
 }
 
@@ -227,25 +342,25 @@ const closePartnerPopup = () => {
 
 const selectUser = item => {
 	selectedUserId.value = item.id
-	selectedNum.value = ''
+}
+
+const handlePartnerSearch = () => {
+	if (partnerSearchTimer) clearTimeout(partnerSearchTimer)
+	partnerSearchTimer = setTimeout(() => {
+		selectedUserId.value = ''
+		loadPartnerUsers()
+	}, 300)
 }
 
 const confirmPartner = () => {
-	const user = userOptions.value.find(item => item.id === selectedUserId.value)
+	const user = userOptions.value.find(item => String(item.id) === String(selectedUserId.value))
 	if (!user) {
 		uni.showToast({ title: '请选择合作人员', icon: 'none' })
 		return
 	}
-	const num = Number(selectedNum.value)
-	if (!num) {
-		uni.showToast({ title: '请输入合作数量', icon: 'none' })
-		return
-	}
-	const exists = partners.value.find(item => item.id === user.id)
-	if (exists) {
-		exists.num = num
-	} else {
-		partners.value.push({ ...user, num })
+	const exists = partners.value.find(item => String(item.id) === String(user.id))
+	if (!exists) {
+		partners.value.push({ ...user })
 	}
 	closePartnerPopup()
 }
@@ -274,7 +389,8 @@ const submit = async () => {
 			completeRemark: form.value.completeRemark,
 			completeImgRemark: fileId || form.value.completeImgRemark,
 			fileId,
-			userList: partners.value.map(item => ({ id: item.id, num: item.num }))
+			debugger: debuggerUser.value.id || '',
+			userList: partners.value.map(item => ({ id: item.id }))
 		})
 		uni.showToast({ title: '已完成', icon: 'none' })
 		setTimeout(() => {
@@ -529,6 +645,12 @@ onLoad(options => {
 	justify-content: space-between;
 	margin-bottom: 24rpx;
 }
+.debugger-title{
+	margin-bottom: 16rpx;
+}
+.debugger-card{
+	margin-bottom: 34rpx;
+}
 .title-left{
 	display: flex;
 	align-items: center;
@@ -673,6 +795,19 @@ onLoad(options => {
 .popup-title{
 	margin-bottom: 26rpx;
 }
+.search-box{
+	margin-bottom: 22rpx;
+	padding: 0 24rpx;
+	border-radius: 12rpx;
+	background: #f5f5f5;
+}
+.search-input{
+	width: 100%;
+	height: 72rpx;
+	color: #333;
+	font-size: 28rpx;
+	line-height: 72rpx;
+}
 .select-user-card{
 	position: relative;
 	min-height: 92rpx;
@@ -713,17 +848,6 @@ onLoad(options => {
 	color: #1f7cff;
 	font-size: 36rpx;
 	line-height: 1;
-}
-.num-input{
-	width: 100%;
-	height: 64rpx;
-	margin-top: 20rpx;
-	padding: 0 24rpx;
-	border-radius: 8rpx;
-	background: #fff;
-	color: #333;
-	font-size: 28rpx;
-	box-sizing: border-box;
 }
 .popup-confirm{
 	width: 100%;

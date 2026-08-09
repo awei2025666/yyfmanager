@@ -70,7 +70,7 @@
 				<div class="craft-card" v-for="(item,index) in craftList" :key="item.id || index">
 					<div class="craft-head">
 						<div class="card-title">{{ item.productInfo || item.name || item.craftName || '-' }}</div>
-						<div :class="['craft-tag', Number(item.craftStatus) === 2 ? 'done' : 'pending']">{{ craftStatusMap[item.craftStatus] || '待生产' }}</div>
+						<div :class="['craft-tag', getCraftStatusClass(item)]">{{ craftStatusMap[getCraftStatus(item)] || '待生产' }}</div>
 					</div>
 					<div class="card-desc">
 						{{ getCraftBaseDesc(item) }}<text v-if="item.remark" class="danger">*{{ item.remark }}</text>
@@ -125,11 +125,14 @@ const orderStatusMap = {
 	4: '待配送',
 	5: '配送中',
 	6: '已完成',
-	7: '已驳回'
+	7: '已驳回',
+	8: '差错',
+	9: '暂停'
 }
 const craftStatusMap = {
 	1: '待生产',
-	2: '已生产'
+	2: '已完成',
+	3: '生产中'
 }
 const currentOrderStatus = computed(() => Number(
 	isDeliveryPending.value ? 4 :
@@ -170,6 +173,22 @@ const getCraftBaseDesc = item => {
 	const unitPrice = formatMoney(item.unitPrice)
 	const customerMoney = formatMoney(item.customerMoney)
 	return [name, quantity, unitPrice, customerMoney].filter(value => value !== '').join('*')
+}
+
+const getCraftStatus = item => {
+	const rawStatus = item?.craftStatus ?? item?.productionStatus
+	if (rawStatus === '已完成' || rawStatus === '已生产') return 2
+	if (rawStatus === '生产中') return 3
+	if (rawStatus === '待生产') return 1
+	const status = Number(rawStatus)
+	return [1, 2, 3].includes(status) ? status : 1
+}
+
+const getCraftStatusClass = item => {
+	const status = getCraftStatus(item)
+	if (status === 2) return 'done'
+	if (status === 3) return 'producing'
+	return 'pending'
 }
 
 const formatRecordTime = time => {
@@ -369,6 +388,12 @@ onLoad(options => {
 		&.status-7{
 			background: #ff4d5f;
 		}
+		&.status-8{
+			background: #ff4d5f;
+		}
+		&.status-9{
+			background: #8a8a8a;
+		}
 	}
 	.delivery-bottom{
 		position: fixed;
@@ -493,6 +518,10 @@ onLoad(options => {
 		&.pending{
 			background: #c9f0df;
 			color: #18bf7b;
+		}
+		&.producing{
+			background: #d8e8ff;
+			color: #1f7cff;
 		}
 	}
 	.danger{

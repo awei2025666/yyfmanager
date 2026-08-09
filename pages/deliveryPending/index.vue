@@ -83,7 +83,9 @@ const orderStatusMap = {
 	4: '待配送',
 	5: '配送中',
 	6: '已完成',
-	7: '已驳回'
+	7: '已驳回',
+	8: '差错',
+	9: '暂停'
 }
 
 const orderNo = computed(() => detail.value.orderId || detail.value.orderNo || detail.value.orderNum || orderId.value)

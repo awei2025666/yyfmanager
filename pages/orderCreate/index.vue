@@ -206,6 +206,10 @@
 				<input v-model="craftForm.unit" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
 			<view class="form-row">
+				<text class="label">套数</text>
+				<input v-model="craftForm.ploidy" type="number" placeholder="请输入" placeholder-class="placeholder" />
+			</view>
+			<view class="form-row">
 				<text class="label required">单价</text>
 				<input v-model="craftForm.unitPrice" type="digit" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
@@ -416,6 +420,7 @@ const craftForm = reactive({
 	foilingSheetPrice: null,
 	foilingPointList: [],
 	unit: '',
+	ploidy: '',
 	orderQuantity: '',
 	unitPrice: '',
 	formula: '',
@@ -631,6 +636,7 @@ const computedCraftCustomerAmount = (craft = {}) => {
 	const rawFinishNum = Number(zeroIfEmpty(craft.finishNum ?? craft.orderQuantity))
 	if (!rawFinishNum) return 0
 	const type = Number(craft.singleDouble || 1)
+	const ploidy = Math.max(Number(zeroIfEmpty(craft.ploidy || 1)), 1)
 	let finishNum = rawFinishNum
 	let price = Number(zeroIfEmpty(craft.price ?? craft.unitPrice))
 	let startPrice = Number(zeroIfEmpty(craft.startPrice ?? craft.basePrice))
@@ -642,6 +648,10 @@ const computedCraftCustomerAmount = (craft = {}) => {
 		price *= 2
 		startPrice *= 2
 	}
+	if (String(craft.unit || '').includes('千印')) {
+		finishNum = Math.round(finishNum / 1000)
+	}
+	const multiplyPloidy = amount => toFixed4Number(amount * ploidy)
 	if (isFoilingCraft(craft)) {
 		const points = normalizeFoilingPointList(craft.foilingPointList, craft.formula)
 		if (points.length) {
@@ -652,17 +662,17 @@ const computedCraftCustomerAmount = (craft = {}) => {
 				if (pointValue === null) return sum
 				return sum + Math.max(pointValue * price, pointStartPrice)
 			}, 0)
-			return toFixed4Number(Math.max(pointTotal, sheetStartPrice) * finishNum)
+			return multiplyPloidy(Math.max(pointTotal, sheetStartPrice) * finishNum)
 		}
 	}
 	const formula = formulaValue(craft.formula)
 	if (formula !== null) {
-		return toFixed4Number(formula * finishNum * price)
+		return multiplyPloidy(formula * finishNum * price)
 	}
 	if (priceBase === 0) {
-		return toFixed4Number(Math.max(finishNum * price, startPrice))
+		return multiplyPloidy(Math.max(finishNum * price, startPrice))
 	}
-	return toFixed4Number(((finishNum - priceBase) * price) + startPrice)
+	return multiplyPloidy(((finishNum - priceBase) * price) + startPrice)
 }
 const isCraftOfProduct = (craft = {}, product = {}) => {
 	const productValues = [product.localId, product.id, product.productId, product.name, product.productName]
@@ -962,6 +972,7 @@ const selectPickerItem = item => {
 		craftForm.foilingSheetPrice = null
 		craftForm.foilingPointList = []
 		craftForm.unit = ''
+		craftForm.ploidy = ''
 		craftForm.unitPrice = ''
 		craftForm.formula = ''
 		craftForm.craftId = craft.id
@@ -973,6 +984,7 @@ const selectPickerItem = item => {
 		craftForm.foilingPointPrice = craft.foilingPointPrice ?? craft.foilPointPrice ?? craft.pointStartPrice ?? craftForm.foilingStartingPrice
 		craftForm.foilingSheetPrice = craft.foilingSheetPrice ?? craft.foilSheetPrice ?? craft.sheetStartPrice ?? craftForm.foilingStartingPrice
 		craftForm.unit = craft.unit || craftForm.unit || ''
+		craftForm.ploidy = zeroIfEmpty(craft.ploidy ?? craft.multiple ?? craft.sets ?? craftForm.ploidy)
 		craftForm.openNum = craft.openNum ?? craft.openCount ?? craft.formatSize ?? craftForm.openNum
 		craftForm.numberPerBoard = craft.numberPerBoard ?? craft.numberPerEdition ?? craftForm.numberPerBoard
 		craftForm.singleDouble = ''
@@ -1027,6 +1039,7 @@ const saveCraft = () => {
 		foilingSheetPrice: craftForm.foilingSheetPrice,
 		foilingPointList: isFoilingCraft(craftForm) ? normalizeFoilingPointList(craftForm.foilingPointList, craftForm.formula) : [],
 		unit: craftForm.unit || '',
+		ploidy: Number(craftForm.ploidy || 1),
 		orderQuantity: Number(craftForm.orderQuantity || 0),
 		finishNum: Number(craftForm.orderQuantity || 0),
 		unitPrice: Number(craftForm.unitPrice || 0),
@@ -1058,6 +1071,7 @@ const resetCraft = () => {
 	craftForm.foilingSheetPrice = null
 	craftForm.foilingPointList = []
 	craftForm.unit = ''
+	craftForm.ploidy = ''
 	craftForm.orderQuantity = ''
 	craftForm.unitPrice = ''
 	craftForm.formula = ''
@@ -1095,6 +1109,7 @@ const buildCraftPayload = craft => ({
 	productId: craft.productId || undefined,
 	productName: craft.productName,
 	unit: craft.unit,
+	ploidy: Number(craft.ploidy || 1),
 	priceBase: Number(craft.priceBase || 0),
 	startPrice: Number(craft.startPrice ?? 0),
 	formatSize: craft.openNum ?? craft.formatSize ?? '',

@@ -9,7 +9,7 @@
 			</view>
 		</view>
 
-		<view class="status-band">待生产</view>
+		<view :class="['status-band', `status-${currentOrderStatus}`]">{{ orderStatusText }}</view>
 
 		<view class="section">
 			<view class="section-title"><view class="mark"></view><text>工艺信息</text></view>
@@ -19,17 +19,37 @@
 						<text class="craft-name">{{ item.productInfo || item.productName || '-' }}</text>
 						<text v-if="getOrderSourceText(item)" :class="['source-tag', getOrderSourceClass(item)]">{{ getOrderSourceText(item) }}</text>
 					</view>
-					<text :class="['pill', isCraftDone(item) ? 'done' : 'pending']">{{ statusMap[getCraftStatus(item)] || '待生产' }}</text>
+					<text :class="['pill', getCraftStatusClass(item)]">{{ statusMap[getCraftStatus(item)] || '待生产' }}</text>
 				</view>
 				<view class="craft-desc">
 					{{ getCraftDesc(item) }}<text v-if="item.remark" class="danger">*{{ item.remark }}</text>
 				</view>
-				<button v-if="canCompleteCraft(item)" class="complete-btn" @click="toComplete(item)">已完成生产</button>
+				<view v-if="canOperateCraft(item)" class="craft-actions">
+					<button class="complete-btn" :disabled="startSubmittingId === String(item.id)" @click="handleCraftAction(item)">
+						{{ getCraftActionText(item) }}
+					</button>
+				</view>
 			</view>
 			<view v-if="!craftList.length" class="empty-state">暂无数据</view>
 		</view>
 
 		<view class="gap"></view>
+
+		<view v-if="attachments.length" class="section attachment-section">
+			<view class="section-title"><view class="mark"></view><text>附件</text></view>
+			<view class="attachment-list">
+				<view
+					v-for="(item, index) in attachments"
+					:key="item.fileId || item.id || item.url || index"
+					class="attachment-item"
+					@click="previewAttachment(item)"
+				>
+					<image class="attachment-image" :src="item.url" mode="aspectFill" />
+				</view>
+			</view>
+		</view>
+
+		<view v-if="attachments.length" class="gap"></view>
 
 		<view class="section consumable-section">
 			<view class="section-title"><view class="mark"></view><text>耗材记录</text></view>
@@ -43,45 +63,59 @@
 		<view class="bottom-bar">
 			<button class="add-btn" @click="addConsumable">添加耗材消耗</button>
 		</view>
-
-		<view v-if="showStartPopup" class="start-mask">
-			<view class="start-popup" @tap.stop>
-				<view class="start-icon"></view>
-				<view class="start-title">请选择当前操作</view>
-				<view class="start-desc">订单还未开始生产，可先开始生产或进入调试流程</view>
-				<view class="start-actions">
-					<button class="start-action primary" :disabled="startSubmitting" @click="handleStartProduction(1)">开始生产</button>
-					<button class="start-action secondary" :disabled="startSubmitting" @click="handleStartProduction(2)">开始调试</button>
-				</view>
-			</view>
-		</view>
 	</view>
 </template>
 
 <script setup>
 import { onLoad, onShow } from '@dcloudio/uni-app'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 const orderId = ref('')
 const craftList = ref([])
 const consumableList = ref([])
-const showStartPopup = ref(false)
-const startStatusChecked = ref(false)
-const startSubmitting = ref(false)
+const attachments = ref([])
+const startSubmittingId = ref('')
+const orderInfo = ref({})
+const orderStatusMap = {
+	1: '待审批',
+	2: '待生产',
+	3: '生产中',
+	4: '待配送',
+	5: '配送中',
+	6: '已完成',
+	7: '已驳回',
+	8: '差错',
+	9: '暂停'
+}
 const statusMap = {
 	1: '待生产',
-	2: '已生产'
+	2: '已完成',
+	3: '生产中'
 }
 
+const currentOrderStatus = computed(() => Number(
+	orderInfo.value.status ?? orderInfo.value.orderStatus ?? orderInfo.value.auditStatus ?? 2
+))
+const orderStatusText = computed(() => orderStatusMap[currentOrderStatus.value] || '待生产')
+
 const getCraftStatus = item => {
-	const rawStatus = item?.craftStatus ?? item?.status ?? item?.productionStatus
-	if (rawStatus === '已生产') return 2
+	const rawStatus = item?.craftStatus ?? item?.productionStatus ?? item?.status
+	if (rawStatus === '已完成' || rawStatus === '已生产') return 2
+	if (rawStatus === '生产中') return 3
 	if (rawStatus === '待生产') return 1
 	const status = Number(rawStatus)
-	return Number.isFinite(status) ? status : 1
+	return [1, 2, 3].includes(status) ? status : 1
 }
 
 const isCraftDone = item => getCraftStatus(item) === 2
+const isCraftPending = item => getCraftStatus(item) === 1
+const isCraftProducing = item => getCraftStatus(item) === 3
+const getCraftStatusClass = item => {
+	const status = getCraftStatus(item)
+	if (status === 2) return 'done'
+	if (status === 3) return 'producing'
+	return 'pending'
+}
 
 const getOrderSource = item => Number(item?.orderSource ?? item?.source)
 const getOrderSourceText = item => {
@@ -91,8 +125,8 @@ const getOrderSourceText = item => {
 	return ''
 }
 const getOrderSourceClass = item => getOrderSource(item) === 2 ? 'outsource' : 'factory'
-const isOutsourceCraft = item => getOrderSourceText(item) === '外协'
-const canCompleteCraft = item => !isCraftDone(item) && !isOutsourceCraft(item)
+const canOperateCraft = item => Number(item?.showStartButton) === 1
+const getCraftActionText = item => isCraftPending(item) ? '开始生产' : '结束生产'
 
 const formatMoney = value => {
 	if (value === undefined || value === null || value === '') return ''
@@ -123,6 +157,16 @@ const loadCrafts = async () => {
 	}
 }
 
+const loadOrderInfo = async () => {
+	if (!orderId.value) return
+	try {
+		const data = await uni.$api.orderInfo({ id: orderId.value })
+		orderInfo.value = data || {}
+	} catch (e) {
+		orderInfo.value = {}
+	}
+}
+
 const loadConsumables = async () => {
 	if (!orderId.value) {
 		consumableList.value = []
@@ -136,34 +180,50 @@ const loadConsumables = async () => {
 	}
 }
 
-const checkStartProductionStatus = async () => {
-	if (!orderId.value || startStatusChecked.value) return
-	startStatusChecked.value = true
+const loadAttachments = async () => {
+	if (!orderId.value) {
+		attachments.value = []
+		return
+	}
 	try {
-		const data = await uni.$api.startProductionStatus({ id: orderId.value })
-		const value = data?.value ?? data?.status ?? data?.show ?? data
-		showStartPopup.value = value === true || value === 'true' || value === 1 || value === '1'
+		const data = await uni.$api.orderFile({ id: orderId.value })
+		attachments.value = Array.isArray(data) ? data.filter(item => item?.url) : []
 	} catch (e) {
-		showStartPopup.value = false
+		attachments.value = []
 	}
 }
 
-const handleStartProduction = async type => {
-	if (!orderId.value || startSubmitting.value) return
-	startSubmitting.value = true
+const previewAttachment = item => {
+	const urls = attachments.value.map(file => file.url).filter(Boolean)
+	if (!item?.url || !urls.length) return
+	uni.previewImage({
+		current: item.url,
+		urls
+	})
+}
+
+const handleStartProduction = async item => {
+	if (!item?.id || startSubmittingId.value) return
+	startSubmittingId.value = String(item.id)
 	try {
-		await uni.$api.startProduction({
-			id: orderId.value,
-			type
-		})
-		uni.showToast({ title: type === 1 ? '已开始生产' : '已开始调试', icon: 'none' })
-		showStartPopup.value = false
+		await uni.$api.startProduction({ id: item.id })
+		uni.showToast({ title: '已开始生产', icon: 'none' })
 		loadCrafts()
 		loadConsumables()
 	} catch (e) {
 		uni.showToast({ title: e?.message || '操作失败', icon: 'none' })
 	} finally {
-		startSubmitting.value = false
+		startSubmittingId.value = ''
+	}
+}
+
+const handleCraftAction = item => {
+	if (isCraftPending(item)) {
+		handleStartProduction(item)
+		return
+	}
+	if (isCraftProducing(item)) {
+		toComplete(item)
 	}
 }
 
@@ -190,14 +250,17 @@ const goBack = () => {
 
 onLoad(options => {
 	orderId.value = options.id || options.orderId || ''
+	loadOrderInfo()
 	loadCrafts()
+	loadAttachments()
 	loadConsumables()
-	checkStartProductionStatus()
 })
 
 onShow(() => {
 	if (orderId.value) {
+		loadOrderInfo()
 		loadCrafts()
+		loadAttachments()
 		loadConsumables()
 	}
 })
@@ -270,6 +333,12 @@ onShow(() => {
 	line-height: 64rpx;
 	text-align: center;
 	background: #ff9f18;
+	&.status-3{ background: #2782f8; }
+	&.status-4{ background: #22a06b; }
+	&.status-5{ background: #4c8df6; }
+	&.status-6{ background: #6d7989; }
+	&.status-8{ background: #ef5965; }
+	&.status-9{ background: #8993a1; }
 }
 .section{
 	padding: 38rpx 30rpx 34rpx;
@@ -360,6 +429,10 @@ onShow(() => {
 	background: #c9f0df;
 	color: #18bf7b;
 }
+.producing{
+	background: #d8e8ff;
+	color: #1f7cff;
+}
 .craft-desc{
 	margin-top: 14rpx;
 	color: #9a9a9a;
@@ -370,20 +443,47 @@ onShow(() => {
 .danger{
 	color: #ff3347;
 }
-.complete-btn{
-	height: 48rpx;
+.craft-actions{
 	margin-top: 18rpx;
+}
+.complete-btn{
+	width: 100%;
+	height: 64rpx;
 	border: 0;
-	border-radius: 48rpx;
+	border-radius: 64rpx;
 	background: #1f7cff;
 	color: #fff;
-	font-size: 26rpx;
-	line-height: 48rpx;
+	font-size: 28rpx;
+	line-height: 64rpx;
 	&::after{ border: 0; }
+	&[disabled]{
+		opacity: .65;
+	}
 }
 .gap{
 	height: 16rpx;
 	background: #f7f7f7;
+}
+.attachment-section{
+	padding-bottom: 38rpx;
+}
+.attachment-list{
+	display: flex;
+	flex-wrap: wrap;
+	gap: 18rpx;
+}
+.attachment-item{
+	width: 200rpx;
+	height: 200rpx;
+	overflow: hidden;
+	border: 1rpx solid #e8ebf0;
+	border-radius: 10rpx;
+	background: #f7f7f7;
+	box-sizing: border-box;
+}
+.attachment-image{
+	width: 100%;
+	height: 100%;
 }
 .consumable-section{
 	padding-bottom: 20rpx;
@@ -421,86 +521,5 @@ onShow(() => {
 	font-size: 30rpx;
 	line-height: 78rpx;
 	&::after{ border: 0; }
-}
-.start-mask{
-	position: fixed;
-	left: 0;
-	right: 0;
-	top: 0;
-	bottom: 0;
-	z-index: 90;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 0 48rpx;
-	background: rgba(0, 0, 0, .34);
-	box-sizing: border-box;
-}
-.start-popup{
-	width: 100%;
-	max-width: 600rpx;
-	padding: 52rpx 42rpx 44rpx;
-	border-radius: 24rpx;
-	background: #fff;
-	box-shadow: 0 22rpx 64rpx rgba(0, 0, 0, .16);
-	box-sizing: border-box;
-	text-align: center;
-}
-.start-icon{
-	width: 76rpx;
-	height: 76rpx;
-	margin: 0 auto 24rpx;
-	border-radius: 50%;
-	background: linear-gradient(135deg, #1f7cff, #36c2ff);
-	position: relative;
-	&::before{
-		content: '';
-		position: absolute;
-		left: 25rpx;
-		top: 21rpx;
-		width: 22rpx;
-		height: 30rpx;
-		border-right: 6rpx solid #fff;
-		border-bottom: 6rpx solid #fff;
-		transform: rotate(45deg);
-	}
-}
-.start-title{
-	color: #222;
-	font-size: 34rpx;
-	font-weight: 600;
-	line-height: 48rpx;
-}
-.start-desc{
-	margin-top: 14rpx;
-	color: #8a8a8a;
-	font-size: 26rpx;
-	line-height: 38rpx;
-}
-.start-actions{
-	display: flex;
-	flex-direction: column;
-	gap: 22rpx;
-	margin-top: 42rpx;
-}
-.start-action{
-	width: 100%;
-	height: 82rpx;
-	border: 0;
-	border-radius: 12rpx;
-	font-size: 30rpx;
-	line-height: 82rpx;
-	&::after{ border: 0; }
-	&[disabled]{
-		opacity: .6;
-	}
-}
-.start-action.primary{
-	background: #1f7cff;
-	color: #fff;
-}
-.start-action.secondary{
-	background: #f4f7fb;
-	color: #1f7cff;
 }
 </style>

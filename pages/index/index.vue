@@ -39,6 +39,20 @@
 		</view>
 		<listViews ref="listRef" :key="currentTab" :type="currentTab"></listViews>
 	 </view>
+	<view v-if="showFollowModal" class="follow-mask">
+		<view class="follow-dialog">
+			<image
+				class="follow-qrcode"
+				src="/static/wechat/follow-qrcode.jpg"
+				mode="aspectFit"
+				:show-menu-by-longpress="true"
+			></image>
+			<view class="follow-tip">长按扫描关注后使用~</view>
+			<button class="follow-btn" :disabled="checkingFollow" @click="confirmFollow">
+				{{ checkingFollow ? '确认中...' : '我已关注' }}
+			</button>
+		</view>
+	</view>
   </view>
 </template>
 
@@ -52,6 +66,8 @@ const currentTab = ref(0)
 const listRef = ref()
 const performanceType = ref(1)
 const userInfo = ref({})
+const showFollowModal = ref(false)
+const checkingFollow = ref(false)
 const deliveryCount = ref({
 	toBeDeliveredNum: 0,
 	inTransitNum: 0
@@ -110,6 +126,32 @@ const getPerformance = async () => {
 	}
 }
 
+const checkFollowStatus = async (manual = false) => {
+	if (checkingFollow.value) return
+	checkingFollow.value = true
+	try {
+		const status = await uni.$api.followStatus()
+		const isFollowed = Number(status) === 1
+		showFollowModal.value = !isFollowed
+		if (manual) {
+			uni.showToast({
+				title: isFollowed ? '已确认关注' : '请确认关注后操作',
+				icon: 'none'
+			})
+		}
+	} catch (e) {
+		if (manual) {
+			uni.showToast({ title: e?.message || '确认失败，请稍后重试', icon: 'none' })
+		}
+	} finally {
+		checkingFollow.value = false
+	}
+}
+
+const confirmFollow = () => {
+	checkFollowStatus(true)
+}
+
 const initPage = async () => {
 	try {
 		const [info, count] = await Promise.all([
@@ -129,6 +171,7 @@ const initPage = async () => {
 }
 
 onShow(() => {
+	checkFollowStatus()
 	initPage()
 	nextTick(() => {
 		listRef.value && listRef.value.refresh()
@@ -137,6 +180,61 @@ onShow(() => {
 </script>
 
 <style lang="scss">
+.follow-mask{
+	position: fixed;
+	left: 0;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	z-index: 999;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 48rpx;
+	box-sizing: border-box;
+	background: rgba(0, 0, 0, .42);
+}
+.follow-dialog{
+	width: 100%;
+	max-width: 620rpx;
+	padding: 58rpx 44rpx 48rpx;
+	box-sizing: border-box;
+	border-radius: 18rpx;
+	background: #fff;
+	text-align: center;
+	box-shadow: 0 24rpx 72rpx rgba(0, 0, 0, .16);
+}
+.follow-qrcode{
+	width: 430rpx;
+	height: 430rpx;
+	max-width: 100%;
+	border: 1rpx solid #eee;
+	border-radius: 8rpx;
+	background: #fff;
+}
+.follow-tip{
+	margin-top: 34rpx;
+	color: #222;
+	font-size: 30rpx;
+	line-height: 42rpx;
+}
+.follow-btn{
+	margin-top: 42rpx;
+	width: 320rpx;
+	height: 78rpx;
+	line-height: 78rpx;
+	border-radius: 8rpx;
+	background: #1f7cff;
+	color: #fff;
+	font-size: 30rpx;
+}
+.follow-btn::after{
+	border: none;
+}
+.follow-btn[disabled]{
+	background: #9cc6ff;
+	color: #fff;
+}
 .tabbar{
 	position: relative;
 	z-index: 5;

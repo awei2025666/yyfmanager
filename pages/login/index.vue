@@ -86,28 +86,10 @@ const wxLogin = () => new Promise((resolve, reject) => {
 	})
 })
 
-const showBindWxDebugInfo = (code, token) => {
-	const data = JSON.stringify({ code, token })
-	console.log('bindWx params:', { code, token })
-	uni.setClipboardData({
-		data,
-		showToast: false,
-		fail: err => console.log('copy bindWx params failed:', err)
-	})
-	return new Promise(resolve => {
-		uni.showModal({
-			title: '微信绑定参数',
-			content: `${data}\n\n已复制到剪贴板`,
-			showCancel: false,
-			complete: resolve
-		})
-	})
-}
-
 const bindWxAfterLogin = async token => {
 	try {
 		const code = await wxLogin()
-		await showBindWxDebugInfo(code, token)
+		console.log('bindWx params:', { code, token })
 		const result = await uni.$api.bindWx({ code, token })
 		console.log('bindWx result:', result)
 	} catch (e) {
