@@ -122,7 +122,9 @@ const saveMenus = async () => {
   if (!activeRole.value) return ElMessage.warning('请先选择角色')
   savingMenus.value = true
   try {
-    const menuIds = menuTreeRef.value?.getCheckedKeys(false) || []
+    const checkedKeys = menuTreeRef.value?.getCheckedKeys(false) || []
+    const halfCheckedKeys = menuTreeRef.value?.getHalfCheckedKeys() || []
+    const menuIds = [...new Set([...checkedKeys, ...halfCheckedKeys])]
     await updateTenantRoleMenus({ id: activeRole.value.id, menuIds })
     ElMessage.success('菜单权限已保存')
   } catch (error) {
