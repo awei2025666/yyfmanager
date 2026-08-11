@@ -2390,8 +2390,10 @@ watch(
 
     <PageBlock v-if="viewMode === 'list'" class="table-card">
       <div class="list-actions">
-        <el-button type="primary" :icon="Plus" @click="openAdd">添加</el-button>
-        <el-button :icon="Download" :loading="exporting" @click="exportOrderStatement">导出对账单</el-button>
+        <div>
+          <el-button type="primary" :icon="Plus" @click="openAdd">添加</el-button>
+          <el-button :icon="Download" :loading="exporting" @click="exportOrderStatement">导出对账单</el-button>
+        </div>
         <div class="list-actions__right">
           <div class="auto-approve">
             <span>自动审批</span>
