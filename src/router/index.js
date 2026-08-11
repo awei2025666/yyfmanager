@@ -93,6 +93,7 @@ const routes = [
       { path: 'staff', name: 'staff', component: StaffView, meta: { title: '人员管理' } },
       { path: 'organization', name: 'organization', component: OrganizationView, meta: { title: '组织架构' } },
       { path: 'roles', name: 'roles', component: RolesView, meta: { title: '角色管理' } },
+      { path: 'mini-program-roles', name: 'miniProgramRoles', component: RolesView, meta: { title: '小程序角色' } },
       { path: 'machine', name: 'machine', component: MachineView, meta: { title: '机器管理' } },
       { path: 'duration-purchases', name: 'durationPurchases', component: DurationPurchasesView, meta: { title: '购买时长' } },
       { path: 'materials', name: 'materials', component: MaterialsView, meta: { title: '耗材信息' } },

@@ -1197,6 +1197,22 @@ const syncProductAmount = (product = {}) => {
   product.amount = productCraftAmount(product)
   product.money = product.amount
 }
+const updateProductName = (product = {}, value = '') => {
+  const name = String(value ?? '')
+  product.productName = name
+  product.name = name
+  craftRows.value
+    .filter((craft) => isCraftOfProduct(craft, product))
+    .forEach((craft) => {
+      craft.productName = name
+    })
+}
+const updateProductSpec = (product = {}, value = '') => {
+  const spec = String(value ?? '')
+  product.finishedSpec = spec
+  product.trimmedSize = spec
+  product.specification = spec
+}
 const syncAllProductAmounts = () => {
   productRows.value.forEach(syncProductAmount)
 }
@@ -1476,11 +1492,11 @@ const cleanCraftRow = (row = {}) => {
 }
 const normalizeOrderProductPayload = (product = {}) => ({
   id: product.id || undefined,
-  name: product.name || product.productName,
+  name: product.productName || product.name,
   productName: product.productName || product.name,
   orderQuantity: product.quantity ?? product.orderQuantity ?? product.num,
   quantity: product.quantity ?? product.orderQuantity ?? product.num,
-  trimmedSize: product.trimmedSize || product.finishedSpec,
+  trimmedSize: product.finishedSpec || product.trimmedSize,
   finishedSpec: product.finishedSpec || product.trimmedSize,
   unit: product.unit,
   money: product.money ?? product.amount,
@@ -2630,12 +2646,12 @@ watch(
           >
             <el-table-column prop="productName" label="产品名称" min-width="340">
               <template #default="{ row }">
-                <el-input v-model="row.productName" placeholder="请输入产品名称" />
+                <el-input v-model="row.productName" placeholder="请输入产品名称" @input="(value) => updateProductName(row, value)" />
               </template>
             </el-table-column>
             <el-table-column prop="finishedSpec" label="成品规格" min-width="120">
               <template #default="{ row }">
-                <el-input v-model="row.finishedSpec" placeholder="请输入成品规格" />
+                <el-input v-model="row.finishedSpec" placeholder="请输入成品规格" @input="(value) => updateProductSpec(row, value)" />
               </template>
             </el-table-column>
             <el-table-column prop="quantity" label="订货数量" min-width="110">

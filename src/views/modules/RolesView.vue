@@ -216,11 +216,25 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: minmax(320px, 0.8fr) minmax(520px, 1.2fr);
   gap: 16px;
+  height: calc(100vh - 142px);
   padding: 0 20px;
+  overflow: hidden;
 }
 
 .role-panel {
-  min-height: calc(100vh - 142px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.role-panel :deep(.el-card__body),
+.role-panel :deep(.page-block__body) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .panel-heading {
@@ -286,8 +300,10 @@ onMounted(async () => {
 }
 
 .permission-tree {
-  min-height: 360px;
+  flex: 1;
+  min-height: 0;
   padding: 8px 4px;
+  overflow-y: auto;
 }
 
 .permission-tree :deep(.el-tree) {
@@ -303,11 +319,15 @@ onMounted(async () => {
 
 @media (max-width: 900px) {
   .role-page {
+    height: auto;
     grid-template-columns: 1fr;
+    overflow: visible;
   }
 
   .role-panel {
+    height: auto;
     min-height: auto;
+    overflow: visible;
   }
 }
 </style>
