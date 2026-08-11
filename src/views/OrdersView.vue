@@ -1512,7 +1512,7 @@ const normalizeOrderCraftPayload = (craft = {}) => ({
   craftName: craft.craftName || craft.name,
   specification: craft.specification || craft.spec,
   spec: craft.spec || craft.specification,
-  formatSize: craft.formatSize ?? craft.openNum,
+  formatSize: craft.openNum ?? craft.formatSize,
   openNum: craft.openNum ?? craft.formatSize,
   numberPerBoard: craft.numberPerBoard,
   singleDouble: craft.singleDouble,
