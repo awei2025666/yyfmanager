@@ -198,8 +198,6 @@ const closeForm = () => {
 const submit = async () => {
   if (state.saving) return
   if (!form.name) return ElMessage.error('请填写工艺名称')
-  if (form.priceBase === '') return ElMessage.error('请填写起价基数')
-  if (!form.unit) return ElMessage.error('请填写单位')
   state.saving = true
   try {
     const payload = {
@@ -299,14 +297,11 @@ onMounted(() => {
           <el-table-column prop="priceBase" label="起价基数" min-width="120">
             <template #default="{ row }">{{ formatNumber(row.priceBase) }}</template>
           </el-table-column>
-          <el-table-column prop="foilingStartingPrice" label="烫金起价" min-width="120"/>
+          <el-table-column prop="foilingStartingPrice" label="是否烫金" min-width="120"/>
           <el-table-column prop="unit" label="单位" min-width="100" />
-          <el-table-column prop="sort" label="排序" min-width="100" />
-          <el-table-column prop="remark" label="描述" min-width="190" show-overflow-tooltip />
           <el-table-column prop="deptNames" label="操作部门" min-width="150" show-overflow-tooltip />
-          <el-table-column prop="formatSize" label="开数" min-width="100" />
-          <el-table-column prop="spotColors" label="专色" min-width="100" />
-          <el-table-column prop="ploidy" label="套数" min-width="100" />
+          <el-table-column prop="remark" label="描述" min-width="190" show-overflow-tooltip />
+          <el-table-column prop="sort" label="排序" min-width="100" />
           <el-table-column prop="status" label="状态" min-width="120">
             <template #default="{ row }">
               <el-switch
@@ -346,28 +341,16 @@ onMounted(() => {
             <el-input v-model="form.name" placeholder="请输入工艺名称" />
           </label>
           <label>
-            <span><em>*</em>起价基数</span>
-            <el-input v-model="form.priceBase" placeholder="请输入起步价" />
-          </label>
-          <label>
-            <span>烫金起价</span>
-            <el-input v-model="form.foilingStartingPrice" placeholder="请输入烫金起价" />
-          </label>
-          <label>
             <span><em>*</em>单位</span>
             <el-input v-model="form.unit" placeholder="请输入单位" />
           </label>
           <label>
-            <span>开数</span>
-            <el-input v-model="form.formatSize" placeholder="请输入成品规格" />
+            <span><em>*</em>起价基数</span>
+            <el-input v-model="form.priceBase" placeholder="请输入起价基数" />
           </label>
           <label>
-            <span>专色</span>
-            <el-input v-model="form.spotColors" placeholder="请输入专色" />
-          </label>
-          <label>
-            <span>套数</span>
-            <el-input v-model="form.ploidy" placeholder="请输入套数" />
+            <span>是否烫金</span>
+            <el-input v-model="form.foilingStartingPrice" placeholder="请输入烫金起价" />
           </label>
           <label>
             <span>排序</span>
