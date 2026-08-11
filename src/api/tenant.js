@@ -66,6 +66,7 @@ export const updateWorkbenchHdpiContent = (payload = {}) => tenantHttp.post('/ap
 export const updateWorkbenchLargeScreenTitle = (payload = {}) => tenantHttp.post('/api/tenant/workbench/title', payload)
 
 export const getTenantOrderList = (payload) => tenantHttp.post('/api/tenant/order/list', payload)
+export const exportTenantOrder = (payload = {}) => exportPost('/api/tenant/order/export', payload)
 export const getTenantOrderDetail = (id) => tenantHttp.get('/api/tenant/order/info', { params: { id } })
 export const getTenantOrderEditInfo = (id) => tenantHttp.get('/api/tenant/order/editInfo', { params: { id } })
 export const getTenantOrderFiles = (id) => tenantHttp.get('/api/tenant/order/file', { params: { id } })

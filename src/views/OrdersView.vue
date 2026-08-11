@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Printer, Refresh, Search } from '@element-plus/icons-vue'
+import { Download, Plus, Printer, Refresh, Search } from '@element-plus/icons-vue'
 import PageBlock from '../components/PageBlock.vue'
 import {
   addTenantOrderError,
@@ -12,6 +12,7 @@ import {
   completeTenantOrderProduction,
   deleteTenantOrder,
   editTenantOrder,
+  exportTenantOrder,
   addTenantExternalTenant,
   deleteTenantExternalTenant,
   editTenantExternalTenant,
@@ -56,6 +57,7 @@ const filters = reactive({
 const autoApprove = ref(true)
 const autoApproveLoading = ref(false)
 const loading = ref(false)
+const exporting = ref(false)
 const saving = ref(false)
 const detailLoading = ref(false)
 const clientSearching = ref(false)
@@ -1658,6 +1660,31 @@ const loadData = async () => {
   }
 }
 
+const downloadBlob = (blob, filename) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+const exportOrderStatement = async () => {
+  if (exporting.value) return
+  exporting.value = true
+  try {
+    const blob = await exportTenantOrder(buildQuery())
+    downloadBlob(blob, '订单对账单.xlsx')
+    ElMessage.success('对账单导出成功')
+  } catch (error) {
+    ElMessage.error(error?.message || '对账单导出失败')
+  } finally {
+    exporting.value = false
+  }
+}
+
 const loadAutoApprove = async () => {
   autoApproveLoading.value = true
   try {
@@ -2364,6 +2391,7 @@ watch(
     <PageBlock v-if="viewMode === 'list'" class="table-card">
       <div class="list-actions">
         <el-button type="primary" :icon="Plus" @click="openAdd">添加</el-button>
+        <el-button :icon="Download" :loading="exporting" @click="exportOrderStatement">导出对账单</el-button>
         <div class="list-actions__right">
           <div class="auto-approve">
             <span>自动审批</span>
