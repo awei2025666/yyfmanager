@@ -453,7 +453,6 @@ onMounted(async () => {
             <el-button type="primary" :icon="Plus" @click="openCreate">添加</el-button>
           </div>
           <el-table v-loading="state.loading" :data="rows" border>
-            <el-table-column prop="userId" label="用户id" min-width="100" />
             <el-table-column prop="name" label="用户姓名" min-width="110" />
             <el-table-column prop="phone" label="联系方式（账号）" min-width="150" />
             <el-table-column prop="department" label="所在部门" min-width="130" />
@@ -505,12 +504,13 @@ onMounted(async () => {
             <el-radio label="女">女</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="年龄">
-          <el-input v-model="form.age" placeholder="请输入年龄" />
-        </el-form-item>
         <el-form-item label="联系方式（账号）" required>
           <el-input v-model="form.phone" placeholder="请输入联系方式" />
         </el-form-item>
+        <el-form-item label="年龄">
+          <el-input v-model="form.age" placeholder="请输入年龄" />
+        </el-form-item>
+
         <el-form-item v-if="!isEdit" label="登录密码" required>
           <el-input v-model="form.loginPassword" show-password placeholder="请输入登录密码" />
         </el-form-item>
@@ -530,11 +530,6 @@ onMounted(async () => {
         </el-form-item>
         <el-form-item label="工号">
           <el-input v-model="form.jobNo" placeholder="请输入工号" />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="form.status" placeholder="请选择状态">
-            <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
-          </el-select>
         </el-form-item>
         <el-form-item label="角色" class="full">
           <el-select

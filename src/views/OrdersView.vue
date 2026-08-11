@@ -1113,7 +1113,7 @@ const computedCraftCustomerAmount = (craft = {}) => {
     price *= 2
     startPrice *= 2
   }
-  if (String(craft.unit || '').includes('千印')) {
+  if (String(craft.unit || '').includes('千')) {
     finishNum = Math.round(finishNum / 1000)
   }
 
