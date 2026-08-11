@@ -523,14 +523,15 @@ onMounted(async () => {
         <el-form-item label="入职日期">
           <el-date-picker v-model="form.hireDate" value-format="YYYY-MM-DD" placeholder="请选择入职日期" />
         </el-form-item>
+        <el-form-item label="工号">
+          <el-input v-model="form.jobNo" placeholder="请输入工号" />
+        </el-form-item>
         <el-form-item label="所属部门">
           <el-select v-model="form.deptId" clearable placeholder="请选择所属部门">
             <el-option v-for="item in departments" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
-        <el-form-item label="工号">
-          <el-input v-model="form.jobNo" placeholder="请输入工号" />
-        </el-form-item>
+
         <el-form-item label="角色" class="full">
           <el-select
             v-model="form.roleIdList"
