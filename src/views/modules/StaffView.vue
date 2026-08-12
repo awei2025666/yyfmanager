@@ -457,7 +457,7 @@ onMounted(async () => {
             <el-table-column prop="phone" label="联系方式（账号）" min-width="150" />
             <el-table-column prop="department" label="所在部门" min-width="130" />
             <el-table-column prop="tenantRoleText" label="后台角色" min-width="180" show-overflow-tooltip />
-            <el-table-column prop="roleText" label="用户角色" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="roleText" label="小程序角色" min-width="180" show-overflow-tooltip />
             <el-table-column prop="machineText" label="绑定机器" min-width="180" show-overflow-tooltip />
             <el-table-column label="状态" width="100">
               <template #default="{ row }">
@@ -498,41 +498,41 @@ onMounted(async () => {
         <el-form-item label="姓名" required>
           <el-input v-model="form.name" placeholder="请输入姓名" />
         </el-form-item>
-        <el-form-item label="性别">
-          <el-radio-group v-model="form.gender">
-            <el-radio label="男">男</el-radio>
-            <el-radio label="女">女</el-radio>
-          </el-radio-group>
-        </el-form-item>
+<!--        <el-form-item label="性别">-->
+<!--          <el-radio-group v-model="form.gender">-->
+<!--            <el-radio label="男">男</el-radio>-->
+<!--            <el-radio label="女">女</el-radio>-->
+<!--          </el-radio-group>-->
+<!--        </el-form-item>-->
         <el-form-item label="联系方式（账号）" required>
           <el-input v-model="form.phone" placeholder="请输入联系方式" />
         </el-form-item>
-        <el-form-item label="年龄">
-          <el-input v-model="form.age" placeholder="请输入年龄" />
-        </el-form-item>
+<!--        <el-form-item label="年龄">-->
+<!--          <el-input v-model="form.age" placeholder="请输入年龄" />-->
+<!--        </el-form-item>-->
 
         <el-form-item v-if="!isEdit" label="登录密码" required>
           <el-input v-model="form.loginPassword" show-password placeholder="请输入登录密码" />
         </el-form-item>
-        <el-form-item label="职位">
-          <el-input v-model="form.position" placeholder="请输入职位" />
-        </el-form-item>
-        <el-form-item label="职称">
-          <el-input v-model="form.title" placeholder="请输入职称" />
-        </el-form-item>
-        <el-form-item label="入职日期">
-          <el-date-picker v-model="form.hireDate" value-format="YYYY-MM-DD" placeholder="请选择入职日期" />
-        </el-form-item>
-        <el-form-item label="工号">
-          <el-input v-model="form.jobNo" placeholder="请输入工号" />
-        </el-form-item>
+<!--        <el-form-item label="职位">-->
+<!--          <el-input v-model="form.position" placeholder="请输入职位" />-->
+<!--        </el-form-item>-->
+<!--        <el-form-item label="职称">-->
+<!--          <el-input v-model="form.title" placeholder="请输入职称" />-->
+<!--        </el-form-item>-->
+<!--        <el-form-item label="入职日期">-->
+<!--          <el-date-picker v-model="form.hireDate" value-format="YYYY-MM-DD" placeholder="请选择入职日期" />-->
+<!--        </el-form-item>-->
+<!--        <el-form-item label="工号">-->
+<!--          <el-input v-model="form.jobNo" placeholder="请输入工号" />-->
+<!--        </el-form-item>-->
         <el-form-item label="所属部门">
           <el-select v-model="form.deptId" clearable placeholder="请选择所属部门">
             <el-option v-for="item in departments" :key="item.value" :label="item.label" :value="item.value" />
           </el-select>
         </el-form-item>
 
-        <el-form-item label="角色" class="full">
+        <el-form-item label="小程序角色" class="full">
           <el-select
             v-model="form.roleIdList"
             multiple

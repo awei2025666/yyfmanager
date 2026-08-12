@@ -190,7 +190,6 @@ onMounted(async () => {
           :data="menuTree"
           node-key="id"
           show-checkbox
-          default-expand-all
           :props="{ label: 'name', children: 'children', disabled: () => !activeRole }"
           :expand-on-click-node="false"
           :check-on-click-node="true"
