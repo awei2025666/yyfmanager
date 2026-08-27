@@ -1388,7 +1388,7 @@ const removeAutoCutPaperFor = (row) => {
   if (index > -1) formState.craftList.splice(index, 1)
 }
 const ensureCutPaperCraftAfter = async (row) => {
-  if (!String(row.craftName || '').includes('全套')) return
+  if (!String(row.craftName || '').includes('全套制作')) return
   if (!Array.isArray(formState.craftList)) return
   if (!row._rowKey) row._rowKey = createLocalRowKey()
   const rowIndex = formState.craftList.indexOf(row)
