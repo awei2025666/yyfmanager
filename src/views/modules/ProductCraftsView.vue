@@ -680,7 +680,7 @@ onMounted(() => {
                 手动完成
               </el-button>
               <el-button
-                v-if="Number(row.orderSource) !== 2"
+                v-if="Number(row.orderSource) !== 2 && Number(row.craftStatus)  === 1"
                 type="warning"
                 link
                 :icon="Switch"
