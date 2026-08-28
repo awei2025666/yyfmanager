@@ -34,14 +34,19 @@ const normalizeMenus = (items = []) => (items || []).map((item) => ({
   id: String(item.id),
   children: normalizeMenus(item.children || [])
 }))
-const flattenMenuIds = (items = []) => items.flatMap((item) => [String(item.id), ...flattenMenuIds(item.children || [])])
+// 接口会返回已授权菜单的完整层级路径。父节点仅用于保留层级，不能作为勾选项，
+// 否则 el-tree 的父子联动会将该父节点下的所有菜单一并勾选。
+const selectedMenuLeafIds = (items = []) => (items || []).flatMap((item) => {
+  const children = item.children || []
+  return children.length ? selectedMenuLeafIds(children) : [String(item.id)]
+})
 
 const loadRoleMenus = async (id) => {
   if (!id) return
   menuLoading.value = true
   try {
     const selectedMenus = await getTenantRoleMenuById(id)
-    const selectedIds = flattenMenuIds(listRows(selectedMenus))
+    const selectedIds = selectedMenuLeafIds(listRows(selectedMenus))
     await nextTick()
     menuTreeRef.value?.setCheckedKeys(selectedIds)
   } catch (error) {
