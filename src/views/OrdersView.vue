@@ -1113,9 +1113,9 @@ const computedCraftCustomerAmount = (craft = {}) => {
     price *= 2
     startPrice *= 2
   }
-  if (String(craft.unit || '').includes('千')) {
-    finishNum = Math.round(finishNum / 1000)
-  }
+  // if (String(craft.unit || '').includes('千')) {
+  //   finishNum = Math.round(finishNum / 1000)
+  // }
 
   const withPloidy = (amount) => toFixed4Number(amount * ploidy)
 
