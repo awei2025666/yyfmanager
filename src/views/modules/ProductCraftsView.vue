@@ -15,6 +15,7 @@ import {
   getTenantProductCraftOutsourcePrintUrl,
   getTenantProductCraftStatistics,
   getTenantOutsourceTenants,
+  cancelTenantProductCraftOutsource,
   outsourceTenantProductCraft,
   searchTenantClients,
   uploadTenantFile
@@ -343,6 +344,22 @@ const submitOutsource = async () => {
   }
 }
 
+const cancelOutsource = async (row) => {
+  if (!row?.id) return ElMessage.error('缺少工艺ID，无法取消外协')
+  try {
+    await ElMessageBox.confirm(`确认取消工艺 ${row.craftName || row.id} 的外协吗？`, '取消确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await cancelTenantProductCraftOutsource(row.id)
+    ElMessage.success('已取消外协')
+    await Promise.all([loadData(), loadStatistics()])
+  } catch (error) {
+    ElMessage.error(error?.message || '取消外协失败')
+  }
+}
+
 const openManualComplete = (row) => {
   manualCompleteTarget.value = row
   manualCompleteForm.completeRemark = ''
@@ -647,7 +664,6 @@ onMounted(() => {
       <el-table v-loading="state.loading" :data="rows" border>
         <el-table-column prop="orderNo" label="订单号" min-width="130" />
         <el-table-column prop="customer" label="单位名称" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="orderTime" label="订单时间" min-width="160" />
         <el-table-column prop="productInfo" label="产品信息" min-width="170" show-overflow-tooltip />
         <el-table-column prop="quantity" label="报工数量" min-width="100" />
         <el-table-column prop="craftName" label="工艺名称" min-width="120" />
@@ -655,32 +671,35 @@ onMounted(() => {
         <el-table-column label="客户金额" min-width="120">
           <template #default="{ row }">{{ moneyText(row.amount) }}</template>
         </el-table-column>
-        <el-table-column label="工艺状态" min-width="110">
-          <template #default="{ row }">
-            <span :class="statusClass(row.status)">{{ row.status }}</span>
-          </template>
-        </el-table-column>
         <el-table-column label="类型" min-width="110">
           <template #default="{ row }">
             <span :class="orderSourceClass(row.orderSource)">{{ orderSourceText(row.orderSource) }}</span>
           </template>
         </el-table-column>
+        <el-table-column label="工艺状态" min-width="110">
+          <template #default="{ row }">
+            <span :class="statusClass(row.status)">{{ row.status }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="operator" label="操作员" min-width="100" />
         <el-table-column prop="outTenantName" label="外协单位" min-width="110" />
         <el-table-column prop="outNum" label="外协数量" min-width="110" />
         <el-table-column prop="outMoney" label="外协金额" min-width="110" />
         <el-table-column prop="outRemark" label="外协备注" min-width="110" />
 
-        <el-table-column prop="operator" label="操作员" min-width="100" />
+        <el-table-column prop="orderTime" label="订单时间" min-width="160" />
+
         <el-table-column label="操作" width="290" fixed="right">
           <template #default="{ row }">
             <el-space wrap>
               <el-button type="primary" link :icon="View" @click="openDetail(row)">详情</el-button>
               <el-button type="primary" link @click="changeReportQuantity(row)">修改报工数量</el-button>
+              <el-button type="warning" link v-if="row.orderSource == 2  && Number(row.craftStatus)  === 1" @click="cancelOutsource(row)">取消外协</el-button>
               <el-button v-if="shouldShowManualComplete(row)" type="primary" link @click="openManualComplete(row)">
                 手动完成
               </el-button>
               <el-button
-                v-if="Number(row.orderSource) !== 2 && Number(row.craftStatus)  === 1"
+                v-if="Number(row.craftStatus)  === 1"
                 type="warning"
                 link
                 :icon="Switch"

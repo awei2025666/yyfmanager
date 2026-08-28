@@ -8,6 +8,7 @@ import {
   addTenantOrderError,
   addTenantOrder,
   approveTenantOrder,
+  changeTenantProductCraftOrderQuantity,
   changeTenantOrderAutoApprove,
   completeTenantOrderProduction,
   deleteTenantOrder,
@@ -30,6 +31,7 @@ import {
   getTenantOrderPrintUrl,
   getTenantOrderProcess,
   getTenantOrderErrorInfo,
+  cancelTenantOrderOutsourceAll,
   outsourceTenantOrder,
   outsourceTenantOrderAll,
   getTenantClientUsers,
@@ -2178,6 +2180,38 @@ const confirmManualComplete = async () => {
   }
 }
 
+const changeReportQuantity = async (row = {}) => {
+  if (!row.id) {
+    ElMessage.error('缺少工艺ID，无法修改报工数量')
+    return
+  }
+  try {
+    const { value } = await ElMessageBox.prompt('请输入报工数量', '修改报工数量', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputValue: String(row.finishNum ?? row.quantity ?? ''),
+      inputPlaceholder: '请输入报工数量',
+      inputValidator: (value) => {
+        if (String(value).trim() === '') return '请输入报工数量'
+        const quantity = Number(value)
+        return (Number.isFinite(quantity) && quantity >= 0) || '请输入大于等于 0 的数字'
+      }
+    })
+    await changeTenantProductCraftOrderQuantity({
+      id: row.id,
+      num: Number(value)
+    })
+    ElMessage.success('报工数量已修改')
+    if (currentRecord.value?.id) {
+      await openDetail(currentRecord.value)
+    }
+    await loadData()
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(error?.message || '修改报工数量失败')
+  }
+}
+
 const reapplyOrder = async (row) => {
   formMode.value = 'create'
   sourceOrderId.value = null
@@ -2242,6 +2276,22 @@ const confirmOutsourceAll = async () => {
     ElMessage.error(error?.message || '整单外协失败')
   } finally {
     outsourceAllSaving.value = false
+  }
+}
+
+const cancelOutsourceAll = async (row) => {
+  if (!row?.id) return ElMessage.error('缺少订单ID，无法取消整单外协')
+  try {
+    await ElMessageBox.confirm(`确认取消订单 ${row.orderId || row.id} 的整单外协吗？`, '取消确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await cancelTenantOrderOutsourceAll(row.id)
+    ElMessage.success('已取消整单外协')
+    await loadData()
+  } catch (error) {
+    ElMessage.error(error?.message || '取消整单外协失败')
   }
 }
 
@@ -2510,6 +2560,7 @@ watch(
               >
                 {{ action }}
               </el-button>
+              <el-button v-if="row.orderSource == 2 && row.status ==2" link type="warning" @click="cancelOutsourceAll(row)">取消整单外协</el-button>
               <el-button link type="primary" @click="openOrderAttachments(row)">查看附件</el-button>
             </el-space>
           </template>
@@ -3180,12 +3231,14 @@ watch(
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" min-width="100" fixed="right">
+            <el-table-column label="操作" min-width="190" fixed="right">
               <template #default="{ row }">
-                <el-button v-if="shouldShowManualComplete(row)" type="primary" link @click="openManualComplete(row)">
-                  手动完成
-                </el-button>
-                <span v-else>-</span>
+                <el-space wrap>
+                  <el-button v-if="shouldShowManualComplete(row)" type="primary" link @click="openManualComplete(row)">
+                    手动完成
+                  </el-button>
+                  <el-button type="primary" link @click="changeReportQuantity(row)">修改报工数量</el-button>
+                </el-space>
               </template>
             </el-table-column>
           </el-table>

@@ -93,6 +93,7 @@ export const outsourceTenantOrder = (payload = {}) => tenantHttp.post('/api/tena
 export const completeTenantOrderProduction = (payload = {}) => tenantHttp.post('/api/tenant/order/completeProduction', payload)
 export const getTenantOrderOutsourceInfo = (id) => tenantHttp.get('/api/tenant/order/outsourceInfo', { params: { id } })
 export const outsourceTenantOrderAll = (payload = {}) => tenantHttp.post('/api/tenant/order/outsourceAll', payload)
+export const cancelTenantOrderOutsourceAll = (id) => tenantHttp.get('/api/tenant/order/outsourceAllCancel', { params: { id } })
 export const getTenantExternalTenantList = (payload = {}) => tenantHttp.post('/api/tenant/tenant/list', payload)
 export const addTenantExternalTenant = (payload = {}) => tenantHttp.post('/api/tenant/tenant/add', payload)
 export const editTenantExternalTenant = (payload = {}) => tenantHttp.post('/api/tenant/tenant/edit', payload)
@@ -106,6 +107,7 @@ export const getTenantProductCraftStatistics = () => tenantHttp.get('/api/tenant
 export const changeTenantProductCraftOrderQuantity = (payload = {}) =>
   tenantHttp.post('/api/tenant/productsCraft/changeOrderQuantity', payload)
 export const outsourceTenantProductCraft = (payload = {}) => tenantHttp.post('/api/tenant/productsCraft/outsource', payload)
+export const cancelTenantProductCraftOutsource = (id) => tenantHttp.get('/api/tenant/productsCraft/outsourceCancel', { params: { id } })
 export const getTenantProductCraftOutsourcePrintUrl = (id) =>
   tenantHttp.get('/api/tenant/productsCraft/printUrlOut', { params: { id } })
 export const getTenantOutsourceCraftList = (payload) => tenantHttp.post('/api/tenant/productsCraft/intoCraft', payload)
