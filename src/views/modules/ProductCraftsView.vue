@@ -73,7 +73,8 @@ const externalTenantFilters = reactive({
 const externalTenantForm = reactive({
   id: '',
   tenantName: '',
-  userName: ''
+  userName: '',
+  userPhone:''
 })
 const manualCompleteForm = reactive({
   completeRemark: '',
@@ -235,6 +236,7 @@ const resetExternalTenantForm = () => {
   externalTenantForm.id = ''
   externalTenantForm.tenantName = ''
   externalTenantForm.userName = ''
+  externalTenantForm.userPhone = ''
 }
 
 const openExternalTenantCreate = () => {
@@ -246,6 +248,7 @@ const openExternalTenantEdit = (row = {}) => {
   externalTenantForm.id = row.id || ''
   externalTenantForm.tenantName = row.tenantName || ''
   externalTenantForm.userName = row.userName || ''
+  externalTenantForm.userPhone = row.userPhone || ''
   externalTenantFormVisible.value = true
 }
 
@@ -256,7 +259,8 @@ const saveExternalTenant = async () => {
     const payload = {
       id: externalTenantForm.id || undefined,
       tenantName: externalTenantForm.tenantName,
-      userName: externalTenantForm.userName
+      userName: externalTenantForm.userName,
+      userPhone: externalTenantForm.userPhone
     }
     if (externalTenantForm.id) {
       await editTenantExternalTenant(payload)
@@ -850,6 +854,7 @@ onMounted(() => {
         <el-table v-loading="state.externalTenantLoading" :data="externalTenantRows" border>
           <el-table-column prop="tenantName" label="会员名称" min-width="220" show-overflow-tooltip />
           <el-table-column prop="userName" label="联系人" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="userPhone" label="联系电话" min-width="180" show-overflow-tooltip />
           <el-table-column label="操作" width="240" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="selectExternalTenant(row)">选择</el-button>
@@ -885,6 +890,9 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="联系人">
           <el-input v-model="externalTenantForm.userName" placeholder="请输入联系人" />
+        </el-form-item>
+        <el-form-item label="联系电话">
+          <el-input v-model="externalTenantForm.userPhone" placeholder="请输入联系电话" />
         </el-form-item>
       </el-form>
       <template #footer>

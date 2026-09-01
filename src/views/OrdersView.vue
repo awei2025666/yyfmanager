@@ -53,7 +53,8 @@ const filters = reactive({
   fillUserName: '',
   orderId: '',
   status: '',
-  orderTimeRange: []
+  orderTimeRange: [],
+  orderByDate: 2
 })
 
 const autoApprove = ref(true)
@@ -119,7 +120,8 @@ const externalTenantFilters = reactive({
 const externalTenantForm = reactive({
   id: '',
   tenantName: '',
-  userName: ''
+  userName: '',
+  userPhone: '',
 })
 const manualCompleteForm = reactive({
   completeRemark: '',
@@ -530,6 +532,7 @@ const resetExternalTenantForm = () => {
   externalTenantForm.id = ''
   externalTenantForm.tenantName = ''
   externalTenantForm.userName = ''
+  externalTenantForm.userPhone = ''
 }
 
 const openExternalTenantCreate = () => {
@@ -541,6 +544,7 @@ const openExternalTenantEdit = (row = {}) => {
   externalTenantForm.id = row.id || ''
   externalTenantForm.tenantName = row.tenantName || ''
   externalTenantForm.userName = row.userName || ''
+  externalTenantForm.userPhone = row.userPhone || ''
   externalTenantFormVisible.value = true
 }
 
@@ -551,7 +555,8 @@ const saveExternalTenant = async () => {
     const payload = {
       id: externalTenantForm.id || undefined,
       tenantName: externalTenantForm.tenantName,
-      userName: externalTenantForm.userName
+      userName: externalTenantForm.userName,
+      userPhone: externalTenantForm.userPhone
     }
     if (externalTenantForm.id) {
       await editTenantExternalTenant(payload)
@@ -1631,9 +1636,25 @@ const resetFilters = () => {
     fillUserName: '',
     orderId: '',
     status: '',
-    orderTimeRange: []
+    orderTimeRange: [],
+    orderByDate: 2
   })
   loadData()
+}
+
+const orderDateSortOptions = [
+  { label: '正序', value: 1 },
+  { label: '倒序', value: 2 }
+]
+
+const changeOrderDateSort = () => {
+  filters.pageNum = 1
+  loadData()
+}
+
+const toggleOrderDateSort = () => {
+  filters.orderByDate = filters.orderByDate === 1 ? 2 : 1
+  changeOrderDateSort()
 }
 
 const buildQuery = () => ({
@@ -1644,7 +1665,8 @@ const buildQuery = () => ({
   orderId: filters.orderId || routeQueryValue('detailId') || undefined,
   status: filters.status || undefined,
   createTimeStart: filters.orderTimeRange?.[0] || undefined,
-  createTimeEnd: filters.orderTimeRange?.[1] || undefined
+  createTimeEnd: filters.orderTimeRange?.[1] || undefined,
+  orderByDate: filters.orderByDate
 })
 
 const loadData = async () => {
@@ -2485,7 +2507,30 @@ watch(
       >
         <el-table-column prop="orderId" label="订单号" min-width="120" />
         <el-table-column prop="companyName" label="单位名称" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="orderTime" label="订单时间" min-width="140" />
+        <el-table-column prop="orderTime" label="订单时间" min-width="175">
+          <template #header>
+            <div class="order-time-sort-header">
+              <button type="button" class="order-time-sort-title" @click.stop="toggleOrderDateSort">
+                <span>订单时间</span>
+                <strong>{{ filters.orderByDate === 1 ? '↑' : '↓' }}</strong>
+              </button>
+              <el-select
+                v-model="filters.orderByDate"
+                class="order-time-sort-select"
+                size="small"
+                @change="changeOrderDateSort"
+                @click.stop
+              >
+                <el-option
+                  v-for="item in orderDateSortOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="fillUserName" label="业务员" min-width="80" show-overflow-tooltip />
         <el-table-column label="产品信息" min-width="190">
           <template #default="{ row }">
@@ -2531,6 +2576,9 @@ watch(
         </el-table-column>
         <el-table-column prop="totalMoney" label="订单金额" min-width="95">
           <template #default="{ row }">{{ formatMoney(row.totalMoney) }}</template>
+        </el-table-column>
+        <el-table-column prop="totalMoney" label="剩余尾款" min-width="95">
+          <template #default="{ row }">{{ formatMoney(row.remainMoney) }}</template>
         </el-table-column>
         <el-table-column label="类型" min-width="80">
           <template #default="{ row }">
@@ -3023,6 +3071,7 @@ watch(
         <el-table v-loading="externalTenantLoading" :data="externalTenantRows" border>
           <el-table-column prop="tenantName" label="会员名称" min-width="220" />
           <el-table-column prop="userName" label="联系人" min-width="180" />
+          <el-table-column prop="userPhone" label="联系电话" min-width="180" />
           <el-table-column label="操作" width="240" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link @click="selectExternalTenant(row)">选择</el-button>
@@ -3058,6 +3107,9 @@ watch(
         </el-form-item>
         <el-form-item label="联系人">
           <el-input v-model="externalTenantForm.userName" placeholder="请输入联系人" />
+        </el-form-item>
+        <el-form-item label="联系电话">
+          <el-input v-model="externalTenantForm.userPhone" placeholder="请输入联系电话" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -4179,6 +4231,44 @@ watch(
 
 .order-list-table :deep(.el-space) {
   gap: 4px 8px !important;
+}
+
+.order-time-sort-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.order-time-sort-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #303133;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.order-time-sort-title strong {
+  color: #409eff;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.order-time-sort-select {
+  width: 74px;
+}
+
+.order-time-sort-select :deep(.el-select__wrapper) {
+  min-height: 24px;
+  padding: 0 6px;
+}
+
+.order-time-sort-select :deep(.el-select__placeholder) {
+  font-size: 12px;
 }
 
 :deep(.order-form-dialog) .design-table :deep(.el-table__header th) {
