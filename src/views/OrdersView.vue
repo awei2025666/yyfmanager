@@ -63,6 +63,7 @@ const loading = ref(false)
 const exporting = ref(false)
 const saving = ref(false)
 const detailLoading = ref(false)
+const orderTableRef = ref(null)
 const clientSearching = ref(false)
 const allClientOptions = ref([])
 const clientOptions = ref([])
@@ -1643,39 +1644,28 @@ const resetFilters = () => {
     orderTimeRange: [],
     orderByDate: 2
   })
-  loadData()
+  if (orderTableRef.value) {
+    orderTableRef.value.sort('orderTime', 'descending')
+  } else {
+    loadData()
+  }
 }
 
-const orderSortOptions = () => [
-  { label: '正序', value: 'ascending' },
-  { label: '倒序', value: 'descending' }
-]
-
-const orderSortDirection = (ascendingValue, descendingValue) => {
-  if (filters.orderByDate === ascendingValue) return '↑'
-  if (filters.orderByDate === descendingValue) return '↓'
-  return ''
+const orderSortCodes = {
+  orderId: [11, 12],
+  orderTime: [1, 2],
+  companyName: [3, 4],
+  fillUserName: [5, 6],
+  totalMoney: [7, 8],
+  remainMoney: [9, 10]
 }
 
-const orderSortValue = (ascendingValue, descendingValue) => {
-  if (filters.orderByDate === ascendingValue) return 'ascending'
-  if (filters.orderByDate === descendingValue) return 'descending'
-  return ''
-}
-
-const changeOrderDateSort = () => {
+const handleOrderSortChange = ({ prop, order }) => {
+  const sortCodes = orderSortCodes[prop]
+  if (!sortCodes || !order) return
+  filters.orderByDate = order === 'ascending' ? sortCodes[0] : sortCodes[1]
   filters.pageNum = 1
   loadData()
-}
-
-const toggleOrderSort = (ascendingValue, descendingValue) => {
-  filters.orderByDate = filters.orderByDate === ascendingValue ? descendingValue : ascendingValue
-  changeOrderDateSort()
-}
-
-const changeOrderSort = (ascendingValue, descendingValue, direction) => {
-  filters.orderByDate = direction === 'descending' ? descendingValue : ascendingValue
-  changeOrderDateSort()
 }
 
 const buildQuery = () => ({
@@ -2524,112 +2514,45 @@ watch(
       </div>
 
       <el-table
+          ref="orderTableRef"
           v-loading="loading"
           :data="rows"
           class="order-list-table"
           empty-text="当前筛选下暂无订单数据"
           :cell-style="({ row }) => row.status === 8 ? { color: 'red' } : {}"
+          :default-sort="{ prop: 'orderTime', order: 'descending' }"
+          @sort-change="handleOrderSortChange"
       >
-        <el-table-column prop="orderId" label="订单号" min-width="120">
-          <template #header>
-            <div class="order-sort-header">
-              <button type="button" class="order-sort-title" @click.stop="toggleOrderSort(11, 12)">
-                <span>订单号</span>
-                <strong>{{ orderSortDirection(11, 12) }}</strong>
-              </button>
-              <el-select
-                :model-value="orderSortValue(11, 12)"
-                class="order-sort-select"
-                size="small"
-                placeholder="排序"
-                @change="changeOrderSort(11, 12, $event)"
-                @click.stop
-              >
-                <el-option
-                  v-for="item in orderSortOptions()"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="companyName" label="单位名称" min-width="120" show-overflow-tooltip>
-          <template #header>
-            <div class="order-sort-header">
-              <button type="button" class="order-sort-title" @click.stop="toggleOrderSort(3, 4)">
-                <span>单位名称</span>
-                <strong>{{ orderSortDirection(3, 4) }}</strong>
-              </button>
-              <el-select
-                :model-value="orderSortValue(3, 4)"
-                class="order-sort-select"
-                size="small"
-                placeholder="排序"
-                @change="changeOrderSort(3, 4, $event)"
-                @click.stop
-              >
-                <el-option
-                  v-for="item in orderSortOptions()"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="orderTime" label="订单时间" min-width="120">
-          <template #header>
-            <div class="order-sort-header">
-              <button type="button" class="order-sort-title" @click.stop="toggleOrderSort(1, 2)">
-                <span>订单时间</span>
-                <strong>{{ orderSortDirection(1, 2) }}</strong>
-              </button>
-              <el-select
-                :model-value="orderSortValue(1, 2)"
-                class="order-sort-select"
-                size="small"
-                placeholder="排序"
-                @change="changeOrderSort(1, 2, $event)"
-                @click.stop
-              >
-                <el-option
-                  v-for="item in orderSortOptions()"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="fillUserName" label="业务员" min-width="100" show-overflow-tooltip>
-          <template #header>
-            <div class="order-sort-header">
-              <button type="button" class="order-sort-title" @click.stop="toggleOrderSort(5, 6)">
-                <span>业务员</span>
-                <strong>{{ orderSortDirection(5, 6) }}</strong>
-              </button>
-              <el-select
-                :model-value="orderSortValue(5, 6)"
-                class="order-sort-select"
-                size="small"
-                placeholder="排序"
-                @change="changeOrderSort(5, 6, $event)"
-                @click.stop
-              >
-                <el-option
-                  v-for="item in orderSortOptions()"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </div>
-          </template>
-        </el-table-column>
+        <el-table-column
+          prop="orderId"
+          label="订单号"
+          min-width="120"
+          sortable="custom"
+          :sort-orders="['ascending', 'descending']"
+        />
+        <el-table-column
+          prop="companyName"
+          label="单位名称"
+          min-width="120"
+          show-overflow-tooltip
+          sortable="custom"
+          :sort-orders="['ascending', 'descending']"
+        />
+        <el-table-column
+          prop="orderTime"
+          label="订单时间"
+          min-width="120"
+          sortable="custom"
+          :sort-orders="['ascending', 'descending']"
+        />
+        <el-table-column
+          prop="fillUserName"
+          label="业务员"
+          min-width="100"
+          show-overflow-tooltip
+          sortable="custom"
+          :sort-orders="['ascending', 'descending']"
+        />
         <el-table-column label="产品信息" min-width="180">
           <template #default="{ row }">
             <el-popover
@@ -2672,56 +2595,22 @@ watch(
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column prop="totalMoney" label="订单金额" min-width="95">
-          <template #header>
-            <div class="order-sort-header">
-              <button type="button" class="order-sort-title" @click.stop="toggleOrderSort(7, 8)">
-                <span>订单金额</span>
-                <strong>{{ orderSortDirection(7, 8) }}</strong>
-              </button>
-              <el-select
-                :model-value="orderSortValue(7, 8)"
-                class="order-sort-select"
-                size="small"
-                placeholder="排序"
-                @change="changeOrderSort(7, 8, $event)"
-                @click.stop
-              >
-                <el-option
-                  v-for="item in orderSortOptions()"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </div>
-          </template>
+        <el-table-column
+          prop="totalMoney"
+          label="订单金额"
+          min-width="95"
+          sortable="custom"
+          :sort-orders="['ascending', 'descending']"
+        >
           <template #default="{ row }">{{ formatMoney(row.totalMoney) }}</template>
         </el-table-column>
-        <el-table-column prop="remainMoney" label="剩余尾款" min-width="95">
-          <template #header>
-            <div class="order-sort-header">
-              <button type="button" class="order-sort-title" @click.stop="toggleOrderSort(9, 10)">
-                <span>剩余尾款</span>
-                <strong>{{ orderSortDirection(9, 10) }}</strong>
-              </button>
-              <el-select
-                :model-value="orderSortValue(9, 10)"
-                class="order-sort-select"
-                size="small"
-                placeholder="排序"
-                @change="changeOrderSort(9, 10, $event)"
-                @click.stop
-              >
-                <el-option
-                  v-for="item in orderSortOptions()"
-                  :key="item.value"
-                  :label="item.label"
-                  :value="item.value"
-                />
-              </el-select>
-            </div>
-          </template>
+        <el-table-column
+          prop="remainMoney"
+          label="剩余尾款"
+          min-width="95"
+          sortable="custom"
+          :sort-orders="['ascending', 'descending']"
+        >
           <template #default="{ row }">{{ formatMoney(row.remainMoney) }}</template>
         </el-table-column>
         <el-table-column label="类型" min-width="80">
@@ -4377,42 +4266,32 @@ watch(
   gap: 4px 8px !important;
 }
 
-.order-sort-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.order-list-table :deep(.caret-wrapper) {
+  width: 28px;
+  height: 18px;
 }
 
-.order-sort-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #303133;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
+.order-list-table :deep(.sort-caret) {
+  border-width: 6px;
+  left: 6px;
 }
 
-.order-sort-title strong {
-  color: #409eff;
-  font-size: 16px;
-  line-height: 1;
+.order-list-table :deep(.sort-caret.ascending) {
+  top: -6px;
+  border-bottom-color: #94a3b8;
 }
 
-.order-sort-select {
-  width: 74px;
+.order-list-table :deep(.sort-caret.descending) {
+  bottom: -4px;
+  border-top-color: #94a3b8;
 }
 
-.order-sort-select :deep(.el-select__wrapper) {
-  min-height: 24px;
-  padding: 0 6px;
+.order-list-table :deep(.ascending .sort-caret.ascending) {
+  border-bottom-color: #1677ff;
 }
 
-.order-sort-select :deep(.el-select__placeholder) {
-  font-size: 12px;
+.order-list-table :deep(.descending .sort-caret.descending) {
+  border-top-color: #1677ff;
 }
 
 :deep(.order-form-dialog) .design-table :deep(.el-table__header th) {
