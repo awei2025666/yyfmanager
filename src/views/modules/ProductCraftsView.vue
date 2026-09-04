@@ -86,6 +86,7 @@ const outsourceForm = reactive({
   outTenantId: '',
   outTenantName: '',
   outContact: '',
+  outType: null,
   outNum: '',
   outMoney: '',
   outRemark: ''
@@ -298,6 +299,7 @@ const resetOutsourceFields = () => {
     outTenantId: '',
     outTenantName: '',
     outContact: '',
+    outType: null,
     outNum: '',
     outMoney: '',
     outRemark: ''
@@ -317,12 +319,14 @@ const selectOutsourceUnit = (row) => {
   outsourceForm.outTenantId = row.memberId
   outsourceForm.outTenantName = row.tenantName
   outsourceForm.outContact = row.contact || ''
+  outsourceForm.outType = 1
 }
 
 const selectExternalTenant = (row = {}) => {
   outsourceForm.outTenantId = row.id || ''
   outsourceForm.outTenantName = row.tenantName || ''
   outsourceForm.outContact = row.userName || ''
+  outsourceForm.outType = 2
   externalTenantVisible.value = false
 }
 
@@ -333,6 +337,7 @@ const submitOutsource = async () => {
   try {
     await outsourceTenantProductCraft({
       id: outsourceForm.id,
+      type:outsourceForm.outType,
       outTenantId: outsourceForm.outTenantId,
       outNum: outsourceForm.outNum === '' ? undefined : Number(outsourceForm.outNum),
       outMoney: outsourceForm.outMoney === '' ? undefined : Number(outsourceForm.outMoney),

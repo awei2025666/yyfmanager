@@ -163,7 +163,8 @@ const formState = reactive({
   status: 1,
   printCode: '',
   remark: '',
-  files: []
+  files: [],
+  outType: null
 })
 
 let localRowSeq = 0
@@ -598,6 +599,7 @@ const selectOutsourceUnit = (row = {}) => {
   formState.outsourceSupplierId = row.memberId || row.id || ''
   formState.outsourceSupplierName = row.memberName || row.companyName || ''
   formState.outsourceSupplierContact = row.contact || row.linkman || ''
+  formState.outType = 1
 }
 
 const selectedOutsourceUnitName = computed(() => {
@@ -609,6 +611,7 @@ const selectExternalTenant = (row = {}) => {
   formState.outsourceSupplierId = row.id || ''
   formState.outsourceSupplierName = row.tenantName || ''
   formState.outsourceSupplierContact = row.userName || ''
+  formState.outType = 2
   externalTenantVisible.value = false
 }
 
@@ -918,6 +921,7 @@ const buildRepeatOrderRecord = (record = {}) => {
     outsourceSupplierId: '',
     outsourceSupplierName: '',
     outsourceSupplierContact: '',
+    outType: null,
     status: autoApprove.value ? 2 : 1
   }
 }
@@ -1782,6 +1786,7 @@ const openAdd = () => {
     outsourceSupplierId: '',
     outsourceSupplierName: '',
     outsourceSupplierContact: '',
+    outType:null,
     status: autoApprove.value ? 2 : 1,
     printCode: '',
     remark: '',
@@ -1850,7 +1855,8 @@ const openOutsource = async (row) => {
     })),
     outsourceSupplierId: '',
     outsourceSupplierName: '',
-    outsourceSupplierContact: ''
+    outsourceSupplierContact: '',
+    outType:null,
   })
   seedClientOption(record)
   craftOptions.value = []
@@ -2275,6 +2281,7 @@ const openOutsourceAll = (row) => {
   formState.outsourceSupplierId = ''
   formState.outsourceSupplierName = ''
   formState.outsourceSupplierContact = ''
+  formState.outType = null
   outsourceFilters.memberId = ''
   outsourceFilters.memberName = ''
   outsourceAllVisible.value = true
@@ -2289,7 +2296,8 @@ const confirmOutsourceAll = async () => {
   try {
     await outsourceTenantOrderAll({
       id: orderId,
-      outTenantId: formState.outsourceSupplierId
+      outTenantId: formState.outsourceSupplierId,
+      type: formState.outType
     })
     outsourceAllVisible.value = false
     ElMessage.success('订单已整单外协')
