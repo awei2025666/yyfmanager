@@ -1646,18 +1646,35 @@ const resetFilters = () => {
   loadData()
 }
 
-const orderDateSortOptions = [
-  { label: '正序', value: 1 },
-  { label: '倒序', value: 2 }
+const orderSortOptions = () => [
+  { label: '正序', value: 'ascending' },
+  { label: '倒序', value: 'descending' }
 ]
+
+const orderSortDirection = (ascendingValue, descendingValue) => {
+  if (filters.orderByDate === ascendingValue) return '↑'
+  if (filters.orderByDate === descendingValue) return '↓'
+  return ''
+}
+
+const orderSortValue = (ascendingValue, descendingValue) => {
+  if (filters.orderByDate === ascendingValue) return 'ascending'
+  if (filters.orderByDate === descendingValue) return 'descending'
+  return ''
+}
 
 const changeOrderDateSort = () => {
   filters.pageNum = 1
   loadData()
 }
 
-const toggleOrderDateSort = () => {
-  filters.orderByDate = filters.orderByDate === 1 ? 2 : 1
+const toggleOrderSort = (ascendingValue, descendingValue) => {
+  filters.orderByDate = filters.orderByDate === ascendingValue ? descendingValue : ascendingValue
+  changeOrderDateSort()
+}
+
+const changeOrderSort = (ascendingValue, descendingValue, direction) => {
+  filters.orderByDate = direction === 'descending' ? descendingValue : ascendingValue
   changeOrderDateSort()
 }
 
@@ -2513,24 +2530,23 @@ watch(
           empty-text="当前筛选下暂无订单数据"
           :cell-style="({ row }) => row.status === 8 ? { color: 'red' } : {}"
       >
-        <el-table-column prop="orderId" label="订单号" min-width="120" />
-        <el-table-column prop="companyName" label="单位名称" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="orderTime" label="订单时间" min-width="175">
+        <el-table-column prop="orderId" label="订单号" min-width="120">
           <template #header>
-            <div class="order-time-sort-header">
-              <button type="button" class="order-time-sort-title" @click.stop="toggleOrderDateSort">
-                <span>订单时间</span>
-                <strong>{{ filters.orderByDate === 1 ? '↑' : '↓' }}</strong>
+            <div class="order-sort-header">
+              <button type="button" class="order-sort-title" @click.stop="toggleOrderSort(11, 12)">
+                <span>订单号</span>
+                <strong>{{ orderSortDirection(11, 12) }}</strong>
               </button>
               <el-select
-                v-model="filters.orderByDate"
-                class="order-time-sort-select"
+                :model-value="orderSortValue(11, 12)"
+                class="order-sort-select"
                 size="small"
-                @change="changeOrderDateSort"
+                placeholder="排序"
+                @change="changeOrderSort(11, 12, $event)"
                 @click.stop
               >
                 <el-option
-                  v-for="item in orderDateSortOptions"
+                  v-for="item in orderSortOptions()"
                   :key="item.value"
                   :label="item.label"
                   :value="item.value"
@@ -2539,8 +2555,82 @@ watch(
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="fillUserName" label="业务员" min-width="80" show-overflow-tooltip />
-        <el-table-column label="产品信息" min-width="190">
+        <el-table-column prop="companyName" label="单位名称" min-width="120" show-overflow-tooltip>
+          <template #header>
+            <div class="order-sort-header">
+              <button type="button" class="order-sort-title" @click.stop="toggleOrderSort(3, 4)">
+                <span>单位名称</span>
+                <strong>{{ orderSortDirection(3, 4) }}</strong>
+              </button>
+              <el-select
+                :model-value="orderSortValue(3, 4)"
+                class="order-sort-select"
+                size="small"
+                placeholder="排序"
+                @change="changeOrderSort(3, 4, $event)"
+                @click.stop
+              >
+                <el-option
+                  v-for="item in orderSortOptions()"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="orderTime" label="订单时间" min-width="120">
+          <template #header>
+            <div class="order-sort-header">
+              <button type="button" class="order-sort-title" @click.stop="toggleOrderSort(1, 2)">
+                <span>订单时间</span>
+                <strong>{{ orderSortDirection(1, 2) }}</strong>
+              </button>
+              <el-select
+                :model-value="orderSortValue(1, 2)"
+                class="order-sort-select"
+                size="small"
+                placeholder="排序"
+                @change="changeOrderSort(1, 2, $event)"
+                @click.stop
+              >
+                <el-option
+                  v-for="item in orderSortOptions()"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="fillUserName" label="业务员" min-width="100" show-overflow-tooltip>
+          <template #header>
+            <div class="order-sort-header">
+              <button type="button" class="order-sort-title" @click.stop="toggleOrderSort(5, 6)">
+                <span>业务员</span>
+                <strong>{{ orderSortDirection(5, 6) }}</strong>
+              </button>
+              <el-select
+                :model-value="orderSortValue(5, 6)"
+                class="order-sort-select"
+                size="small"
+                placeholder="排序"
+                @change="changeOrderSort(5, 6, $event)"
+                @click.stop
+              >
+                <el-option
+                  v-for="item in orderSortOptions()"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="产品信息" min-width="180">
           <template #default="{ row }">
             <el-popover
               v-if="orderCraftStatusGroups(row).length"
@@ -2583,9 +2673,55 @@ watch(
           </template>
         </el-table-column>
         <el-table-column prop="totalMoney" label="订单金额" min-width="95">
+          <template #header>
+            <div class="order-sort-header">
+              <button type="button" class="order-sort-title" @click.stop="toggleOrderSort(7, 8)">
+                <span>订单金额</span>
+                <strong>{{ orderSortDirection(7, 8) }}</strong>
+              </button>
+              <el-select
+                :model-value="orderSortValue(7, 8)"
+                class="order-sort-select"
+                size="small"
+                placeholder="排序"
+                @change="changeOrderSort(7, 8, $event)"
+                @click.stop
+              >
+                <el-option
+                  v-for="item in orderSortOptions()"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </div>
+          </template>
           <template #default="{ row }">{{ formatMoney(row.totalMoney) }}</template>
         </el-table-column>
-        <el-table-column prop="totalMoney" label="剩余尾款" min-width="95">
+        <el-table-column prop="remainMoney" label="剩余尾款" min-width="95">
+          <template #header>
+            <div class="order-sort-header">
+              <button type="button" class="order-sort-title" @click.stop="toggleOrderSort(9, 10)">
+                <span>剩余尾款</span>
+                <strong>{{ orderSortDirection(9, 10) }}</strong>
+              </button>
+              <el-select
+                :model-value="orderSortValue(9, 10)"
+                class="order-sort-select"
+                size="small"
+                placeholder="排序"
+                @change="changeOrderSort(9, 10, $event)"
+                @click.stop
+              >
+                <el-option
+                  v-for="item in orderSortOptions()"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
+            </div>
+          </template>
           <template #default="{ row }">{{ formatMoney(row.remainMoney) }}</template>
         </el-table-column>
         <el-table-column label="类型" min-width="80">
@@ -4241,13 +4377,13 @@ watch(
   gap: 4px 8px !important;
 }
 
-.order-time-sort-header {
+.order-sort-header {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.order-time-sort-title {
+.order-sort-title {
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -4260,22 +4396,22 @@ watch(
   cursor: pointer;
 }
 
-.order-time-sort-title strong {
+.order-sort-title strong {
   color: #409eff;
   font-size: 16px;
   line-height: 1;
 }
 
-.order-time-sort-select {
+.order-sort-select {
   width: 74px;
 }
 
-.order-time-sort-select :deep(.el-select__wrapper) {
+.order-sort-select :deep(.el-select__wrapper) {
   min-height: 24px;
   padding: 0 6px;
 }
 
-.order-time-sort-select :deep(.el-select__placeholder) {
+.order-sort-select :deep(.el-select__placeholder) {
   font-size: 12px;
 }
 
