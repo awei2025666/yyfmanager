@@ -58,19 +58,26 @@ const submit = async () => {
         </el-button>
       </el-form>
     </div>
+
+    <a class="beian-link" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
+      蜀ICP备2026028072号
+    </a>
   </div>
 </template>
 
 <style scoped>
 .login-page {
   min-height: 100vh;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 24px;
+  box-sizing: border-box;
 }
 
 .login-card {
   width: min(1100px, 100%);
+  margin: auto 0;
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
   overflow: hidden;
@@ -116,6 +123,19 @@ const submit = async () => {
   width: 100%;
   height: 48px;
   margin-top: 6px;
+}
+
+.beian-link {
+  flex-shrink: 0;
+  margin-top: 20px;
+  color: #8a94a6;
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.beian-link:hover {
+  color: #3971ff;
 }
 
 @media (max-width: 900px) {
