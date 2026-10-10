@@ -53,6 +53,7 @@ const filters = reactive({
   fillUserName: '',
   orderId: '',
   status: '',
+  paymentStatus: '',
   orderTimeRange: [],
   orderByDate: 2
 })
@@ -190,6 +191,14 @@ const statusOptions = computed(() =>
   Object.entries(statusMap)
     .map(([value, item]) => ({ value: Number(value), ...item }))
 )
+const paymentStatusMap = {
+  1: { label: '进行中', tone: 'running' },
+  2: { label: '已结清', tone: 'settled' }
+}
+const paymentStatusOptions = computed(() =>
+  Object.entries(paymentStatusMap)
+    .map(([value, item]) => ({ value: Number(value), ...item }))
+)
 const deliveryTypeOptions = [
   { label: '自提', value: 1 },
   { label: '发货', value: 2 },
@@ -207,6 +216,7 @@ const deliveryTypeText = (value) =>
 const singleDoubleText = (value) =>
   singleDoubleOptions.find((item) => String(item.value) === String(value))?.label || ''
 const statusToneClass = (status) => `order-status--${statusMap[status]?.tone || 'outsourced'}`
+const paymentStatusToneClass = (status) => `payment-status--${paymentStatusMap[status]?.tone || 'running'}`
 const craftStatusText = (value) => {
   const status = Number(value)
   if (status === 2) return '已生产'
@@ -747,6 +757,7 @@ const enrichOrderRow = (item = {}) => {
     payMoney: item.totalMoney ?? item.payMoney ?? 0,
     orderSource: item.orderSource ?? 1,
     status: Number(item.status ?? 1),
+    paymentStatus: Number(item.paymentStatus ?? 1),
     printCode: item.printCode || '',
     remark: item.remark || '',
     files: Array.isArray(item.files) ? item.files : [],
@@ -942,6 +953,7 @@ const activeFilters = computed(() =>
     { key: 'fillUserName', label: '业务员', value: filters.fillUserName },
     { key: 'orderId', label: '订单号', value: filters.orderId },
     { key: 'status', label: '订单状态', value: filters.status === '' ? '' : statusMap[filters.status]?.label },
+    { key: 'paymentStatus', label: '收款状态', value: filters.paymentStatus === '' ? '' : paymentStatusMap[filters.paymentStatus]?.label },
     { key: 'orderTimeRange', label: '订单时间', value: filters.orderTimeRange?.join(' 至 ') }
   ].filter((item) => item.value !== '' && item.value !== null && item.value !== undefined)
 )
@@ -1641,6 +1653,7 @@ const resetFilters = () => {
     fillUserName: '',
     orderId: '',
     status: '',
+    paymentStatus: '',
     orderTimeRange: [],
     orderByDate: 2
   })
@@ -1675,6 +1688,7 @@ const buildQuery = () => ({
   fillUserName: filters.fillUserName || undefined,
   orderId: filters.orderId || routeQueryValue('detailId') || undefined,
   status: filters.status || undefined,
+  paymentStatus: filters.paymentStatus || undefined,
   createTimeStart: filters.orderTimeRange?.[0] || undefined,
   createTimeEnd: filters.orderTimeRange?.[1] || undefined,
   orderByDate: filters.orderByDate
@@ -2455,6 +2469,12 @@ watch(
           </el-select>
         </label>
         <label>
+          <span>收款状态</span>
+          <el-select v-model="filters.paymentStatus" placeholder="请选择收款状态" clearable>
+            <el-option v-for="item in paymentStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
+        </label>
+        <label>
           <span>订单时间</span>
           <el-date-picker
             v-model="filters.orderTimeRange"
@@ -2612,6 +2632,19 @@ watch(
           :sort-orders="['ascending', 'descending']"
         >
           <template #default="{ row }">{{ formatMoney(row.remainMoney) }}</template>
+        </el-table-column>
+        <el-table-column
+            prop="paymentStatus"
+            label="收款状态"
+            min-width="95"
+            sortable="custom"
+            :sort-orders="['ascending', 'descending']"
+        >
+          <template #default="{ row }">
+            <el-tag class="payment-status-tag" :class="paymentStatusToneClass(row.paymentStatus)" effect="plain">
+              {{ paymentStatusMap[row.paymentStatus]?.label || '' }}
+            </el-tag>
+          </template>
         </el-table-column>
         <el-table-column label="类型" min-width="80">
           <template #default="{ row }">
@@ -3606,6 +3639,22 @@ watch(
   color: #722ed1 !important;
   border-color: #d3adf7 !important;
   background: #f9f0ff !important;
+}
+
+.payment-status-tag {
+  font-weight: 600;
+}
+
+.payment-status--running {
+  color: #fa8c16 !important;
+  border-color: #ffe1ba !important;
+  background: #fff7e6 !important;
+}
+
+.payment-status--settled {
+  color: #52c41a !important;
+  border-color: #b7eb8f !important;
+  background: #f6ffed !important;
 }
 
 .order-status--pending-approval {
