@@ -31,6 +31,8 @@ import {
   getTenantOrderHandKept,
   getTenantOrderList,
   getTenantOrderPrintLabelUrl,
+  getTenantOrderPackInfo,
+  saveTenantOrderPack,
   getTenantOrderPrintUrl,
   getTenantOrderProcess,
   getTenantOrderErrorInfo,
@@ -95,6 +97,12 @@ const consumableOptions = ref([])
 const consumableRows = ref([])
 const consumableOrder = ref(null)
 let consumableRowSeq = 0
+const packVisible = ref(false)
+const packLoading = ref(false)
+const packSaving = ref(false)
+const packRows = ref([])
+const packOrder = ref(null)
+const packSaved = ref(false)
 const routeDetailToken = ref('')
 const orderFormVisible = ref(false)
 const approveVisible = ref(false)
@@ -2138,6 +2146,106 @@ const removeConsumableRow = async (row) => {
   }
 }
 
+const packProducts = (order = {}) => {
+  const products = order.products || order.productList || []
+  if (Array.isArray(products) && products.length) return products.map(normalizeProductRow)
+  return [{
+    productName: order.productName || order.productInfo || '订单产品',
+    quantity: order.quantity ?? order.orderQuantity ?? 0,
+    unit: order.unit || ''
+  }]
+}
+
+const packProductRows = computed(() => packProducts(packOrder.value || {}))
+const productOrderQuantity = (product = {}) => {
+  const value = [product.orderQuantity, product.quantity, product.num]
+    .find((item) => item !== undefined && item !== null && item !== '' && Number(item) > 0)
+  return Number(value || 0)
+}
+const packOrderQuantity = computed(() => packProductRows.value.reduce(
+  (total, product) => total + productOrderQuantity(product),
+  0
+))
+
+const normalizePackRows = (payload) => {
+  const packs = Array.isArray(payload)
+    ? payload
+    : payload?.packs || payload?.records || payload?.list || payload?.data || []
+  return packs.map((pack = {}) => ({
+    quantity: pack.quantity ?? '',
+    packets: pack.packets ?? ''
+  }))
+}
+
+const packTotalQuantity = computed(() => packRows.value.reduce((total, row) => {
+  const quantity = Number(row.quantity || 0)
+  const packets = Number(row.packets || 0)
+  return total + (quantity > 0 && packets > 0 ? quantity * packets : 0)
+}, 0))
+
+const packExceedsOrderQuantity = computed(() =>
+  packTotalQuantity.value > packOrderQuantity.value + Number.EPSILON
+)
+
+const canPrintPack = computed(() => packRows.value.length > 0 && packRows.value.every((row) => {
+  return Number(row.quantity) > 0 && Number(row.packets) > 0
+}))
+
+const addPackRow = () => {
+  packRows.value.push({ quantity: '', packets: '' })
+  packSaved.value = false
+}
+
+const removePackRow = (index) => {
+  packRows.value.splice(index, 1)
+  packSaved.value = false
+}
+
+const openPackDialog = async (row) => {
+  const orderId = row?.id
+  if (!orderId) {
+    ElMessage.error('缺少订单ID，无法编辑打包信息')
+    return
+  }
+  packOrder.value = row
+  packVisible.value = true
+  packSaved.value = false
+  packLoading.value = true
+  try {
+    const data = await getTenantOrderPackInfo(orderId)
+    packRows.value = normalizePackRows(data)
+  } catch (error) {
+    packRows.value = []
+    ElMessage.error(error?.message || '打包信息加载失败')
+  } finally {
+    packLoading.value = false
+  }
+}
+
+const savePackInfo = async () => {
+  const orderId = packOrder.value?.id
+  if (!orderId) {
+    ElMessage.error('缺少订单ID，无法保存打包信息')
+    return
+  }
+  packSaving.value = true
+  try {
+    await saveTenantOrderPack({
+      id: orderId,
+      packs: packRows.value.map((row) => ({
+        quantity: row.quantity === '' ? 0 : Number(row.quantity),
+        packets: row.packets === '' ? 0 : Number(row.packets)
+      }))
+    })
+    packSaved.value = true
+    ElMessage.success('打包信息已保存')
+  } catch (error) {
+    ElMessage.error(error?.message || '打包信息保存失败')
+  } finally {
+    packSaving.value = false
+  }
+}
+
 const printOrder = async (row) => {
   const orderId = row?.id || row?.orderPrimaryId || row?.orderDbId
   if (!orderId) {
@@ -2529,9 +2637,11 @@ const rowActions = (row) => {
   if (row.status === 7) return ['重新申请', '删除']
   if (row.status === 2) return ['详情', '编辑', '整单外协', '差错单', '暂停']
   if (row.status === 3) return ['详情', '差错单', '暂停']
+  if (row.status === 4) return ['详情', '差错单', '暂停','打印标签']
+  if (row.status === 5) return ['详情', '差错单', '暂停','打印标签']
   if (row.status === 9) return ['详情', '差错单', '恢复生产']
   if (row.status === 8) return ['详情', '差错详情']
-  if (row.status === 6) return ['详情', '返单', '打印标签', '差错单']
+  if (row.status === 6) return ['详情', '返单', '差错单']
   return ['详情','差错单']
 }
 
@@ -2543,7 +2653,7 @@ const handleAction = (row, action) => {
   if (action === '差错单') return openErrorOrder(row)
   if (action === '差错详情') return openErrorDetail(row)
   if (action === '返单') return repeatOrder(row)
-  if (action === '打印标签') return printLabel(row)
+  if (action === '打印标签') return openPackDialog(row)
   if (action === '整单外协') return openOutsourceAll(row)
   if (action === '暂停') return toggleOrderProduction(row, true)
   if (action === '恢复生产') return toggleOrderProduction(row, false)
@@ -3565,6 +3675,57 @@ watch(
           </div>
         </div>
       </section>
+    </el-dialog>
+
+    <el-dialog
+      v-model="packVisible"
+      title="打包信息"
+      width="860px"
+      class="order-pack-dialog"
+      :close-on-click-modal="false"
+    >
+      <div v-loading="packLoading" class="order-pack-panel">
+        <div class="pack-product-section">
+          <div class="pack-section-title">产品信息</div>
+          <el-table :data="packProductRows" border empty-text="暂无产品信息">
+            <el-table-column prop="productName" label="产品名称" min-width="300" show-overflow-tooltip />
+            <el-table-column label="订货数量" width="180">
+              <template #default="{ row }">{{ productOrderQuantity(row) }}{{ row.unit || '' }}</template>
+            </el-table-column>
+          </el-table>
+        </div>
+
+        <div class="pack-detail-section">
+          <div class="pack-section-title pack-detail-title">
+            <span>打包信息</span>
+            <el-button type="primary" link :disabled="packLoading" @click="addPackRow">新增一行</el-button>
+          </div>
+          <el-table :data="packRows" border empty-text="暂无打包信息">
+            <el-table-column label="包数" min-width="180">
+              <template #default="{ row }">
+                <el-input-number v-model="row.packets" :min="0" :precision="0" controls-position="right" @change="packSaved = false" />
+              </template>
+            </el-table-column>
+            <el-table-column label="每包数量" min-width="220">
+            <template #default="{ row }">
+              <el-input-number v-model="row.quantity" :min="0" :precision="2" controls-position="right" @change="packSaved = false" />
+            </template>
+            </el-table-column>
+
+            <el-table-column label="操作" width="100">
+              <template #default="{ $index }">
+                <el-button type="danger" link @click="removePackRow($index)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <p v-if="packExceedsOrderQuantity" class="pack-warning">注意填写的打包数量超过了订货数量</p>
+      </div>
+      <template #footer>
+        <el-button @click="packVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="packSaving" @click="savePackInfo">保存</el-button>
+        <el-button type="success" :disabled="packLoading || !canPrintPack || !packSaved" @click="printLabel(packOrder)">打印</el-button>
+      </template>
     </el-dialog>
 
     <el-dialog
@@ -4833,6 +4994,39 @@ watch(
 
 .order-consumable-panel {
   min-height: 180px;
+}
+
+.order-pack-panel {
+  min-height: 180px;
+}
+
+.pack-product-section,
+.pack-detail-section {
+  margin-bottom: 18px;
+}
+
+.pack-section-title {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  margin-bottom: 8px;
+  color: #303133;
+  font-weight: 600;
+}
+
+.pack-detail-title {
+  justify-content: space-between;
+}
+
+.order-pack-panel :deep(.el-input-number) {
+  width: 100%;
+}
+
+.pack-warning {
+  margin: 14px 0 0;
+  color: #f56c6c;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .order-consumable-toolbar {
