@@ -193,7 +193,8 @@ const statusOptions = computed(() =>
 )
 const paymentStatusMap = {
   1: { label: '进行中', tone: 'running' },
-  2: { label: '已结清', tone: 'settled' }
+  2: { label: '已结清', tone: 'settled' },
+  3: { label: '未结清', tone: 'pending-approval' }
 }
 const paymentStatusOptions = computed(() =>
   Object.entries(paymentStatusMap)
@@ -2636,9 +2637,7 @@ watch(
         <el-table-column
             prop="paymentStatus"
             label="收款状态"
-            min-width="95"
-            sortable="custom"
-            :sort-orders="['ascending', 'descending']"
+            min-width="90"
         >
           <template #default="{ row }">
             <el-tag class="payment-status-tag" :class="paymentStatusToneClass(row.paymentStatus)" effect="plain">
@@ -3655,6 +3654,12 @@ watch(
   color: #52c41a !important;
   border-color: #b7eb8f !important;
   background: #f6ffed !important;
+}
+
+.payment-status--pending-approval {
+  color: #ff4d4f !important;
+  border-color: #ffd6d9 !important;
+  background: #fff1f0 !important;
 }
 
 .order-status--pending-approval {
