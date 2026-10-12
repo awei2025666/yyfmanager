@@ -101,6 +101,7 @@ export const deleteTenantExternalTenant = (id) => tenantHttp.get('/api/tenant/te
 export const getTenantOutsourceIncomingOrders = (payload) => tenantHttp.post('/api/tenant/order/intoOrder', payload)
 export const getTenantOutsourceOutgoingOrders = (payload) => tenantHttp.post('/api/tenant/order/outOrder', payload)
 export const getTenantProductCraftList = (payload) => tenantHttp.post('/api/tenant/productsCraft/list', payload)
+export const exportTenantProductCraft = (payload = {}) => exportPost('/api/tenant/productsCraft/export', payload)
 export const getTenantProductCraftDetail = (id) =>
   tenantHttp.get('/api/tenant/productsCraft/detail', { params: { id } })
 export const getTenantProductCraftStatistics = () => tenantHttp.get('/api/tenant/productsCraft/statistics')

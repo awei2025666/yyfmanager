@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Printer, Refresh, Search, Switch, View } from '@element-plus/icons-vue'
+import { Download, Plus, Printer, Refresh, Search, Switch, View } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
 import {
   addTenantExternalTenant,
@@ -9,6 +9,7 @@ import {
   completeTenantOrderProduction,
   deleteTenantExternalTenant,
   editTenantExternalTenant,
+  exportTenantProductCraft,
   getTenantExternalTenantList,
   getTenantProductCraftDetail,
   getTenantProductCraftList,
@@ -24,10 +25,12 @@ import {
 const filters = reactive({
   pageNum: 1,
   pageSize: 10,
-  customer: '',
+  cooperativeClientId: '',
+  outCooperativeClientId: '',
   productName: '',
   craftName: '',
   orderNo: '',
+  orderSource: '',
   orderTime: []
 })
 
@@ -39,12 +42,14 @@ const state = reactive({
   outsourceSaving: false,
   externalTenantLoading: false,
   externalTenantSaving: false,
+  exporting: false,
   total: 0
 })
 
 const rows = ref([])
 const allClientOptions = ref([])
 const clientOptions = ref([])
+const outsourceClientOptions = ref([])
 const currentRow = ref(null)
 const detailVisible = ref(false)
 const manualCompleteVisible = ref(false)
@@ -142,12 +147,19 @@ const filterClientOptions = (keyword = '') => {
     .slice(0, 50)
 }
 
+const filterOutsourceClientOptions = (keyword = '') => {
+  outsourceClientOptions.value = allClientOptions.value
+    .filter((item) => clientMatchesKeyword(item, keyword))
+    .slice(0, 50)
+}
+
 const loadClientOptions = async () => {
   state.clientLoading = true
   try {
     const data = await searchTenantClients({ companyName: '' })
     allClientOptions.value = normalizeClientOptions(data)
-    filterClientOptions(filters.customer)
+    filterClientOptions()
+    filterOutsourceClientOptions()
   } catch (error) {
     ElMessage.error(error?.message || '单位列表加载失败')
   } finally {
@@ -161,6 +173,15 @@ const handleClientDropdownVisible = (visible) => {
     loadClientOptions()
   } else {
     filterClientOptions('')
+  }
+}
+
+const handleOutsourceClientDropdownVisible = (visible) => {
+  if (!visible) return
+  if (!allClientOptions.value.length) {
+    loadClientOptions()
+  } else {
+    filterOutsourceClientOptions('')
   }
 }
 
@@ -463,22 +484,24 @@ const queryPayload = () => {
   return {
     pageNum: filters.pageNum,
     pageSize: filters.pageSize,
-    companyName: filters.customer || undefined,
+    cooperativeClientId: filters.cooperativeClientId || undefined,
+    outCooperativeClientId: filters.outCooperativeClientId || undefined,
     productName: filters.productName || undefined,
     craftName: filters.craftName || undefined,
     orderId: filters.orderNo || undefined,
+    orderSource: filters.orderSource || undefined,
     orderCreateTimeStart: start || undefined,
     orderCreateTimeEnd: end || start || undefined
   }
 }
 
 const summaryText = computed(() =>
-  `待生产：${statistics.pending}    已生产：${statistics.completed}    客户金额：${moneyText(statistics.amount)}`
+  `待生产：${statistics.pendingProductionNum}    已生产：${statistics.producedNum}    客户金额：${moneyText(statistics.amount)}`
 )
 
 const applyStatistics = (data = {}) => {
-  statistics.pending = Number(data.pending ?? data.waitProduction ?? data.notProduced ?? data.waitCount ?? 0) || 0
-  statistics.completed = Number(data.completed ?? data.produced ?? data.finishCount ?? data.doneCount ?? 0) || 0
+  statistics.pendingProductionNum = Number(data.pendingProductionNum ?? data.waitProduction ?? data.notProduced ?? data.waitCount ?? 0) || 0
+  statistics.producedNum = Number(data.producedNum ?? data.produced ?? data.finishCount ?? data.doneCount ?? 0) || 0
   statistics.amount = Number(data.amount ?? data.customerMoney ?? data.totalMoney ?? data.money ?? 0) || 0
 }
 
@@ -487,8 +510,8 @@ const loadStatistics = async () => {
     const data = await getTenantProductCraftStatistics()
     applyStatistics(data || {})
   } catch {
-    statistics.pending = 0
-    statistics.completed = 0
+    statistics.pendingProductionNum = 0
+    statistics.producedNum = 0
     statistics.amount = 0
   }
 }
@@ -518,13 +541,37 @@ const resetFilters = () => {
   Object.assign(filters, {
     pageNum: 1,
     pageSize: 10,
-    customer: '',
+    cooperativeClientId: '',
+    outCooperativeClientId: '',
     productName: '',
     craftName: '',
     orderNo: '',
+    orderSource: '',
     orderTime: []
   })
   loadData()
+}
+
+const downloadBlob = (blob, filename) => {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+const exportData = async () => {
+  state.exporting = true
+  try {
+    const blob = await exportTenantProductCraft(queryPayload())
+    downloadBlob(blob, '产品工艺.xlsx')
+    ElMessage.success('导出成功')
+  } catch (error) {
+    ElMessage.error(error?.message || '导出失败')
+  } finally {
+    state.exporting = false
+  }
 }
 
 const normalizeDetail = (payload = {}, fallback = {}) => {
@@ -623,7 +670,7 @@ onMounted(() => {
       <el-form class="search-form" :model="filters" label-width="96px">
         <el-form-item label="单位名称">
           <el-select
-            v-model="filters.customer"
+            v-model="filters.cooperativeClientId"
             clearable
             filterable
             remote
@@ -637,7 +684,27 @@ onMounted(() => {
               v-for="item in clientOptions"
               :key="item.id"
               :label="item.companyName"
-              :value="item.companyName"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="外协单位">
+          <el-select
+            v-model="filters.outCooperativeClientId"
+            clearable
+            filterable
+            remote
+            reserve-keyword
+            placeholder="请输入外协单位"
+            :remote-method="filterOutsourceClientOptions"
+            :loading="state.clientLoading"
+            @visible-change="handleOutsourceClientDropdownVisible"
+          >
+            <el-option
+              v-for="item in outsourceClientOptions"
+              :key="item.id"
+              :label="item.companyName"
+              :value="item.id"
             />
           </el-select>
         </el-form-item>
@@ -649,6 +716,12 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="所属订单号">
           <el-input v-model="filters.orderNo" clearable placeholder="请输入订单号" @keyup.enter="searchData" />
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="filters.orderSource" clearable placeholder="请选择类型">
+            <el-option label="本厂" :value="1" />
+            <el-option label="外协" :value="2" />
+          </el-select>
         </el-form-item>
         <el-form-item label="起始时间">
           <el-date-picker
@@ -668,6 +741,9 @@ onMounted(() => {
 
     <PageBlock>
       <div class="table-toolbar">
+        <div>
+          <el-button :icon="Download" :loading="state.exporting" @click="exportData">导出</el-button>
+        </div>
         <strong>{{ summaryText }}</strong>
       </div>
       <el-table v-loading="state.loading" :data="rows" border>
@@ -1024,7 +1100,7 @@ onMounted(() => {
 
 .table-toolbar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
   margin-bottom: 12px;
   color: #303133;
 }
