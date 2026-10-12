@@ -7,11 +7,13 @@ import PageBlock from '../components/PageBlock.vue'
 import {
   addTenantOrderError,
   addTenantOrder,
+  addTenantConsumableDetail,
   approveTenantOrder,
   changeTenantProductCraftOrderQuantity,
   changeTenantOrderAutoApprove,
   completeTenantOrderProduction,
   deleteTenantOrder,
+  deleteTenantConsumableDetail,
   editTenantOrder,
   exportTenantOrder,
   addTenantExternalTenant,
@@ -22,6 +24,7 @@ import {
   getTenantOrderAutoApprove,
   getTenantCraftList,
   getTenantOrderConsumables,
+  getTenantConsumableDetailList,
   getTenantOrderDetail,
   getTenantOrderEditInfo,
   getTenantOrderFiles,
@@ -36,11 +39,13 @@ import {
   outsourceTenantOrderAll,
   getTenantClientUsers,
   searchTenantClients,
+  searchTenantConsumables,
   getTenantOutsourceTenants,
   searchTenantCrafts,
   startTenantOrder,
   stopTenantOrder,
-  uploadTenantFile
+  uploadTenantFile,
+  editTenantConsumableDetail
 } from '../api/tenant'
 
 const route = useRoute()
@@ -83,6 +88,13 @@ const craftOptions = ref([])
 const lastCraftKeyword = ref(null)
 let craftSearchPromise = null
 const detailVisible = ref(false)
+const consumableVisible = ref(false)
+const consumableLoading = ref(false)
+const consumableSaving = ref(false)
+const consumableOptions = ref([])
+const consumableRows = ref([])
+const consumableOrder = ref(null)
+let consumableRowSeq = 0
 const routeDetailToken = ref('')
 const orderFormVisible = ref(false)
 const approveVisible = ref(false)
@@ -239,7 +251,7 @@ const normalizeUserOption = (row = {}) => ({
 })
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
-  return payload?.records || payload?.list || payload?.rows || []
+  return payload?.records || payload?.list || payload?.rows || payload?.data?.records || payload?.data?.list || payload?.data?.rows || (Array.isArray(payload?.data) ? payload.data : [])
 }
 
 const boolFromApi = (value) => value === true || value === 1 || value === '1' || value === '启用'
@@ -837,6 +849,28 @@ const normalizeConsumableRecord = (item = {}) => ({
   remark: item.remark || '',
   operator: item.createUserName || item.operator || item.tenantUserName || '',
   time: item.createTime || item.updateTime || ''
+})
+
+const normalizeConsumableOptions = (payload) => listRows(payload)
+  .map((item) => ({
+    ...item,
+    id: item.id ?? item.consumableId,
+    name: item.name || item.consumableName || '',
+    unit: item.unit || item.consumableUnit || ''
+  }))
+  .filter((item) => item.id !== undefined && item.id !== null && item.name)
+
+const normalizeOrderConsumableRow = (item = {}) => ({
+  ...item,
+  id: item.id || item.consumableDetailId,
+  consumableId: item.consumableId ?? item.materialId ?? '',
+  consumableName: item.consumableName || item.name || '',
+  unit: item.unit || item.consumableUnit || '',
+  num: item.num ?? item.quantity ?? '',
+  remark: item.remark || item.detailNote || '',
+  _editing: false,
+  _isNew: false,
+  _original: null
 })
 
 const normalizeHandKeptRecord = (item = {}) => ({
@@ -1973,6 +2007,137 @@ const openDetail = async (row) => {
   }
 }
 
+const loadConsumableRows = async (orderId) => {
+  const data = await getTenantConsumableDetailList({
+    pageNum: 1,
+    pageSize: 100,
+    orderId,
+    type: 3
+  })
+  consumableRows.value = listRows(data).map(normalizeOrderConsumableRow)
+}
+
+const openConsumables = async (row) => {
+  const orderId = row?.orderId
+  if (!orderId || !row?.id) {
+    ElMessage.error('缺少订单ID，无法管理耗材')
+    return
+  }
+  consumableOrder.value = row
+  consumableVisible.value = true
+  consumableLoading.value = true
+  try {
+    const [options, details] = await Promise.all([
+      searchTenantConsumables({ name: '' }),
+      getTenantConsumableDetailList({ pageNum: 1, pageSize: 100, orderId, type: 3 })
+    ])
+    consumableOptions.value = normalizeConsumableOptions(options)
+    consumableRows.value = listRows(details).map(normalizeOrderConsumableRow)
+  } catch (error) {
+    consumableOptions.value = []
+    consumableRows.value = []
+    ElMessage.error(error?.message || '订单耗材加载失败')
+  } finally {
+    consumableLoading.value = false
+  }
+}
+
+const addConsumableRow = () => {
+  consumableRows.value.push({
+    id: `new-consumable-${Date.now()}-${consumableRowSeq += 1}`,
+    consumableId: '',
+    consumableName: '',
+    unit: '',
+    num: '',
+    remark: '',
+    _editing: true,
+    _isNew: true,
+    _original: null
+  })
+}
+
+const startConsumableEdit = (row) => {
+  row._original = {
+    consumableId: row.consumableId,
+    consumableName: row.consumableName,
+    unit: row.unit,
+    num: row.num,
+    remark: row.remark
+  }
+  row._editing = true
+}
+
+const cancelConsumableEdit = (row) => {
+  if (row._isNew) {
+    consumableRows.value = consumableRows.value.filter((item) => item !== row)
+    return
+  }
+  if (row._original) Object.assign(row, row._original)
+  row._editing = false
+  row._original = null
+}
+
+const handleConsumableRowChange = (row, consumableId) => {
+  const option = consumableOptions.value.find((item) => String(item.id) === String(consumableId))
+  row.consumableName = option?.name || ''
+  row.unit = option?.unit || ''
+}
+
+const saveConsumableRow = async (row) => {
+  if (!row.consumableId) {
+    ElMessage.warning('请选择耗材名称')
+    return
+  }
+  if (row.num === '' || row.num === null || row.num === undefined || Number(row.num) <= 0) {
+    ElMessage.warning('请输入大于0的数量')
+    return
+  }
+  const orderId = consumableOrder.value?.id
+  if (!orderId) return
+  consumableSaving.value = true
+  try {
+    const payload = {
+      id: row._isNew ? undefined : row.id,
+      consumableId: row.consumableId,
+      type: 3,
+      num: Number(row.num),
+      remark: row.remark || undefined,
+      orderId
+    }
+    if (row._isNew) {
+      await addTenantConsumableDetail(payload)
+    } else {
+      await editTenantConsumableDetail(payload)
+    }
+    ElMessage.success(row._isNew ? '耗材已添加' : '耗材已保存')
+    await loadConsumableRows(consumableOrder.value?.orderId)
+  } catch (error) {
+    ElMessage.error(error?.message || '耗材保存失败')
+  } finally {
+    consumableSaving.value = false
+  }
+}
+
+const removeConsumableRow = async (row) => {
+  if (row._isNew) {
+    cancelConsumableEdit(row)
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确认删除耗材 ${row.consumableName || row.name} 吗？`, '删除确认', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await deleteTenantConsumableDetail(row.id)
+    ElMessage.success('耗材已删除')
+    const orderId = consumableOrder.value?.orderId
+    await loadConsumableRows(orderId)
+  } catch (error) {
+    ElMessage.error(error?.message || '耗材删除失败')
+  }
+}
+
 const printOrder = async (row) => {
   const orderId = row?.id || row?.orderPrimaryId || row?.orderDbId
   if (!orderId) {
@@ -2661,9 +2826,10 @@ watch(
             </button>
           </template>
         </el-table-column>
-        <el-table-column label="操作" min-width="150">
+        <el-table-column label="操作" min-width="200">
           <template #default="{ row }">
             <el-space wrap>
+              <el-button link type="primary" @click="openConsumables(row)">耗材</el-button>
               <el-button
                 v-for="action in rowActions(row)"
                 :key="action"
@@ -3399,6 +3565,75 @@ watch(
           </div>
         </div>
       </section>
+    </el-dialog>
+
+    <el-dialog
+      v-model="consumableVisible"
+      :title="`订单耗材${consumableOrder?.orderId ? `（${consumableOrder.orderId}）` : ''}`"
+      width="920px"
+      class="order-consumable-dialog"
+      :close-on-click-modal="false"
+    >
+      <div v-loading="consumableLoading" class="order-consumable-panel">
+        <div class="order-consumable-toolbar">
+          <span>订单消耗明细</span>
+          <el-button type="primary" :icon="Plus" :disabled="consumableLoading" @click="addConsumableRow">
+            添加耗材
+          </el-button>
+        </div>
+        <el-table :data="consumableRows" border empty-text="暂无订单耗材">
+          <el-table-column label="耗材" min-width="280">
+            <template #default="{ row }">
+              <el-select
+                v-if="row._editing"
+                v-model="row.consumableId"
+                filterable
+                clearable
+                placeholder="请选择耗材"
+                @change="handleConsumableRowChange(row, $event)"
+              >
+                <el-option
+                  v-for="item in consumableOptions"
+                  :key="item.id"
+                  :label="item.name"
+                  :value="item.id"
+                >
+                  <span>{{ item.name }}</span>
+                  <span v-if="item.unit" class="consumable-option-unit">{{ item.unit }}</span>
+                </el-option>
+              </el-select>
+              <span v-else>{{ row.consumableName || row.name || '-' }}<small v-if="row.unit">（{{ row.unit }}）</small></span>
+            </template>
+          </el-table-column>
+          <el-table-column label="数量" width="150">
+            <template #default="{ row }">
+              <el-input-number v-if="row._editing" v-model="row.num" :min="0" :precision="2" controls-position="right" />
+              <span v-else>{{ row.num }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="备注" min-width="250">
+            <template #default="{ row }">
+              <el-input v-if="row._editing" v-model="row.remark" placeholder="请输入备注" />
+              <span v-else>{{ row.remark || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="170" fixed="right">
+            <template #default="{ row }">
+              <template v-if="row._editing">
+                <el-button link type="primary" :loading="consumableSaving" @click="saveConsumableRow(row)">保存</el-button>
+                <el-button link @click="cancelConsumableEdit(row)">取消</el-button>
+              </template>
+              <template v-else>
+                <el-button link type="primary" @click="startConsumableEdit(row)">编辑</el-button>
+                <el-button link type="danger" @click="removeConsumableRow(row)">删除</el-button>
+              </template>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <template #footer>
+        <el-button @click="consumableVisible = false">关闭</el-button>
+      </template>
     </el-dialog>
 
     <el-dialog v-model="manualCompleteVisible" title="手动完成" width="620px" :close-on-click-modal="false">
@@ -4594,6 +4829,36 @@ watch(
   display: flex;
   justify-content: flex-end;
   margin-top: 14px;
+}
+
+.order-consumable-panel {
+  min-height: 180px;
+}
+
+.order-consumable-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  color: #303133;
+  font-weight: 600;
+}
+
+.order-consumable-panel :deep(.el-select),
+.order-consumable-panel :deep(.el-input),
+.order-consumable-panel :deep(.el-input-number) {
+  width: 100%;
+}
+
+.consumable-option-unit {
+  float: right;
+  color: #909399;
+  font-size: 12px;
+}
+
+.order-consumable-panel small {
+  margin-left: 4px;
+  color: #909399;
 }
 
 @media (max-width: 1200px) {
