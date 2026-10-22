@@ -13,22 +13,14 @@
 
 		<view class="section">
 			<view class="section-title"><view class="mark"></view><text>工艺信息</text></view>
-			<view class="craft-card" v-for="item in craftList" :key="item.id">
-				<view class="craft-head">
-					<view class="craft-title-wrap">
-						<text class="craft-name">{{ item.productInfo || item.productName || '-' }}</text>
-						<text v-if="getOrderSourceText(item)" :class="['source-tag', getOrderSourceClass(item)]">{{ getOrderSourceText(item) }}</text>
-					</view>
-					<text :class="['pill', getCraftStatusClass(item)]">{{ statusMap[getCraftStatus(item)] || '待生产' }}</text>
+			<view class="craft-card" v-for="group in craftGroups" :key="group.key">
+				<view class="craft-head"><view class="craft-title-wrap"><text class="craft-name">{{ group.productInfo }}</text></view></view>
+				<view class="craft-tags"><text v-for="item in group.items" :key="item.id" :class="['craft-tag', getCraftStatusClass(item)]">{{ item.craftName || item.name || '-' }}</text></view>
+				<view class="craft-detail" v-for="item in group.items" :key="`detail-${item.id}`">
+					<view class="craft-desc">{{ getCraftDesc(item) }}</view><text :class="['pill', getCraftStatusClass(item)]">{{ statusMap[getCraftStatus(item)] || '待生产' }}</text>
+					<button v-if="canOperateCraft(item)" :class="['complete-btn', getCraftStatusClass(item)]" @click="handleCraftAction(item)">{{ getCraftActionText(item) }}</button>
 				</view>
-				<view class="craft-desc">
-					{{ getCraftDesc(item) }}<text v-if="item.remark" class="danger">*{{ item.remark }}</text>
-				</view>
-				<view v-if="canOperateCraft(item)" class="craft-actions">
-					<button class="complete-btn" :disabled="startSubmittingId === String(item.id)" @click="handleCraftAction(item)">
-						{{ getCraftActionText(item) }}
-					</button>
-				</view>
+				<button class="all-craft-btn" @click="toComplete(group.items)">全部</button>
 			</view>
 			<view v-if="!craftList.length" class="empty-state">暂无数据</view>
 		</view>
@@ -72,6 +64,15 @@ import { computed, ref } from 'vue'
 
 const orderId = ref('')
 const craftList = ref([])
+const craftGroups = computed(() => {
+	const groups = new Map()
+	craftList.value.forEach(item => {
+		const key = item.productId || item.productInfo || item.productName || item.id
+		if (!groups.has(key)) groups.set(key, { key, productInfo: item.productInfo || item.productName || '-', items: [] })
+		if (!groups.get(key).items.some(existing => String(existing.id) === String(item.id))) groups.get(key).items.push(item)
+	})
+	return [...groups.values()]
+})
 const consumableList = ref([])
 const attachments = ref([])
 const startSubmittingId = ref('')
@@ -218,18 +219,13 @@ const handleStartProduction = async item => {
 }
 
 const handleCraftAction = item => {
-	if (isCraftPending(item)) {
-		handleStartProduction(item)
-		return
-	}
-	if (isCraftProducing(item)) {
-		toComplete(item)
-	}
+	toComplete(item)
 }
 
 const toComplete = item => {
+	const items = Array.isArray(item) ? item : [item]
 	uni.navigateTo({
-		url: `/pages/productionComplete/index?id=${item.id || ''}&orderId=${orderId.value || ''}`
+		url: `/pages/productionComplete/index?id=${items[0]?.id || ''}&ids=${encodeURIComponent(items.map(item => item.id).filter(Boolean).join(','))}&orderId=${orderId.value || ''}`
 	})
 }
 
@@ -395,6 +391,11 @@ onShow(() => {
 	gap: 10rpx;
 	min-width: 0;
 }
+.craft-tags{display:flex;flex-wrap:wrap;gap:12rpx;margin-top:16rpx;padding-bottom:14rpx;border-bottom:1rpx solid #e8e8e8}
+.craft-tag{padding:7rpx 18rpx;border-radius:24rpx;font-size:23rpx}
+.craft-detail{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10rpx;padding:18rpx 0;border-bottom:1rpx solid #eee}
+.craft-detail .complete-btn{grid-column:1 / -1}
+.all-craft-btn{height:60rpx;margin-top:18rpx;border:1rpx solid #1f7cff;border-radius:30rpx;background:#fff;color:#1f7cff;font-size:26rpx;line-height:58rpx}
 .source-tag{
 	flex: 0 0 auto;
 	height: 34rpx;
@@ -460,6 +461,8 @@ onShow(() => {
 		opacity: .65;
 	}
 }
+.complete-btn.pending{background:#ff3347;color:#fff}
+.complete-btn.producing{background:#1f7cff;color:#fff}
 .gap{
 	height: 16rpx;
 	background: #f7f7f7;

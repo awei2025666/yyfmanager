@@ -9,6 +9,12 @@
 			height="76"
 			bg-color="#f8f8f8"
 		></u-search>
+		<view v-if="type === 0" class="date-filter">
+			<picker mode="date" :value="deliveryDateStart" @change="changeDate('start', $event)"><view class="date-input">{{ deliveryDateStart || '开始日期' }}</view></picker>
+			<text class="date-separator">至</text>
+			<picker mode="date" :value="deliveryDateEnd" @change="changeDate('end', $event)"><view class="date-input">{{ deliveryDateEnd || '结束日期' }}</view></picker>
+			<text v-if="deliveryDateStart || deliveryDateEnd" class="date-clear" @click="clearDate">清除</text>
+		</view>
 		<div class="showList">
 			<z-paging :fixed="false" ref="paging" v-model="dataList" @query="queryList">
 					<!-- z-paging默认铺满全屏，此时页面所有view都应放在z-paging标签内，否则会被盖住 -->
@@ -69,6 +75,9 @@ const props = defineProps({
 	}
 })
 const keyword = ref('')
+const today = () => { const d = new Date(); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` }
+const deliveryDateStart = ref(today())
+const deliveryDateEnd = ref(today())
 const dataList = ref([])
 const paging = ref()
 const queryToken = ref(0)
@@ -100,11 +109,14 @@ const deliveryOrderStatusMap = {
 }
 
 const fetchers = [
-	params => uni.$api.orderList({ ...params, searchName: keyword.value }),
+	params => uni.$api.orderList({ ...params, searchName: keyword.value, deliveryDateStart: deliveryDateStart.value || undefined, deliveryDateEnd: deliveryDateEnd.value || undefined }),
 	params => uni.$api.productsCraftList(params),
 	params => uni.$api.deliveryList(params),
 	params => uni.$api.handKeptList(params)
 ]
+
+const changeDate = (type, event) => { if (type === 'start') deliveryDateStart.value = event?.detail?.value || ''; else deliveryDateEnd.value = event?.detail?.value || ''; refresh() }
+const clearDate = () => { deliveryDateStart.value = ''; deliveryDateEnd.value = ''; refresh() }
 
 const queryList = async (pageNo, pageSize) => {
 	const token = ++queryToken.value
@@ -254,6 +266,7 @@ onBeforeUnmount(() => {
 	.search{
 		margin-bottom: 20rpx;
 	}
+	.date-filter{ display:flex; align-items:center; gap:12rpx; margin:0 0 12rpx; .date-input{padding:12rpx 16rpx;border-radius:8rpx;background:#f8f8f8;color:#555;font-size:24rpx}.date-separator{color:#999;font-size:24rpx}.date-clear{margin-left:auto;color:#1f7cff;font-size:24rpx} }
 	.showList{
 		height: calc(100vh - 770rpx);
 	}

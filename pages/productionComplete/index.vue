@@ -10,6 +10,10 @@
 		</view>
 
 		<view class="form-section">
+			<view v-for="(craft, index) in craftInfos" :key="craft.id || index" class="craft-info-summary">
+				<view class="craft-info-title">{{ craft.productInfo || '-' }}</view>
+				<view class="craft-info-grid"><text>工艺：{{ craft.craftName || '-' }}</text><text>单位：{{ craft.unit || '-' }}</text><text>成品数量：{{ craft.orderQuantity || '-' }}</text><text>开数：{{ craft.formatSize || '-' }}</text><text>备注：{{ craft.remark || '-' }}</text><text>单双面：{{ singleDoubleText(craft.singleDouble) }}</text><text>颜色：{{ craft.colour || '-' }}</text><text>规格：{{ craft.formula || '-' }}</text><text>专色：{{ craft.spotColors || '-' }}</text></view>
+			</view>
 			<view class="machine-row" @click="openMachinePopup">
 				<text class="label">机器类型</text>
 				<view class="right-value">
@@ -169,6 +173,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
 
 const craftId = ref('')
+const craftInfos = ref([])
 const orderId = ref('')
 const form = ref({
 	machineId: '',
@@ -194,6 +199,7 @@ const userOptions = ref([])
 const selectedUserId = ref('')
 const partnerKeyword = ref('')
 const partnerLoading = ref(false)
+const singleDoubleText = value => ({ 1: '单面', 2: '双面自翻', 3: '双面天地翻', 4: '双面扣板', 5: '双面' }[Number(value)] || '-')
 let debuggerSearchTimer = null
 let partnerSearchTimer = null
 
@@ -265,6 +271,16 @@ const normalizeUser = item => ({
 	name: item.name || item.tenantUserName || item.userName || '-',
 	phone: item.phone || item.tenantUserPhone || item.mobile || ''
 })
+const uniqueUsers = users => {
+	const seen = new Set()
+	return users.filter(item => {
+		const key = String(item.id || item.name)
+		if (seen.has(key)) return false
+		seen.add(key)
+		return true
+	})
+}
+const userRecords = result => result?.records || result?.data?.records || result?.data || result || []
 
 const openDebuggerPopup = async () => {
 	showDebuggerPopup.value = true
@@ -277,8 +293,8 @@ const loadDebuggerUsers = async () => {
 	debuggerLoading.value = true
 	try {
 		const users = await uni.$api.userAll({ name: debuggerKeyword.value })
-		const records = users?.records || users
-		debuggerOptions.value = Array.isArray(records) ? records.map(normalizeUser) : []
+		const records = userRecords(users)
+		debuggerOptions.value = Array.isArray(records) ? uniqueUsers(records.map(normalizeUser)) : []
 	} catch (e) {
 		debuggerOptions.value = []
 	} finally {
@@ -327,8 +343,8 @@ const loadPartnerUsers = async () => {
 	partnerLoading.value = true
 	try {
 		const users = await uni.$api.selfDeptUser({ name: partnerKeyword.value })
-		const records = users?.records || users
-		userOptions.value = Array.isArray(records) ? records.map(normalizeUser) : []
+		const records = userRecords(users)
+		userOptions.value = Array.isArray(records) ? uniqueUsers(records.map(normalizeUser)) : []
 	} catch (e) {
 		userOptions.value = []
 	} finally {
@@ -439,6 +455,8 @@ const goBack = () => {
 
 onLoad(options => {
 	craftId.value = options.id || ''
+	const ids = (options.ids || options.id || '').split(',').filter(Boolean)
+	if (ids.length) uni.$api.productsCraftInfoByIds({ ids }).then(data => { const list = Array.isArray(data) ? data : (data?.records || data?.data || []); craftInfos.value = Array.isArray(list) ? list : [] }).catch(() => { craftInfos.value = [] })
 	orderId.value = options.orderId || ''
 	loadMachines()
 })
@@ -781,6 +799,10 @@ onLoad(options => {
 	background: rgba(0, 0, 0, .38);
 }
 .partner-popup{
+	max-height: 78vh;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
 	position: absolute;
 	left: 0;
 	right: 0;
@@ -850,6 +872,9 @@ onLoad(options => {
 	line-height: 1;
 }
 .popup-confirm{
+	position: sticky;
+	bottom: 0;
+	flex-shrink: 0;
 	width: 100%;
 	height: 78rpx;
 	margin-top: 48rpx;

@@ -14,11 +14,16 @@
 				<text class="label required">产品名称</text>
 				<input v-model="form.name" class="input" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
-			<view class="form-row">
-				<text class="label required">数量</text>
-				<input v-model="form.num" type="number" class="input" placeholder="请输入" placeholder-class="placeholder" />
+			<view class="field-block users-block">
+				<text class="label required">人员及数量</text>
+				<view class="user-row" v-for="(item,index) in userRows" :key="index">
+					<input v-model="item.keyword" class="user-input" placeholder="搜索人员" placeholder-class="placeholder" @input="searchUsers(index)" />
+					<input v-model="item.num" type="number" class="user-num" placeholder="数量" placeholder-class="placeholder" />
+					<text v-if="userRows.length > 1" class="user-remove" @click="removeUser(index)">×</text>
+					<view v-if="item.options.length" class="user-options"><view v-for="user in item.options" :key="user.id" class="user-option" @click="selectUser(index,user)">{{ user.name || user.realName }}</view></view>
+				</view>
+				<view class="add-user" @click="addUser">+ 添加人员</view>
 			</view>
-
 			<view class="field-block">
 				<text class="label">备注</text>
 				<textarea v-model="form.remark" class="remark" placeholder="请输入" placeholder-class="placeholder" />
@@ -52,10 +57,14 @@ const images = ref([])
 const maxImages = 1
 const form = reactive({
 	name: '',
-	num: '',
 	remark: '',
 	imgRemark: ''
 })
+const userRows = ref([{ keyword: '', id: '', num: '', options: [] }])
+const addUser = () => userRows.value.push({ keyword: '', id: '', num: '', options: [] })
+const removeUser = index => userRows.value.splice(index, 1)
+const searchUsers = async index => { const row = userRows.value[index]; row.id = ''; if (!row.keyword.trim()) { row.options=[]; return }; try { const result = await uni.$api.byDeptUser({ name: row.keyword.trim() }); const list = result?.records || result?.data || result || []; row.options = Array.isArray(list) ? list : [] } catch (e) { row.options=[] } }
+const selectUser = (index, user) => { const row=userRows.value[index]; row.id=user.id || user.tenantUserId; row.keyword=user.name || user.realName || ''; row.options=[] }
 
 const imageSlots = computed(() => Math.max(0, maxImages - images.value.length - (images.value.length < maxImages ? 1 : 0)))
 
@@ -90,8 +99,11 @@ const submit = async () => {
 		uni.showToast({ title: '请输入产品名称', icon: 'none' })
 		return
 	}
-	if (!form.num) {
-		uni.showToast({ title: '请输入数量', icon: 'none' })
+	const userMap = new Map()
+	userRows.value.filter(item => item.keyword && item.num).forEach(item => userMap.set(item.keyword, Number(item.num)))
+	const userList = [...userMap].map(([userName, num]) => [userName, num])
+	if (!userList.length) {
+		uni.showToast({ title: '请添加人员和数量', icon: 'none' })
 		return
 	}
 	try {
@@ -99,7 +111,7 @@ const submit = async () => {
 		await uni.$api.handKeptAdd({
 			name: form.name,
 			orderId: orderId.value,
-			num: Number(form.num),
+			userList,
 			remark: form.remark,
 			imgRemark: fileId || form.imgRemark,
 			fileId
