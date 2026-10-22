@@ -10,6 +10,7 @@ import {
   exportTenantHandKept,
   getTenantHandKeptDetail,
   getTenantHandKeptList, getTenantOrderListAll,
+  getTenantClientUsers,
   getTenantReceivableOrderList,
   uploadTenantFile
 } from '../../api/tenant'
@@ -33,7 +34,7 @@ const form = reactive({
   orderProductInfo: '',
   orderAmount: '',
   orderStatus: '',
-  quantity: '',
+  userList: [],
   imageRemark: '',
   imageUrl: '',
   remark: ''
@@ -51,6 +52,7 @@ const orderPicker = reactive({
 
 const state = reactive({
   loading: false,
+  userLoading: false,
   saving: false,
   uploading: false,
   exporting: false,
@@ -59,6 +61,7 @@ const state = reactive({
 })
 
 const rows = ref([])
+const userOptions = ref([])
 const currentRow = ref(null)
 const formVisible = ref(false)
 const detailVisible = ref(false)
@@ -82,7 +85,7 @@ const selectedOrderRows = computed(() =>
 
 const listRows = (payload) => {
   if (Array.isArray(payload)) return payload
-  return payload?.records || payload?.list || payload?.rows || []
+  return payload?.records || payload?.list || payload?.rows || payload?.data?.records || payload?.data?.list || payload?.data?.rows || payload?.data || []
 }
 
 const listTotal = (payload, normalizedRows) => {
@@ -90,11 +93,40 @@ const listTotal = (payload, normalizedRows) => {
   return Number(payload?.total ?? normalizedRows.length) || 0
 }
 
+const normalizeUserEntry = (entry, index = 0) => {
+  if (Array.isArray(entry)) {
+    const userId = entry[0] ?? ''
+    const option = userOptions.value.find((item) => String(item.value) === String(userId))
+    return {
+      tenantUserId: userId,
+      userName: option?.label || userId || '-',
+      num: entry[1] ?? 0,
+      index
+    }
+  }
+  const userId = entry?.tenantUserId ?? entry?.userId ?? entry?.id ?? ''
+  const option = userOptions.value.find((item) => String(item.value) === String(userId))
+  return {
+    tenantUserId: userId,
+    userName: entry?.userName || entry?.name || entry?.nickName || option?.label || '-',
+    num: entry?.num ?? entry?.quantity ?? 0,
+    index
+  }
+}
+
+const normalizeUserList = (value) => (Array.isArray(value) ? value.map(normalizeUserEntry) : [])
+
+const userListText = (value) => normalizeUserList(value)
+  .map((item) => item.userName && item.userName !== '-' ? `${item.userName}（${item.num}）` : '')
+  .filter(Boolean)
+  .join('、') || '-'
+
 const normalizeRow = (row = {}) => ({
   ...row,
   id: row.id || row.handKeptId,
   name: row.name || '-',
-  quantity: row.num ?? row.quantity ?? 0,
+  userList: normalizeUserList(row.userList),
+  userListText: userListText(row.userList),
   imageRemark: row.imgRemark || row.imageRemark || row.fileId || '',
   imageUrl: row.imgRemarkUrl || row.fileUrl || row.img || row.image || row.picture || row.proofImg || '',
   remark: row.remark || row.detailNote || '',
@@ -137,7 +169,10 @@ const fillFormFromRecord = (record = {}) => {
     orderProductInfo: productInfoText(order),
     orderAmount: order.totalMoney ?? order.billMoney ?? 0,
     orderStatus: order.status || order.orderStatus || '',
-    quantity: record.num ?? record.quantity ?? '',
+    userList: normalizeUserList(record.userList).map((item) => ({
+      tenantUserId: item.tenantUserId === '' ? '' : String(item.tenantUserId),
+      num: item.num ?? ''
+    })),
     imageRemark: record.imgRemark || record.imageRemark || '',
     imageUrl: record.imgRemarkUrl || record.imageUrl || '',
     remark: record.remark || ''
@@ -156,10 +191,45 @@ const savePayload = () => ({
   id: form.id || undefined,
   name: form.name,
   orderId: form.orderId || undefined,
-  num: form.quantity,
+  userList: form.userList
+    .filter((item) => item.tenantUserId !== '' && item.tenantUserId !== null && item.tenantUserId !== undefined)
+    .map((item) => {
+      const numericUserId = Number(item.tenantUserId)
+      return {
+        tenantUserId: Number.isNaN(numericUserId) ? item.tenantUserId : numericUserId,
+        num: Number(item.num || 0)
+      }
+    }),
   remark: form.remark,
   imgRemark: form.imageRemark || undefined
 })
+
+const normalizeUserOptions = (data) => listRows(data)
+  .map((item) => ({
+    label: item.userName || item.name || item.nickName || item.label || '',
+    value: String(item.tenantUserId ?? item.userId ?? item.id ?? item.value ?? '')
+  }))
+  .filter((item) => item.label && item.value)
+
+const loadUserOptions = async () => {
+  state.userLoading = true
+  try {
+    userOptions.value = normalizeUserOptions(await getTenantClientUsers({ name: '' }))
+  } catch (error) {
+    userOptions.value = []
+    ElMessage.error(error?.message || '用户列表加载失败')
+  } finally {
+    state.userLoading = false
+  }
+}
+
+const addUserRow = () => {
+  form.userList.push({ tenantUserId: '', num: '' })
+}
+
+const removeUserRow = (index) => {
+  form.userList.splice(index, 1)
+}
 
 const loadData = async () => {
   state.loading = true
@@ -205,7 +275,7 @@ const resetForm = () => {
     orderProductInfo: '',
     orderAmount: '',
     orderStatus: '',
-    quantity: '',
+    userList: [],
     imageRemark: '',
     imageUrl: '',
     remark: ''
@@ -277,6 +347,7 @@ const removeImage = () => {
 
 const openCreate = () => {
   resetForm()
+  addUserRow()
   formVisible.value = true
 }
 
@@ -299,6 +370,12 @@ const openEdit = async (row) => {
 const submitForm = async () => {
   if (!form.name) return ElMessage.warning('请输入手工名称')
   if (!form.orderId) return ElMessage.warning('请选择关联订单')
+  if (!form.userList.length || form.userList.some((item) => {
+    const quantity = Number(item.num)
+    return !item.tenantUserId || item.num === '' || item.num === null || item.num === undefined || Number.isNaN(quantity) || quantity < 0
+  })) {
+    return ElMessage.warning('请至少选择一名手工人并填写数量')
+  }
   state.saving = true
   try {
     if (form.id) {
@@ -368,7 +445,10 @@ const exportData = async () => {
   }
 }
 
-onMounted(loadData)
+onMounted(async () => {
+  await loadUserOptions()
+  loadData()
+})
 </script>
 
 <template>
@@ -400,7 +480,7 @@ onMounted(loadData)
       </div>
       <el-table v-loading="state.loading" :data="rows" border>
         <el-table-column prop="name" label="手工名称" min-width="140" />
-        <el-table-column prop="quantity" label="数量" min-width="90" />
+        <el-table-column prop="userListText" label="手工人" min-width="180" show-overflow-tooltip />
         <el-table-column prop="remark" label="备注" min-width="180" show-overflow-tooltip />
         <el-table-column prop="orderNo" label="关联订单" min-width="140" />
         <el-table-column prop="operator" label="操作员" min-width="110" />
@@ -433,8 +513,17 @@ onMounted(loadData)
           <el-form-item label="手工名称" required>
             <el-input v-model="form.name" placeholder="请输入手工名称" />
           </el-form-item>
-          <el-form-item label="数量">
-            <el-input v-model="form.quantity" placeholder="请输入数量" />
+          <el-form-item label="手工人" class="full">
+            <div class="user-list-editor">
+              <div v-for="(item, index) in form.userList" :key="index" class="user-list-row">
+                <el-select v-model="item.tenantUserId" placeholder="请选择手工人" filterable :loading="state.userLoading">
+                  <el-option v-for="option in userOptions" :key="option.value" :label="option.label" :value="option.value" />
+                </el-select>
+                <el-input-number v-model="item.num" :min="0" :precision="2" controls-position="right" placeholder="数量" />
+                <el-button type="danger" link :disabled="form.userList.length <= 1" @click="removeUserRow(index)">删除</el-button>
+              </div>
+              <el-button type="primary" link :icon="Plus" @click="addUserRow">增加手工人</el-button>
+            </div>
           </el-form-item>
           <el-form-item label="图片备注" class="full">
             <div class="image-upload">
@@ -515,7 +604,7 @@ onMounted(loadData)
       <div v-loading="state.detailLoading">
         <dl v-if="currentRow" class="detail-grid">
           <div><dt>手工名称</dt><dd>{{ currentRow.name }}</dd></div>
-          <div><dt>数量</dt><dd>{{ currentRow.quantity }}</dd></div>
+          <div><dt>手工人</dt><dd>{{ currentRow.userListText }}</dd></div>
           <div><dt>关联订单</dt><dd>{{ currentRow.orderNo }}</dd></div>
           <div><dt>操作员</dt><dd>{{ currentRow.operator }}</dd></div>
           <div><dt>操作时间</dt><dd>{{ currentRow.updatedAt }}</dd></div>
@@ -584,6 +673,29 @@ onMounted(loadData)
 .manual-form :deep(.el-input),
 .manual-form :deep(.el-textarea) {
   max-width: 620px;
+}
+
+.user-list-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.user-list-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(620px, 100%);
+}
+
+.user-list-row :deep(.el-select) {
+  flex: 1;
+}
+
+.user-list-row :deep(.el-input-number) {
+  width: 180px;
 }
 
 .selected-order-section {
