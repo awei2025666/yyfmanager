@@ -2846,7 +2846,7 @@ watch(
               trigger="hover"
               placement="top-start"
               popper-class="order-craft-popover"
-              :width="620"
+              :width="orderCraftStatusGroups(row).length > 1 ? 480 : 260"
             >
               <template #reference>
                 <div class="product-info-lines product-info-lines--hoverable">
@@ -4091,6 +4091,7 @@ watch(
 }
 
 :global(.order-craft-popover) {
+  max-width: calc(100vw - 24px);
   padding: 12px !important;
   border: 1px solid #e5e7eb !important;
   border-radius: 6px !important;
@@ -4101,7 +4102,7 @@ watch(
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 10px;
-  max-width: 596px;
+  max-width: 456px;
 }
 
 .order-craft-status-summary {
