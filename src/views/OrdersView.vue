@@ -228,6 +228,7 @@ const deliveryTypeOptions = [
 ]
 const singleDoubleOptions = [
   { label: '单面', value: 1 },
+  { label: '双面', value: 5 },
   { label: '双面自翻', value: 2 },
   { label: '双面天地翻', value: 3 },
   { label: '双面扣板', value: 4 }
@@ -1173,13 +1174,13 @@ const computedCraftCustomerAmount = (craft = {}) => {
   const priceBase = Number(zeroIfEmpty(craft.priceBase1))
   const ploidy = Number(zeroIfEmpty(craft.ploidy)) || 1
 
-  if (type === 2 || type === 3) {
-    finishNum *= 2
-  }
-  if (type === 4) {
-    price *= 2
-    startPrice *= 2
-  }
+  // if (type === 2 || type === 3) {
+  //   finishNum *= 2
+  // }
+  // if (type === 4) {
+  //   price *= 2
+  //   startPrice *= 2
+  // }
   // if (String(craft.unit || '').includes('千')) {
   //   finishNum = Math.round(finishNum / 1000)
   // }
