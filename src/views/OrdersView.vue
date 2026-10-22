@@ -1150,10 +1150,6 @@ const removeFoilingPoint = (index) => {
 }
 const saveFoilingPointDialog = () => {
   const points = foilingPointForm.points.map((item) => String(item || '').trim()).filter(Boolean)
-  if (!points.length) {
-    ElMessage.warning('请至少填写一个烫金点位')
-    return
-  }
   if (points.some((item) => formulaValue(item) === null)) {
     ElMessage.warning('点位只能填写数字、括号和四则运算符')
     return
@@ -1495,10 +1491,6 @@ const saveCraftRow = (row) => {
   }
   if (isFoilingCraft(row)) {
     syncFoilingFormula(row)
-    if (!row.foilingPointList.length) {
-      ElMessage.warning('请填写烫金点位')
-      return false
-    }
     if (row.foilingPointList.some((item) => formulaValue(item.formula) === null)) {
       ElMessage.warning('烫金点位只能填写数字、括号和四则运算符')
       return false
