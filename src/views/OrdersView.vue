@@ -338,6 +338,14 @@ const orderCraftStatusGroups = (row = {}) => {
     .filter((group) => group.crafts.length)
 }
 
+const orderCraftRemarkGroups = (row = {}) =>
+  orderCraftStatusGroups(row)
+    .map((group) => ({
+      ...group,
+      crafts: group.crafts.filter((craft) => String(craft.completeRemark ?? '').trim())
+    }))
+    .filter((group) => group.crafts.length)
+
 const fillClientInfo = (client = {}) => {
   formState.cooperativeClientId = client.id === null || client.id === undefined ? '' : String(client.id)
   formState.companyName = client.companyName || ''
@@ -2628,12 +2636,12 @@ const rowActions = (row) => {
   if (row.status === 1) return ['审批', '编辑', '删除']
   if (row.status === 7) return ['重新申请', '删除']
   if (row.status === 2) return ['详情', '编辑', '整单外协', '差错单', '暂停']
-  if (row.status === 3) return ['详情', '差错单', '暂停']
-  if (row.status === 4) return ['详情', '差错单', '暂停','打印标签']
-  if (row.status === 5) return ['详情', '差错单', '暂停','打印标签']
-  if (row.status === 9) return ['详情', '差错单', '恢复生产']
-  if (row.status === 6) return ['详情', '返单', '差错单']
-  return ['详情','差错单']
+  if (row.status === 3) return ['详情', '编辑','差错单', '暂停']
+  if (row.status === 4) return ['详情', '编辑','差错单', '暂停','打印标签']
+  if (row.status === 5) return ['详情', '编辑','差错单', '暂停','打印标签']
+  if (row.status === 9) return ['详情', '编辑','差错单', '恢复生产']
+  if (row.status === 6) return ['详情', '编辑','返单', '差错单']
+  return ['详情','编辑','差错单']
 }
 
 const handleAction = (row, action) => {
@@ -2929,18 +2937,49 @@ watch(
         <el-table-column label="操作" min-width="200">
           <template #default="{ row }">
             <el-space wrap>
-              <el-button link type="primary" @click="openConsumables(row)">耗材</el-button>
-              <el-button
-                v-for="action in rowActions(row)"
-                :key="action"
-                link
-                :type="['删除', '驳回', '差错单', '暂停'].includes(action) ? 'danger' : 'primary'"
-                @click="handleAction(row, action)"
-              >
-                {{ action }}
-              </el-button>
+              <template v-for="action in rowActions(row)" :key="action">
+                <el-popover
+                  v-if="action === '返单' && orderCraftRemarkGroups(row).length"
+                  trigger="hover"
+                  placement="top-start"
+                  popper-class="order-craft-popover"
+                  :width="orderCraftRemarkGroups(row).length > 1 ? 480 : 260"
+                >
+                  <template #reference>
+                    <el-button link type="primary" @click="handleAction(row, action)">{{ action }}</el-button>
+                  </template>
+                  <div class="order-craft-status-panel">
+                    <div
+                      v-for="group in orderCraftRemarkGroups(row)"
+                      :key="group.id"
+                      class="order-craft-status-product"
+                    >
+                      <div class="order-craft-status-product__name">{{ group.name }}</div>
+                      <div class="order-craft-status-list">
+                        <div
+                          v-for="(craft, index) in group.crafts"
+                          :key="`${group.id}-${craft.id || craft.craftId || index}`"
+                          class="order-craft-remark-item"
+                        >
+                          <div class="order-craft-status-item__name">{{ orderCraftName(craft) }}</div>
+                          <div class="order-craft-remark-item__remark">{{ craft.completeRemark }}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </el-popover>
+                <el-button
+                  v-else
+                  link
+                  :type="['删除', '驳回', '差错单', '暂停'].includes(action) ? 'danger' : 'primary'"
+                  @click="handleAction(row, action)"
+                >
+                  {{ action }}
+                </el-button>
+              </template>
               <el-button v-if="row.orderSource == 2 && row.status ==2" link type="warning" @click="cancelOutsourceAll(row)">取消整单外协</el-button>
               <el-button link type="primary" @click="openOrderAttachments(row)">查看附件</el-button>
+              <el-button link type="primary" @click="openConsumables(row)">耗材</el-button>
             </el-space>
           </template>
         </el-table-column>
@@ -4156,6 +4195,19 @@ watch(
 .order-craft-status-item__status {
   font-size: 13px;
   white-space: nowrap;
+}
+
+.order-craft-remark-item {
+  display: grid;
+  gap: 4px;
+}
+
+.order-craft-remark-item__remark {
+  color: #606266;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .manual-complete-upload {
