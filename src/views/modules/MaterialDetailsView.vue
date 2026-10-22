@@ -40,7 +40,8 @@ const filters = reactive({
   pageSize: 10,
   name: '',
   type: '',
-  orderNo: ''
+  orderNo: '',
+  createTimeRange: []
 })
 
 const state = reactive({
@@ -229,13 +230,18 @@ const fillFormFromRecord = (record = {}) => {
   }
 }
 
-const queryPayload = () => ({
-  pageNum: filters.pageNum,
-  pageSize: filters.pageSize,
-  consumableName: filters.name || undefined,
-  type: filters.type || undefined,
-  orderId: filters.orderNo || undefined
-})
+const queryPayload = () => {
+  const [createTimeStart, createTimeEnd] = filters.createTimeRange || []
+  return {
+    pageNum: filters.pageNum,
+    pageSize: filters.pageSize,
+    consumableName: filters.name || undefined,
+    type: filters.type || undefined,
+    orderId: filters.orderNo || undefined,
+    createTimeStart: createTimeStart || undefined,
+    createTimeEnd: createTimeEnd || undefined
+  }
+}
 
 const savePayload = () => ({
   id: form.id || undefined,
@@ -275,7 +281,8 @@ const resetFilters = () => {
     pageSize: 10,
     name: '',
     type: '',
-    orderNo: ''
+    orderNo: '',
+    createTimeRange: []
   })
   loadData()
 }
@@ -522,6 +529,15 @@ onMounted(() => {
         <el-form-item label="关联订单">
           <el-input v-model="filters.orderNo" clearable placeholder="请输入关联订单" @keyup.enter="searchData" />
         </el-form-item>
+        <el-form-item label="创建时间">
+          <el-date-picker
+            v-model="filters.createTimeRange"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            start-placeholder="请选择开始日期"
+            end-placeholder="请选择结束日期"
+          />
+        </el-form-item>
         <el-form-item class="search-actions">
           <el-button type="primary" :icon="Search" @click="searchData">查询</el-button>
           <el-button @click="resetFilters">重置</el-button>
@@ -537,6 +553,8 @@ onMounted(() => {
         <el-table-column prop="name" label="耗材名称" min-width="150" />
         <el-table-column prop="type" label="明细类型" min-width="110" />
         <el-table-column prop="quantity" label="数量" min-width="90" />
+        <el-table-column prop="consumablePrice" label="耗材价值" min-width="90" />
+        <el-table-column prop="consumableTotalPrice" label="耗材总值" min-width="90" />
         <el-table-column prop="remark" label="备注" min-width="180" show-overflow-tooltip />
         <el-table-column prop="orderNo" label="关联订单" min-width="150" />
         <el-table-column prop="requisitionerName" label="领料人" min-width="110" />
@@ -790,7 +808,8 @@ onMounted(() => {
 }
 
 .search-form :deep(.el-input),
-.search-form :deep(.el-select) {
+.search-form :deep(.el-select),
+.search-form :deep(.el-date-editor--daterange) {
   width: 100%;
 }
 

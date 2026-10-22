@@ -31,7 +31,8 @@ const filters = reactive({
   craftName: '',
   orderNo: '',
   orderSource: '',
-  orderTime: []
+  orderTime: [],
+  orderBy: 1
 })
 
 const state = reactive({
@@ -47,6 +48,7 @@ const state = reactive({
 })
 
 const rows = ref([])
+const productCraftTableRef = ref(null)
 const allClientOptions = ref([])
 const clientOptions = ref([])
 const outsourceClientOptions = ref([])
@@ -491,7 +493,8 @@ const queryPayload = () => {
     orderId: filters.orderNo || undefined,
     orderSource: filters.orderSource || undefined,
     orderCreateTimeStart: start || undefined,
-    orderCreateTimeEnd: end || start || undefined
+    orderCreateTimeEnd: end || start || undefined,
+    orderBy: filters.orderBy
   }
 }
 
@@ -537,6 +540,13 @@ const searchData = () => {
   loadData()
 }
 
+const handleOrderTimeSortChange = ({ prop, order }) => {
+  if (prop !== 'orderTime' || !order) return
+  filters.orderBy = order === 'descending' ? 1 : 2
+  filters.pageNum = 1
+  loadData()
+}
+
 const resetFilters = () => {
   Object.assign(filters, {
     pageNum: 1,
@@ -547,9 +557,14 @@ const resetFilters = () => {
     craftName: '',
     orderNo: '',
     orderSource: '',
-    orderTime: []
+    orderTime: [],
+    orderBy: 1
   })
-  loadData()
+  if (productCraftTableRef.value) {
+    productCraftTableRef.value.sort('orderTime', 'descending')
+  } else {
+    loadData()
+  }
 }
 
 const downloadBlob = (blob, filename) => {
@@ -746,8 +761,22 @@ onMounted(() => {
         </div>
         <strong>{{ summaryText }}</strong>
       </div>
-      <el-table v-loading="state.loading" :data="rows" border>
+      <el-table
+        ref="productCraftTableRef"
+        v-loading="state.loading"
+        :data="rows"
+        border
+        :default-sort="{ prop: 'orderTime', order: 'descending' }"
+        @sort-change="handleOrderTimeSortChange"
+      >
         <el-table-column prop="orderNo" label="订单号" min-width="130" />
+        <el-table-column
+            prop="orderTime"
+            label="订单时间"
+            min-width="160"
+            sortable="custom"
+            :sort-orders="['descending', 'ascending']"
+        />
         <el-table-column prop="customer" label="单位名称" min-width="150" show-overflow-tooltip />
         <el-table-column prop="productInfo" label="产品信息" min-width="170" show-overflow-tooltip />
         <el-table-column prop="quantity" label="报工数量" min-width="100" />
@@ -772,7 +801,7 @@ onMounted(() => {
         <el-table-column prop="outMoney" label="外协金额" min-width="110" />
         <el-table-column prop="outRemark" label="外协备注" min-width="110" />
 
-        <el-table-column prop="orderTime" label="订单时间" min-width="160" />
+
 
         <el-table-column label="操作" width="290" fixed="right">
           <template #default="{ row }">
