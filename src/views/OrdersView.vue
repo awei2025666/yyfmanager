@@ -113,8 +113,6 @@ const errorVisible = ref(false)
 const errorSaving = ref(false)
 const outsourceAllVisible = ref(false)
 const outsourceAllSaving = ref(false)
-const errorDetailVisible = ref(false)
-const errorDetailLoading = ref(false)
 const attachmentVisible = ref(false)
 const attachmentLoading = ref(false)
 const attachmentFiles = ref([])
@@ -204,7 +202,6 @@ const statusMap = {
   5: { label: '配送中', type: 'primary', tone: 'delivering' },
   6: { label: '已完成', type: 'success', tone: 'completed' },
   7: { label: '已驳回', type: 'danger', tone: 'rejected' },
-  8: { label: '差错单', type: 'danger', tone: 'error' },
   9: { label: '暂停', type: 'info', tone: 'paused' }
 }
 const statusOptions = computed(() =>
@@ -1828,6 +1825,7 @@ const openRouteDetailIfNeeded = async () => {
 
 const openAdd = () => {
   formMode.value = 'create'
+  errorDetail.value = null
   sourceOrderId.value = null
   Object.assign(formState, {
     id: null,
@@ -1867,6 +1865,7 @@ const openAdd = () => {
 
 const openEdit = async (row) => {
   formMode.value = 'edit'
+  errorDetail.value = null
   sourceOrderId.value = null
   let record = JSON.parse(JSON.stringify(row))
   if (row?.id) {
@@ -1878,6 +1877,17 @@ const openEdit = async (row) => {
       ElMessage.error(error?.message || '订单编辑回显加载失败')
     } finally {
       detailLoading.value = false
+    }
+  }
+  if (record.errorTenantUserId && row?.id) {
+    try {
+      const data = await getTenantOrderErrorInfo(row.id)
+      errorDetail.value = {
+        personInCharge: data?.personInCharge || data?.personInChargeName || data?.tenantUserName || '-',
+        remark: data?.remark ?? record.errorRemark ?? ''
+      }
+    } catch (error) {
+      ElMessage.error(error?.message || '特殊提示加载失败')
     }
   }
   Object.assign(formState, {
@@ -2306,15 +2316,18 @@ const printLabel = async (row) => {
 
 const openErrorOrder = async (row) => {
   errorTarget.value = row
-  errorForm.tenantUserId = ''
-  errorForm.remark = ''
+  errorForm.tenantUserId = row.errorTenantUserId ?? ''
+  errorForm.remark = row.errorRemark ?? ''
   errorVisible.value = true
-  if (!userOptions.value.length) {
+  if (!userOptions.value.length || (row.errorTenantUserId && !userOptions.value.some((item) => String(item.id) === String(row.errorTenantUserId)))) {
     await loadUserOptions()
   }
+  const selectedUser = userOptions.value.find((item) => String(item.id) === String(errorForm.tenantUserId))
+  if (selectedUser) errorForm.tenantUserId = selectedUser.id
 }
 
 const submitErrorOrder = async () => {
+  if (errorSaving.value) return
   const orderId = errorTarget.value?.id || errorTarget.value?.orderPrimaryId || errorTarget.value?.orderDbId
   if (!orderId) return ElMessage.error('缺少订单ID，无法提交差错单')
   if (!errorForm.tenantUserId) return ElMessage.warning('请选择责任人')
@@ -2323,7 +2336,7 @@ const submitErrorOrder = async () => {
     await addTenantOrderError({
       orderId,
       tenantUserId: errorForm.tenantUserId,
-      remark: errorForm.remark || undefined
+      remark: errorForm.remark
     })
     errorVisible.value = false
     ElMessage.success('差错单已提交')
@@ -2332,29 +2345,6 @@ const submitErrorOrder = async () => {
     ElMessage.error(error?.message || '差错单提交失败')
   } finally {
     errorSaving.value = false
-  }
-}
-
-const openErrorDetail = async (row) => {
-  const orderId = row?.id || row?.orderPrimaryId || row?.orderDbId
-  if (!orderId) return ElMessage.error('缺少订单ID，无法查看差错详情')
-  errorDetailVisible.value = true
-  errorDetailLoading.value = true
-  errorDetail.value = null
-  try {
-    const data = await getTenantOrderErrorInfo(orderId)
-    errorDetail.value = {
-      orderId: row.orderId || row.orderNum || row.orderNo || orderId,
-      companyName: row.companyName || '-',
-      productInfo: productInfoText(row),
-      totalMoney: row.totalMoney,
-      personInCharge: data?.personInCharge || data?.personInChargeName || data?.tenantUserName || '-',
-      remark: data?.remark || '-'
-    }
-  } catch (error) {
-    ElMessage.error(error?.message || '差错详情加载失败')
-  } finally {
-    errorDetailLoading.value = false
   }
 }
 
@@ -2538,6 +2528,7 @@ const changeReportQuantity = async (row = {}) => {
 
 const reapplyOrder = async (row) => {
   formMode.value = 'create'
+  errorDetail.value = null
   sourceOrderId.value = null
   let record = JSON.parse(JSON.stringify(row))
   if (row?.id) {
@@ -2641,7 +2632,6 @@ const rowActions = (row) => {
   if (row.status === 4) return ['详情', '差错单', '暂停','打印标签']
   if (row.status === 5) return ['详情', '差错单', '暂停','打印标签']
   if (row.status === 9) return ['详情', '差错单', '恢复生产']
-  if (row.status === 8) return ['详情', '差错详情']
   if (row.status === 6) return ['详情', '返单', '差错单']
   return ['详情','差错单']
 }
@@ -2652,7 +2642,6 @@ const handleAction = (row, action) => {
   if (action === '删除') return removeOrder(row)
   if (action === '重新申请') return openEdit(row)
   if (action === '差错单') return openErrorOrder(row)
-  if (action === '差错详情') return openErrorDetail(row)
   if (action === '返单') return repeatOrder(row)
   if (action === '打印标签') return openPackDialog(row)
   if (action === '整单外协') return openOutsourceAll(row)
@@ -2816,7 +2805,7 @@ watch(
           :data="rows"
           class="order-list-table"
           empty-text="当前筛选下暂无订单数据"
-          :cell-style="({ row }) => row.status === 8 ? { color: 'red' } : {}"
+          :cell-style="({ row, columnIndex }) => row.errorTenantUserId && columnIndex < 7 ? { color: 'red' } : {}"
           :default-sort="{ prop: 'orderTime', order: 'descending' }"
           @sort-change="handleOrderSortChange"
       >
@@ -3102,6 +3091,11 @@ watch(
                 </div>
               </div>
             </label>
+            <div v-if="formMode === 'edit' && errorDetail" class="full-span order-error-hint">
+              <strong>特殊提示</strong>
+              <div>责任人：{{ errorDetail.personInCharge }}</div>
+              <div>备注：{{ errorDetail.remark || '-' }}</div>
+            </div>
           </div>
         </div>
         <div class="order-form-section">
@@ -3503,46 +3497,6 @@ watch(
       <template #footer>
         <el-button @click="errorVisible = false">取消</el-button>
         <el-button type="primary" :loading="errorSaving" @click="submitErrorOrder">提交</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog
-      v-model="errorDetailVisible"
-      title="差错详情"
-      width="640px"
-      class="order-error-dialog"
-      :close-on-click-modal="false"
-    >
-      <div v-loading="errorDetailLoading" class="order-error-detail">
-        <div class="order-error-detail__head">
-          <el-tag class="order-status-tag order-status--error" effect="plain">差错单</el-tag>
-          <strong>{{ errorDetail?.orderId || '-' }}</strong>
-        </div>
-        <div class="order-error-detail__grid">
-          <div>
-            <span>单位名称</span>
-            <strong>{{ errorDetail?.companyName || '-' }}</strong>
-          </div>
-          <div>
-            <span>责任人</span>
-            <strong>{{ errorDetail?.personInCharge || '-' }}</strong>
-          </div>
-          <div>
-            <span>订单金额</span>
-            <strong>{{ formatMoney(errorDetail?.totalMoney) }}</strong>
-          </div>
-          <div class="full-span">
-            <span>产品信息</span>
-            <strong>{{ errorDetail?.productInfo || '-' }}</strong>
-          </div>
-          <div class="full-span">
-            <span>备注</span>
-            <p>{{ errorDetail?.remark || '-' }}</p>
-          </div>
-        </div>
-      </div>
-      <template #footer>
-        <el-button type="primary" @click="errorDetailVisible = false">知道了</el-button>
       </template>
     </el-dialog>
 
@@ -4107,12 +4061,6 @@ watch(
   background: #fafafa !important;
 }
 
-.order-status--error {
-  color: #cf1322 !important;
-  border-color: #ffccc7 !important;
-  background: #fff1f0 !important;
-}
-
 .order-status--paused {
   color: #595959 !important;
   border-color: #d9d9d9 !important;
@@ -4289,16 +4237,14 @@ watch(
   background: #f8fafc;
 }
 
-.order-error-summary span,
-.order-error-detail__grid span {
+.order-error-summary span {
   display: block;
   margin-bottom: 6px;
   color: #909399;
   font-size: 13px;
 }
 
-.order-error-summary strong,
-.order-error-detail__grid strong {
+.order-error-summary strong {
   color: #303133;
   font-weight: 700;
 }
@@ -4307,33 +4253,15 @@ watch(
   width: 100%;
 }
 
-.order-error-detail__head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding-bottom: 14px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid #ebeef5;
-}
-
-.order-error-detail__grid {
+.order-error-hint {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.order-error-detail__grid .full-span {
-  grid-column: 1 / -1;
-}
-
-.order-error-detail__grid p {
-  min-height: 68px;
+  gap: 8px;
   padding: 12px;
-  margin: 0;
-  color: #303133;
+  color: #f56c6c;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   border-radius: 6px;
-  background: #f8fafc;
+  background: #fef0f0;
 }
 
 .form-grid {
