@@ -16,6 +16,7 @@ import {
   deleteTenantConsumableDetail,
   editTenantOrder,
   exportTenantOrder,
+  exportTenantOrderCraft,
   addTenantExternalTenant,
   deleteTenantExternalTenant,
   editTenantExternalTenant,
@@ -69,6 +70,7 @@ const autoApprove = ref(true)
 const autoApproveLoading = ref(false)
 const loading = ref(false)
 const exporting = ref(false)
+const exportingCraft = ref(false)
 const saving = ref(false)
 const detailLoading = ref(false)
 const orderTableRef = ref(null)
@@ -1775,6 +1777,20 @@ const exportOrderStatement = async () => {
   }
 }
 
+const exportOrderCraft = async () => {
+  if (exportingCraft.value) return
+  exportingCraft.value = true
+  try {
+    const blob = await exportTenantOrderCraft(buildQuery())
+    downloadBlob(blob, '订单工艺单.xlsx')
+    ElMessage.success('工艺单导出成功')
+  } catch (error) {
+    ElMessage.error(error?.message || '工艺单导出失败')
+  } finally {
+    exportingCraft.value = false
+  }
+}
+
 const loadAutoApprove = async () => {
   autoApproveLoading.value = true
   try {
@@ -2766,6 +2782,7 @@ watch(
         <div>
           <el-button type="primary" :icon="Plus" @click="openAdd">添加</el-button>
           <el-button :icon="Download" :loading="exporting" @click="exportOrderStatement">导出对账单</el-button>
+          <el-button :icon="Download" :loading="exportingCraft" @click="exportOrderCraft">导出工艺单</el-button>
         </div>
         <div class="list-actions__right">
           <div class="auto-approve">
