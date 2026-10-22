@@ -2865,7 +2865,7 @@ watch(
                 </div>
               </template>
               <div class="order-craft-status-panel">
-                <div class="order-craft-status-summary">{{ productInfoInlineText(row) }}</div>
+<!--                <div class="order-craft-status-summary">{{ productInfoInlineText(row) }}</div>-->
                 <div
                   v-for="group in orderCraftStatusGroups(row)"
                   :key="group.id"
