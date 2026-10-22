@@ -4382,11 +4382,11 @@ watch(
 }
 
 .step-card :deep(.page-block__body) {
-  padding: 40px 120px;
+  padding: 16px 24px;
 }
 
 :deep(.order-form-dialog) .step-card :deep(.page-block__body) {
-  padding: 20px 72px;
+  padding: 12px 24px;
 }
 
 .steps-line {
@@ -4474,11 +4474,11 @@ watch(
 
 .form-panel {
   flex: 1;
-  min-height: 560px;
+  min-height: 0;
 }
 
 :deep(.order-form-dialog) .form-panel {
-  min-height: calc(100vh - 160px);
+  min-height: 0;
 }
 
 :deep(.order-form-dialog) .order-edit-panel :deep(.page-block__body) {
@@ -4642,7 +4642,7 @@ watch(
 }
 
 .order-billing-section--craft {
-  min-height: 280px;
+  min-height: 0;
 }
 
 .billing-toolbar {
@@ -5044,7 +5044,7 @@ watch(
   }
 
   .step-card :deep(.page-block__body) {
-    padding: 54px 28px;
+    padding: 12px;
   }
 }
 /* 强制垂直居中并限制最大宽高 */

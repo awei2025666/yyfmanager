@@ -32,11 +32,12 @@ defineProps({
 
 <style scoped>
 .page-block {
+  min-width: 0;
   border-radius: 4px;
 }
 
 .page-block :deep(.el-card__header) {
-  padding: 16px 20px;
+  padding: 10px 12px;
 }
 
 .page-block :deep(.el-card__body) {
@@ -44,14 +45,16 @@ defineProps({
 }
 
 .page-block__body {
-  padding: 20px;
+  min-width: 0;
+  padding: 12px;
 }
 
 .page-block__head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .page-block__subtitle {

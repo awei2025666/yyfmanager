@@ -220,7 +220,7 @@ onMounted(async () => {
 <style scoped>
 .role-page {
   display: grid;
-  grid-template-columns: minmax(320px, 0.8fr) minmax(520px, 1.2fr);
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
   gap: 16px;
   height: calc(100vh - 142px);
   padding: 0 20px;
@@ -277,7 +277,7 @@ onMounted(async () => {
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  min-height: 48px;
+  min-height: 36px;
   padding: 0 14px;
   border: 0;
   border-radius: 6px;
@@ -319,11 +319,11 @@ onMounted(async () => {
 }
 
 .permission-tree :deep(.el-tree-node__content) {
-  height: 36px;
+  height: 30px;
   border-radius: 4px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   .role-page {
     height: auto;
     grid-template-columns: 1fr;

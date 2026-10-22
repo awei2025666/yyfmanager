@@ -376,104 +376,106 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="admin-shell">
-    <aside class="admin-sidebar">
-      <div class="brand">
-        <div class="brand__mark"><span></span><i></i></div>
-        <div>
-          <strong>{{ tenantDisplayName }}</strong>
+  <el-config-provider size="small">
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <div class="brand">
+          <div class="brand__mark"><span></span><i></i></div>
+          <div>
+            <strong>{{ tenantDisplayName }}</strong>
+          </div>
         </div>
-      </div>
 
-      <el-menu
-        class="sidebar-menu"
-        :default-active="activeMenuName"
-        :default-openeds="openGroupIndexes"
-        background-color="#303133"
-        text-color="#c0c4cc"
-        active-text-color="#ffffff"
-        @select="handleMenuSelect"
-      >
-        <template v-for="item in menus" :key="item.name || item.label">
-          <el-menu-item v-if="item.name" :index="item.name">
-            <el-icon><component :is="item.icon" /></el-icon>
-            <span>{{ item.label }}</span>
-          </el-menu-item>
-          <el-sub-menu v-else :index="item.label">
-            <template #title>
+        <el-menu
+          class="sidebar-menu"
+          :default-active="activeMenuName"
+          :default-openeds="openGroupIndexes"
+          background-color="#303133"
+          text-color="#c0c4cc"
+          active-text-color="#ffffff"
+          @select="handleMenuSelect"
+        >
+          <template v-for="item in menus" :key="item.name || item.label">
+            <el-menu-item v-if="item.name" :index="item.name">
               <el-icon><component :is="item.icon" /></el-icon>
               <span>{{ item.label }}</span>
-            </template>
-            <el-menu-item v-for="child in item.children" :key="child.name" :index="child.name">
-              <el-icon><component :is="child.icon" /></el-icon>
-              <span>{{ child.label }}</span>
             </el-menu-item>
-          </el-sub-menu>
+            <el-sub-menu v-else :index="item.label">
+              <template #title>
+                <el-icon><component :is="item.icon" /></el-icon>
+                <span>{{ item.label }}</span>
+              </template>
+              <el-menu-item v-for="child in item.children" :key="child.name" :index="child.name">
+                <el-icon><component :is="child.icon" /></el-icon>
+                <span>{{ child.label }}</span>
+              </el-menu-item>
+            </el-sub-menu>
+          </template>
+        </el-menu>
+      </aside>
+
+      <div class="admin-main">
+        <header class="admin-topbar">
+          <el-button type="primary" @click="openLargeScreen">可视化大屏</el-button>
+          <div class="topbar-actions">
+            <el-button round class="vip-pill" @click="openDurationPurchase">剩余<strong>{{ vipDayText }}</strong>天到期</el-button>
+            <el-dropdown trigger="click" popper-class="avatar-dropdown" @command="(command) => command === 'password' ? openPasswordDialog() : logout()">
+              <button type="button" class="avatar-button" :title="currentAccount">
+                <img v-if="userState.avatar" :src="userState.avatar" alt="头像" />
+                <span v-else>{{ accountInitial }}</span>
+              </button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="password">
+                    <el-icon><Lock /></el-icon>
+                    修改密码
+                  </el-dropdown-item>
+                  <el-dropdown-item command="logout" divided>
+                    <el-icon><SwitchButton /></el-icon>
+                    退出登录
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </header>
+
+        <router-view :key="route.name" />
+      </div>
+
+      <el-dialog
+        v-model="passwordDialogVisible"
+        title="修改密码"
+        width="420px"
+        class="password-dialog"
+        append-to-body
+      >
+        <label class="password-field">
+          <span>新密码</span>
+          <el-input
+            v-model="passwordForm.password"
+            type="password"
+            show-password
+            maxlength="20"
+            placeholder="请输入新密码"
+            @input="normalizePasswordInput"
+            @keyup.enter="submitPassword"
+          />
+        </label>
+        <template #footer>
+          <el-button @click="passwordDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="passwordSaving" @click="submitPassword">确认</el-button>
         </template>
-      </el-menu>
-    </aside>
-
-    <div class="admin-main">
-      <header class="admin-topbar">
-        <el-button type="primary" @click="openLargeScreen">可视化大屏</el-button>
-        <div class="topbar-actions">
-          <el-button round class="vip-pill" @click="openDurationPurchase">剩余<strong>{{ vipDayText }}</strong>天到期</el-button>
-          <el-dropdown trigger="click" popper-class="avatar-dropdown" @command="(command) => command === 'password' ? openPasswordDialog() : logout()">
-            <button type="button" class="avatar-button" :title="currentAccount">
-              <img v-if="userState.avatar" :src="userState.avatar" alt="头像" />
-              <span v-else>{{ accountInitial }}</span>
-            </button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="password">
-                  <el-icon><Lock /></el-icon>
-                  修改密码
-                </el-dropdown-item>
-                <el-dropdown-item command="logout" divided>
-                  <el-icon><SwitchButton /></el-icon>
-                  退出登录
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </header>
-
-      <router-view :key="route.name" />
+      </el-dialog>
     </div>
-
-    <el-dialog
-      v-model="passwordDialogVisible"
-      title="修改密码"
-      width="420px"
-      class="password-dialog"
-      append-to-body
-    >
-      <label class="password-field">
-        <span>新密码</span>
-        <el-input
-          v-model="passwordForm.password"
-          type="password"
-          show-password
-          maxlength="20"
-          placeholder="请输入新密码"
-          @input="normalizePasswordInput"
-          @keyup.enter="submitPassword"
-        />
-      </label>
-      <template #footer>
-        <el-button @click="passwordDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="passwordSaving" @click="submitPassword">确认</el-button>
-      </template>
-    </el-dialog>
-  </div>
+  </el-config-provider>
 </template>
 
 <style scoped>
 .admin-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 200px minmax(0, 1fr);
   gap: 0;
   padding: 0;
   background: #f5f7fa;
@@ -498,7 +500,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 56px;
+  height: 48px;
+  flex-shrink: 0;
   padding: 0 16px;
   border-radius: 0;
   background: transparent;
@@ -536,7 +539,9 @@ onMounted(() => {
 
 .sidebar-menu {
   flex: 1;
-  overflow: auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   border-right: 0;
   background: transparent;
 }
@@ -549,11 +554,12 @@ onMounted(() => {
 .sidebar-menu :deep(.el-menu-item),
 .sidebar-menu :deep(.el-sub-menu__title) {
   position: relative;
-  height: 46px;
+  height: 38px;
+  line-height: 38px;
   margin: 0;
   padding: 0 18px !important;
   border-radius: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   transition: background 0.18s ease, color 0.18s ease;
 }
@@ -566,11 +572,12 @@ onMounted(() => {
 }
 
 .sidebar-menu :deep(.el-sub-menu .el-menu-item) {
-  height: 42px;
+  height: 34px;
+  line-height: 34px;
   margin: 0;
   padding-left: 42px !important;
   border-radius: 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 400;
 }
 
@@ -616,16 +623,17 @@ onMounted(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-bottom: 28px;
+  gap: 10px;
+  padding-bottom: 16px;
 }
 
 .admin-topbar {
-  height: 56px;
+  height: 48px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 12px;
   background: #ffffff;
   box-shadow: 0 1px 4px rgb(0 21 41 / 8%);
 }
@@ -700,7 +708,7 @@ onMounted(() => {
 .admin-main > :deep(.page-stack),
 .admin-main > :deep(.special-stack),
 .admin-main > :deep(.dashboard-page) {
-  padding: 0 20px;
+  padding: 0 12px;
 }
 
 @media (max-width: 640px) {

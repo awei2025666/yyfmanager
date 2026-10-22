@@ -1,4 +1,8 @@
 :root {
+  --app-control-height: 28px;
+  --app-font-size: 13px;
+  --app-table-header-height: 34px;
+  --app-table-row-height: 36px;
   font-family: "Helvetica Neue", Helvetica, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
   color: #303133;
   background: #f5f7fa;
@@ -40,33 +44,35 @@ a {
   --el-table-border-color: #ebeef5;
   --el-table-text-color: #606266;
   --el-table-header-text-color: #303133;
-  font-size: 14px;
+  font-size: var(--app-font-size);
 }
 
 .el-table th.el-table__cell {
-  height: 46px;
-  font-size: 14px;
+  height: var(--app-table-header-height);
+  font-size: var(--app-font-size);
   font-weight: 700;
 }
 
 .el-table td.el-table__cell {
-  height: 48px;
+  height: var(--app-table-row-height);
+  padding: 4px 0;
   border-bottom: 1px solid #ebeef5;
 }
 
 .el-table .cell {
+  padding: 0 8px;
   line-height: 1.35;
 }
 
 .el-input,
 .el-select,
 .el-date-editor.el-input {
-  --el-input-height: 32px;
+  --el-input-height: var(--app-control-height);
   --el-input-bg-color: #ffffff;
   --el-input-border-color: #dcdfe6;
   --el-input-hover-border-color: #c0c4cc;
   --el-input-focus-border-color: var(--el-color-primary);
-  font-size: 14px;
+  font-size: var(--app-font-size);
 }
 
 .el-input__wrapper,
@@ -76,20 +82,20 @@ a {
 }
 
 .el-input-number.is-controls-right .el-input__wrapper {
-  padding-right: 38px;
+  padding-right: 26px;
 }
 
 .el-input-number.is-controls-right .el-input-number__increase,
 .el-input-number.is-controls-right .el-input-number__decrease {
   right: 1px;
-  width: 36px;
+  width: 24px;
   height: calc(50% - 1px);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: #f5f6f8;
   color: #8a93a3;
-  font-size: 16px;
+  font-size: 13px;
   line-height: 1;
 }
 
@@ -107,14 +113,14 @@ a {
 
 .el-input-number.is-controls-right .el-input-number__increase .el-icon,
 .el-input-number.is-controls-right .el-input-number__decrease .el-icon {
-  font-size: 16px;
+  font-size: 13px;
 }
 
 .el-button {
-  min-height: 32px;
+  min-height: var(--app-control-height);
   border-radius: 4px;
-  padding: 0 14px;
-  font-size: 14px;
+  padding: 0 10px;
+  font-size: var(--app-font-size);
 }
 
 .el-button--primary {
@@ -134,10 +140,10 @@ a {
 .el-pagination .btn-prev,
 .el-pagination .btn-next,
 .el-pagination .el-pager li {
-  min-width: 32px;
-  height: 32px;
+  min-width: var(--app-control-height);
+  height: var(--app-control-height);
   border-radius: 4px;
-  font-size: 14px;
+  font-size: var(--app-font-size);
 }
 
 .el-dialog,
@@ -156,15 +162,15 @@ a {
 
 .filter-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
-  gap: 12px 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 8px 12px;
   align-items: end;
 }
 
 .toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -184,7 +190,146 @@ a {
 .special-stack {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+}
+
+/* Keep custom page styles and teleported dialogs at the same density. */
+:root :is(.admin-shell, .el-overlay) {
+  --el-font-size-base: var(--app-font-size);
+  --el-component-size-small: var(--app-control-height);
+  font-size: var(--app-font-size);
+}
+
+:root :is(.admin-shell, .el-overlay) :is(.el-input.el-input--small, .el-select.el-select--small, .el-input-number.el-input-number--small) {
+  --el-input-height: var(--app-control-height);
+  font-size: var(--app-font-size);
+}
+
+:root :is(.admin-shell, .el-overlay) :is(.el-input--small .el-input__wrapper, .el-select--small .el-select__wrapper) {
+  min-height: var(--app-control-height);
+  font-size: var(--app-font-size);
+}
+
+:root :is(.admin-shell, .el-overlay) .el-button.el-button--small {
+  height: var(--app-control-height);
+  min-height: var(--app-control-height);
+  padding: 0 10px;
+  font-size: var(--app-font-size);
+}
+
+:root :is(.admin-shell, .el-overlay) .el-button.el-button--small.is-link {
+  height: auto;
+  min-height: 22px;
+  padding: 0;
+}
+
+:root :is(.admin-shell, .el-overlay) .el-table .el-button + .el-button {
+  margin-left: 8px;
+}
+
+:root :is(.admin-shell, .el-overlay) .el-table th.el-table__cell {
+  height: var(--app-table-header-height);
+  padding: 4px 0;
+  font-size: var(--app-font-size);
+}
+
+:root :is(.admin-shell, .el-overlay) .el-table th.el-table__cell .cell {
+  white-space: nowrap;
+}
+
+:root :is(.admin-shell, .el-overlay) .el-table td.el-table__cell {
+  height: var(--app-table-row-height);
+  padding: 3px 0;
+  font-size: var(--app-font-size);
+}
+
+:root :is(.admin-shell, .el-overlay) .el-form-item {
+  min-width: 0;
+  margin-bottom: 12px;
+}
+
+:root :is(.admin-shell, .el-overlay) .el-form-item__content {
+  min-width: 0;
+}
+
+:root .admin-main > :is(.module-page, .staff-page, .organization-page, .crafts-page, .role-page) {
+  min-width: 0;
+  padding: 0 12px;
+  gap: 10px;
+}
+
+:root .admin-main > :is(.page-stack, .special-stack) {
+  gap: 10px;
+}
+
+:root .admin-main :is(.search-form, .filter-grid, .craft-search-grid) {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 8px 12px;
+}
+
+:root .admin-main :is(.search-form, .filter-grid, .craft-search-grid) > *,
+:root .admin-main .content-layout > * {
+  min-width: 0;
+}
+
+:root .admin-main .search-form .el-form-item {
+  margin-bottom: 0;
+}
+
+:root .admin-main :is(.filter-grid, .craft-search-grid) label {
+  gap: 4px;
+}
+
+:root .admin-main :is(.filter-grid, .craft-search-grid) label > span {
+  font-size: var(--app-font-size);
+}
+
+:root .admin-main .el-date-editor {
+  max-width: 100%;
+  min-width: 0;
+}
+
+:root .admin-main .pagination-wrap {
+  margin-top: 10px;
+}
+
+:root .admin-main .el-pagination {
+  flex-wrap: wrap;
+}
+
+/* One vertical scroll area per dialog, with its actions kept visible. */
+:root .el-overlay .el-dialog {
+  --app-dialog-offset: min(8dvh, 48px);
+  display: flex;
+  flex-direction: column;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - var(--app-dialog-offset) - 16px);
+  margin-top: var(--app-dialog-offset);
+  margin-bottom: 16px;
+  --el-dialog-padding-primary: 12px;
+}
+
+:root .el-overlay .el-dialog > .el-dialog__header,
+:root .el-overlay .el-dialog > .el-dialog__footer {
+  flex-shrink: 0;
+}
+
+:root .el-overlay .el-dialog > .el-dialog__body {
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+}
+
+:root .el-overlay :is(.material-detail-dialog, .outsource-detail, .reimburse-form) {
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+}
+
+@media (max-width: 640px) {
+  :root .el-overlay :is(.edit-form, .receipt-form, .reimburse-form) {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 1200px) {

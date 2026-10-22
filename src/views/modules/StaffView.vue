@@ -596,25 +596,25 @@ onMounted(async () => {
 
 .content-layout {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 12px;
 }
 
 .tree-panel {
-  min-height: 560px;
-  padding-right: 18px;
+  min-width: 0;
+  padding-right: 12px;
   border-right: 1px solid #e4e7ed;
 }
 
 .tree-title {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   color: #111111;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .tree-panel :deep(.el-tree-node__content) {
-  height: 42px;
+  height: 32px;
   border-radius: 4px;
 }
 
@@ -674,5 +674,18 @@ onMounted(async () => {
 
 .edit-form .full {
   grid-column: 1 / -1;
+}
+
+@media (max-width: 1000px) {
+  .content-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tree-panel {
+    padding-right: 0;
+    padding-bottom: 12px;
+    border-right: 0;
+    border-bottom: 1px solid #e4e7ed;
+  }
 }
 </style>

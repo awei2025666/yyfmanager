@@ -398,8 +398,7 @@ onMounted(() => {
 }
 
 .craft-search-card :deep(.page-block__body) {
-  min-height: 146px;
-  padding: 24px 28px 22px;
+  padding: 12px;
 }
 
 .craft-search-grid {
@@ -524,8 +523,8 @@ onMounted(() => {
 
 .craft-form-grid {
   display: grid;
-  grid-template-columns: 420px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 420px);
+  gap: 10px;
 }
 
 .craft-form-grid em {
@@ -540,13 +539,13 @@ onMounted(() => {
 }
 
 .craft-form-card :deep(.el-textarea__inner) {
-  width: 1080px;
+  width: 100%;
   min-height: 72px !important;
   font-size: 14px;
 }
 
 .craft-form-remark {
-  width: 1080px;
+  width: min(1080px, 100%);
 }
 
 .craft-form-footer {
