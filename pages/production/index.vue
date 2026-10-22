@@ -17,8 +17,7 @@
 				<view class="craft-head"><view class="craft-title-wrap"><text class="craft-name">{{ group.productInfo }}</text></view></view>
 				<view class="craft-tags"><text v-for="item in group.items" :key="item.id" :class="['craft-tag', getCraftStatusClass(item)]">{{ item.craftName || item.name || '-' }}</text></view>
 				<view class="craft-detail" v-for="item in group.items" :key="`detail-${item.id}`">
-					<view class="craft-desc">{{ getCraftDesc(item) }}</view><text :class="['pill', getCraftStatusClass(item)]">{{ statusMap[getCraftStatus(item)] || '待生产' }}</text>
-					<button v-if="canOperateCraft(item)" :class="['complete-btn', getCraftStatusClass(item)]" @click="handleCraftAction(item)">{{ getCraftActionText(item) }}</button>
+					<button :class="['complete-btn', getCraftStatusClass(item)]" @click="handleCraftAction(item)"><text>{{ item.craftName || item.name || getCraftDesc(item) }}</text><text class="button-status">{{ statusMap[getCraftStatus(item)] || '待生产' }}</text></button>
 				</view>
 				<button class="all-craft-btn" @click="toComplete(group.items)">全部</button>
 			</view>
@@ -393,9 +392,10 @@ onShow(() => {
 }
 .craft-tags{display:flex;flex-wrap:wrap;gap:12rpx;margin-top:16rpx;padding-bottom:14rpx;border-bottom:1rpx solid #e8e8e8}
 .craft-tag{padding:7rpx 18rpx;border-radius:24rpx;font-size:23rpx}
-.craft-detail{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10rpx;padding:18rpx 0;border-bottom:1rpx solid #eee}
-.craft-detail .complete-btn{grid-column:1 / -1}
-.all-craft-btn{height:60rpx;margin-top:18rpx;border:1rpx solid #1f7cff;border-radius:30rpx;background:#fff;color:#1f7cff;font-size:26rpx;line-height:58rpx}
+.craft-detail{display:inline-block;width:33.3333%;padding:10rpx 6rpx;box-sizing:border-box;vertical-align:top}
+.craft-detail .complete-btn{display:flex;align-items:center;justify-content:center;flex-direction:column;width:100%;height:112rpx;padding:0 8rpx;border-radius:16rpx;text-align:center;line-height:34rpx;font-size:25rpx}
+.craft-detail .button-status{margin-top:5rpx;font-size:21rpx;opacity:.9}
+.all-craft-btn{height:82rpx;margin-top:12rpx;border:1rpx solid #1f7cff;border-radius:18rpx;background:#fff;color:#1f7cff;font-size:28rpx;line-height:80rpx}
 .source-tag{
 	flex: 0 0 auto;
 	height: 34rpx;

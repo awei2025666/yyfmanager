@@ -244,6 +244,14 @@ onLoad(options => {
 	padding-top: 38rpx;
 	border-bottom: 1rpx solid #eeeeee;
 }
+.users-block{padding:30rpx 0 24rpx}
+.user-row{position:relative;display:flex;align-items:center;gap:12rpx;margin-top:18rpx;padding:14rpx 16rpx;border:1rpx solid #edf0f5;border-radius:12rpx;background:#fafbfc}
+.user-input{flex:1;min-width:0;height:64rpx;padding:0 14rpx;border-radius:8rpx;background:#fff;color:#333;font-size:27rpx}
+.user-num{width:120rpx;height:64rpx;padding:0 12rpx;border-radius:8rpx;background:#fff;color:#333;font-size:27rpx;text-align:center}
+.user-remove{width:42rpx;height:42rpx;color:#aab2bd;font-size:38rpx;line-height:38rpx;text-align:center}
+.user-options{position:absolute;left:16rpx;right:170rpx;top:84rpx;z-index:10;max-height:240rpx;overflow-y:auto;border:1rpx solid #e5eaf1;border-radius:10rpx;background:#fff;box-shadow:0 8rpx 24rpx rgba(30,50,80,.12)}
+.user-option{padding:18rpx 20rpx;border-bottom:1rpx solid #f0f2f5;color:#333;font-size:27rpx}
+.add-user{margin-top:18rpx;padding:16rpx 0;color:#287df5;font-size:27rpx;text-align:center}
 .remark{
 	width: 100%;
 	height: 112rpx;

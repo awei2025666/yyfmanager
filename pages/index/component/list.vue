@@ -191,8 +191,13 @@ const getDeliveryOrderLines = item => getDeliveryOrders(item)
 const getHandName = item => item.name || item.productName || item.productInfo || item.handKeptName || '-'
 
 const getHandDesc = item => {
-	const quantity = item.num || item.quantity || item.orderQuantity
-	return `${getHandName(item)}${quantity ? `*${quantity}` : ''}`
+	if (Array.isArray(item.userList) && item.userList.length) {
+		return item.userList.map(user => {
+			const name = Array.isArray(user) ? user[0] : (user.userName || user.name || '')
+			return name || '-'
+		}).filter(Boolean).join('、')
+	}
+	return getHandName(item)
 }
 
 const getHandCompany = item => item.companyName || item.clientName || item.customerName || '-'
@@ -266,7 +271,38 @@ onBeforeUnmount(() => {
 	.search{
 		margin-bottom: 20rpx;
 	}
-	.date-filter{ display:flex; align-items:center; gap:12rpx; margin:0 0 12rpx; .date-input{padding:12rpx 16rpx;border-radius:8rpx;background:#f8f8f8;color:#555;font-size:24rpx}.date-separator{color:#999;font-size:24rpx}.date-clear{margin-left:auto;color:#1f7cff;font-size:24rpx} }
+	.date-filter{
+		display:flex;
+		align-items:center;
+		gap:0;
+		margin:0 0 24rpx;
+		padding:0 14rpx;
+		border:1rpx solid #e8edf4;
+		border-radius:14rpx;
+		background:#fff;
+		box-sizing:border-box;
+		&::before{content:'交付日期';flex:0 0 auto;margin-right:12rpx;color:#7b8492;font-size:24rpx;line-height:34rpx;}
+		.date-filter picker{
+			flex:1;
+			min-width:0;
+		}
+		.date-input{
+			padding:17rpx 4rpx;
+			background:transparent;
+			color:#3e4652;
+			font-size:25rpx;
+			line-height:34rpx;
+			text-align:center;
+		}
+		.date-separator{
+			flex:0 0 auto;
+			padding:0 8rpx;
+			color:#a8b1bf;
+			font-size:24rpx;
+			line-height:34rpx;
+		}
+		.date-clear{padding:17rpx 4rpx 17rpx 12rpx;color:#287df5;font-size:25rpx;line-height:34rpx;white-space:nowrap;}
+	}
 	.showList{
 		height: calc(100vh - 770rpx);
 	}
