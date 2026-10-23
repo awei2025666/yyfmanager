@@ -360,7 +360,8 @@ const singleDoubleOptions = [
 	{ label: '单面', value: 1 },
 	{ label: '双面自翻', value: 2 },
 	{ label: '双面天地翻', value: 3 },
-	{ label: '双面扣板', value: 4 }
+	{ label: '双面扣板', value: 4 },
+	{ label: '双面', value: 5 }
 ]
 const customerTypes = [
 	{ label: '月结客户', value: '1' },
@@ -641,7 +642,7 @@ const computedCraftCustomerAmount = (craft = {}) => {
 	let price = Number(zeroIfEmpty(craft.price ?? craft.unitPrice))
 	let startPrice = Number(zeroIfEmpty(craft.startPrice ?? craft.basePrice))
 	const priceBase = Number(zeroIfEmpty(craft.priceBase))
-	if (type === 2 || type === 3) {
+	if (type === 2) {
 		finishNum *= 2
 	}
 	if (type === 4) {
