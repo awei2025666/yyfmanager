@@ -75,6 +75,10 @@
 					}
 				},
 				{
+					"path": "pages/productionAction/index",
+					"style": { "navigationStyle": "custom" }
+				},
+				{
 					"path": "pages/productionConsumableAdd/index",
 					"style": {
 						"navigationStyle": "custom"

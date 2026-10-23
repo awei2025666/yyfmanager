@@ -19,7 +19,7 @@
 				<view class="craft-detail" v-for="item in group.items" :key="`detail-${item.id}`">
 					<button :class="['complete-btn', getCraftStatusClass(item)]" @click="handleCraftAction(item)"><text>{{ item.craftName || item.name || getCraftDesc(item) }}</text><text class="button-status">{{ statusMap[getCraftStatus(item)] || '待生产' }}</text></button>
 				</view>
-				<button class="all-craft-btn" @click="toComplete(group.items)">全部</button>
+				<button class="all-craft-btn" @click="toProductionAction(group.items)">全部</button>
 			</view>
 			<view v-if="!craftList.length" class="empty-state">暂无数据</view>
 		</view>
@@ -218,7 +218,12 @@ const handleStartProduction = async item => {
 }
 
 const handleCraftAction = item => {
-	toComplete(item)
+	toProductionAction(item)
+}
+
+const toProductionAction = item => {
+	const items = Array.isArray(item) ? item : [item]
+	uni.navigateTo({ url: `/pages/productionAction/index?id=${items[0]?.id || ''}&ids=${encodeURIComponent(items.map(item => item.id).filter(Boolean).join(','))}&orderId=${orderId.value || ''}` })
 }
 
 const toComplete = item => {

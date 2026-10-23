@@ -61,9 +61,33 @@ const form = reactive({
 	imgRemark: ''
 })
 const userRows = ref([{ keyword: '', id: '', num: '', options: [] }])
+const allUsers = ref([])
+const usersLoading = ref(false)
 const addUser = () => userRows.value.push({ keyword: '', id: '', num: '', options: [] })
 const removeUser = index => userRows.value.splice(index, 1)
-const searchUsers = async index => { const row = userRows.value[index]; row.id = ''; if (!row.keyword.trim()) { row.options=[]; return }; try { const result = await uni.$api.byDeptUser({ name: row.keyword.trim() }); const list = result?.records || result?.data || result || []; row.options = Array.isArray(list) ? list : [] } catch (e) { row.options=[] } }
+const normalizeUser = user => ({ ...user, id: user.id || user.tenantUserId || user.userId, name: user.name || user.realName || user.userName || user.nickname || '' })
+const loadUsers = async () => {
+	if (usersLoading.value || allUsers.value.length) return
+	usersLoading.value = true
+	try {
+		const result = await uni.$api.byDeptUser({ name: '' })
+		const list = result?.records || result?.data?.records || result?.data || result || []
+		const seen = new Set()
+		allUsers.value = (Array.isArray(list) ? list : []).map(normalizeUser).filter(user => {
+			const key = String(user.id || user.name)
+			if (!user.name || seen.has(key)) return false
+			seen.add(key)
+			return true
+		})
+		userRows.value.forEach((_, index) => searchUsers(index))
+	} catch (e) { allUsers.value = [] } finally { usersLoading.value = false }
+}
+const searchUsers = index => {
+	const row = userRows.value[index]
+	row.id = ''
+	const keyword = row.keyword.trim().toLowerCase()
+	row.options = allUsers.value.filter(user => !keyword || user.name.toLowerCase().includes(keyword)).slice(0, 20)
+}
 const selectUser = (index, user) => { const row=userRows.value[index]; row.id=user.id || user.tenantUserId; row.keyword=user.name || user.realName || ''; row.options=[] }
 
 const imageSlots = computed(() => Math.max(0, maxImages - images.value.length - (images.value.length < maxImages ? 1 : 0)))
@@ -100,8 +124,8 @@ const submit = async () => {
 		return
 	}
 	const userMap = new Map()
-	userRows.value.filter(item => item.keyword && item.num).forEach(item => userMap.set(item.keyword, Number(item.num)))
-	const userList = [...userMap].map(([userName, num]) => [userName, num])
+	userRows.value.filter(item => item.id && item.num).forEach(item => userMap.set(String(item.id), { tenantUserId: item.id, num: Number(item.num) }))
+	const userList = [...userMap.values()]
 	if (!userList.length) {
 		uni.showToast({ title: '请添加人员和数量', icon: 'none' })
 		return
@@ -148,6 +172,7 @@ const goBack = () => {
 
 onLoad(options => {
 	orderId.value = options.orderId || options.id || ''
+	loadUsers()
 })
 </script>
 
