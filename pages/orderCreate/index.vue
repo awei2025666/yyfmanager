@@ -652,6 +652,7 @@ const computedCraftCustomerAmount = (craft = {}) => {
 	// if (String(craft.unit || '').includes('千印')) {
 	// 	finishNum = Math.round(finishNum / 1000)
 	// }
+
 	const multiplyPloidy = amount => toFixed4Number(amount * ploidy)
 	if (isFoilingCraft(craft)) {
 		const points = normalizeFoilingPointList(craft.foilingPointList, craft.formula)
