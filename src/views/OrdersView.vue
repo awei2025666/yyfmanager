@@ -3245,7 +3245,7 @@ watch(
             </el-table-column>
             <el-table-column prop="singleDouble" label="单双面" min-width="92">
               <template #default="{ row }">
-                <el-select v-model="row.singleDouble" placeholder="请选择单双面">
+                <el-select v-model="row.singleDouble" clearable placeholder="请选择单双面">
                   <el-option v-for="item in singleDoubleOptions" :key="item.value" :label="item.label" :value="item.value" />
                 </el-select>
               </template>
