@@ -193,13 +193,10 @@ const savePayload = () => ({
   orderId: form.orderId || undefined,
   userList: form.userList
     .filter((item) => item.tenantUserId !== '' && item.tenantUserId !== null && item.tenantUserId !== undefined)
-    .map((item) => {
-      const numericUserId = Number(item.tenantUserId)
-      return {
-        tenantUserId: Number.isNaN(numericUserId) ? item.tenantUserId : numericUserId,
-        num: Number(item.num || 0)
-      }
-    }),
+    .map((item) => ({
+      tenantUserId: String(item.tenantUserId),
+      num: Number(item.num || 0)
+    })),
   remark: form.remark,
   imgRemark: form.imageRemark || undefined
 })
