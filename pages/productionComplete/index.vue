@@ -10,10 +10,6 @@
 		</view>
 
 		<view class="form-section">
-			<view v-for="(craft, index) in craftInfos" :key="craft.id || index" class="craft-info-summary">
-				<view class="craft-info-title">{{ craft.productInfo || '-' }}</view>
-				<view class="craft-info-grid"><text>工艺：{{ craft.craftName || '-' }}</text><text>单位：{{ craft.unit || '-' }}</text><text>成品数量：{{ craft.orderQuantity || '-' }}</text><text>开数：{{ craft.formatSize || '-' }}</text><text>备注：{{ craft.remark || '-' }}</text><text>单双面：{{ singleDoubleText(craft.singleDouble) }}</text><text>颜色：{{ craft.colour || '-' }}</text><text>规格：{{ craft.formula || '-' }}</text><text>专色：{{ craft.spotColors || '-' }}</text></view>
-			</view>
 			<view class="machine-row" @click="openMachinePopup">
 				<text class="label">机器类型</text>
 				<view class="right-value">
@@ -26,21 +22,6 @@
 			<view class="form-row">
 				<text class="label">完成数量</text>
 				<input v-model="form.num" class="num-field" type="number" placeholder="请输入" placeholder-class="placeholder" />
-			</view>
-			<view class="divider-line"></view>
-
-			<view class="form-row">
-				<text class="label">是否过油</text>
-				<radio-group class="fry-radio-group" @change="changeFry">
-					<label class="fry-radio">
-						<radio value="1" :checked="form.fry === 1" color="#1f7cff" />
-						<text>是</text>
-					</label>
-					<label class="fry-radio">
-						<radio value="0" :checked="form.fry === 0" color="#1f7cff" />
-						<text>否</text>
-					</label>
-				</radio-group>
 			</view>
 			<view class="divider-line"></view>
 
@@ -109,6 +90,7 @@
 						@input="handleDebuggerSearch"
 					/>
 				</view>
+				<scroll-view scroll-y class="user-scroll">
 				<view class="select-user-card" v-for="item in debuggerOptions" :key="item.id" :class="{ selected: String(selectedDebuggerId) === String(item.id) }" @click="selectDebugger(item)">
 					<view class="user-main">
 						<view class="avatar user-avatar"></view>
@@ -120,6 +102,7 @@
 					<view v-if="String(selectedDebuggerId) === String(item.id)" class="check">✓</view>
 				</view>
 				<view v-if="!debuggerOptions.length" class="empty-state">{{ debuggerLoading ? '加载中...' : '暂无人员' }}</view>
+				</scroll-view>
 				<button class="popup-confirm" @click="confirmDebugger">确认添加</button>
 			</view>
 		</view>
@@ -138,6 +121,7 @@
 						@input="handlePartnerSearch"
 					/>
 				</view>
+				<scroll-view scroll-y class="user-scroll">
 				<view class="select-user-card" v-for="item in userOptions" :key="item.id" :class="{ selected: String(selectedUserId) === String(item.id) }" @click="selectUser(item)">
 					<view class="user-main">
 						<view class="avatar user-avatar"></view>
@@ -149,6 +133,7 @@
 					<view v-if="String(selectedUserId) === String(item.id)" class="check">✓</view>
 				</view>
 				<view v-if="!userOptions.length" class="empty-state">{{ partnerLoading ? '加载中...' : '暂无人员' }}</view>
+				</scroll-view>
 				<button class="popup-confirm" @click="confirmPartner">确认添加</button>
 			</view>
 		</view>
@@ -748,8 +733,9 @@ onLoad(options => {
 	border-radius: 24rpx 24rpx 0 0;
 	background: #fff;
 	box-sizing: border-box;
-	overflow-y: auto;
+	overflow: hidden;
 }
+.user-scroll{flex:1;min-height:0;overflow-y:auto;padding-bottom:20rpx}
 .machine-option{
 	display: flex;
 	align-items: center;
@@ -872,10 +858,13 @@ onLoad(options => {
 	line-height: 1;
 }
 .popup-confirm{
-	position: sticky;
-	bottom: 0;
+	position: fixed;
+	left: 34rpx;
+	right: 34rpx;
+	bottom: 24rpx;
+	z-index: 2;
 	flex-shrink: 0;
-	width: 100%;
+	width: auto;
 	height: 78rpx;
 	margin-top: 48rpx;
 	border: 0;

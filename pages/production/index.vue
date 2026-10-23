@@ -468,6 +468,7 @@ onShow(() => {
 }
 .complete-btn.pending{background:#ff3347;color:#fff}
 .complete-btn.producing{background:#1f7cff;color:#fff}
+.complete-btn.done{background:#18bf7b;color:#fff}
 .gap{
 	height: 16rpx;
 	background: #f7f7f7;
