@@ -642,16 +642,16 @@ const computedCraftCustomerAmount = (craft = {}) => {
 	let price = Number(zeroIfEmpty(craft.price ?? craft.unitPrice))
 	let startPrice = Number(zeroIfEmpty(craft.startPrice ?? craft.basePrice))
 	const priceBase = Number(zeroIfEmpty(craft.priceBase))
-	if (type === 2) {
-		finishNum *= 2
-	}
-	if (type === 4) {
-		price *= 2
-		startPrice *= 2
-	}
-	if (String(craft.unit || '').includes('千印')) {
-		finishNum = Math.round(finishNum / 1000)
-	}
+	// if (type === 2) {
+	// 	finishNum *= 2
+	// }
+	// if (type === 4) {
+	// 	price *= 2
+	// 	startPrice *= 2
+	// }
+	// if (String(craft.unit || '').includes('千印')) {
+	// 	finishNum = Math.round(finishNum / 1000)
+	// }
 	const multiplyPloidy = amount => toFixed4Number(amount * ploidy)
 	if (isFoilingCraft(craft)) {
 		const points = normalizeFoilingPointList(craft.foilingPointList, craft.formula)
