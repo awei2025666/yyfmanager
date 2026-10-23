@@ -191,8 +191,12 @@ const formState = reactive({
 
 let localRowSeq = 0
 const createLocalRowKey = () => `row-${Date.now()}-${localRowSeq += 1}`
+const productRelationId = (product = {}) =>
+  product.id ?? product.productId ?? product.productsId ?? product.orderProductId
+const craftRelationId = (craft = {}) =>
+  craft.productId ?? craft.productsId ?? craft.productID ?? craft.orderProductId
 const ensureProductRowKey = (row = {}) => {
-  if (!row._rowKey) row._rowKey = row.id || row.productId || createLocalRowKey()
+  if (!row._rowKey) row._rowKey = productRelationId(row) ?? createLocalRowKey()
   return String(row._rowKey)
 }
 
@@ -798,7 +802,7 @@ const enrichOrderRow = (item = {}) => {
 
 const normalizeProductRow = (item = {}) => ({
     ...item,
-    _rowKey: item._rowKey || item.productKey || item.id || item.productId || createLocalRowKey(),
+    _rowKey: item._rowKey || item.productKey || productRelationId(item) || createLocalRowKey(),
     productName: item.productName || item.name || item.productInfo || '',
     finishedSpec: item.finishedSpec || item.trimmedSize || item.specification || item.trimmedSize || '',
     quantity: item.quantity ?? item.orderQuantity ?? 0,
@@ -809,7 +813,8 @@ const normalizeProductRow = (item = {}) => ({
 const normalizeCraftRow = (item = {}, product = {}) => ({
     ...item,
     _rowKey: item._rowKey || item.id || item.productsCraftId || createLocalRowKey(),
-    productId: item.productId || product.id || undefined,
+    _productRowKey: item._productRowKey || product._rowKey,
+    productId: craftRelationId(item) ?? productRelationId(product),
     productName: item.productName || product.productName || product.name || item.productInfo || '',
     craftId: craftRowCraftId(item) === null || craftRowCraftId(item) === undefined ? '' : String(craftRowCraftId(item)),
     craftName: craftOptionName(item),
@@ -906,7 +911,11 @@ const normalizeDetailRow = (detail = {}, base = {}, processList = []) => {
     orderSource: detail.orderSource ?? base.orderSource,
     manual: detail.manual ?? base.manual
   }
-  const crafts = rawCrafts.length ? rawCrafts.map((item) => normalizeCraftRow(item, craftFallback)) : nestedCraftRows(rawProducts)
+  const crafts = (rawCrafts.length ? rawCrafts.map((item) => normalizeCraftRow(item, craftFallback)) : nestedCraftRows(products))
+    .map((craft) => {
+      const product = products.find((item) => isCraftOfProduct(craft, item, products))
+      return product ? { ...craft, _productRowKey: ensureProductRowKey(product) } : craft
+    })
   const timeline = (processList || []).map((item) => ({
     date: item.createTime || '',
     title: item.content || '订单记录',
@@ -947,22 +956,17 @@ const buildRepeatOrderRecord = (record = {}) => {
       _isEditing: false,
       _isNew: false
     }
-    ;[product._rowKey, product.id, product.productId, product.productsId, product.productName, product.name]
-      .map((value) => String(value || ''))
-      .filter(Boolean)
-      .forEach((value) => productKeyMap.set(value, rowKey))
+    productKeyMap.set(product, rowKey)
     return next
   })
 
   const sourceCrafts = record.crafts || record.craftList || []
   const craftList = sourceCrafts.map((craft) => {
-    const matchKey = [craft._productRowKey, craft.productId, craft.productsId, craft.productName, craft.name]
-      .map((value) => String(value || ''))
-      .find((value) => productKeyMap.has(value))
+    const product = sourceProducts.find((item) => isCraftOfProduct(craft, item, sourceProducts))
     return {
       ...removeRepeatIdentityFields(craft),
       _rowKey: createLocalRowKey(),
-      _productRowKey: matchKey ? productKeyMap.get(matchKey) : '',
+      _productRowKey: product ? productKeyMap.get(product) : '',
       productId: '',
       outTenantId: '',
       outsourceChecked: false,
@@ -1025,10 +1029,10 @@ const productRows = computed(() => {
 const savedProductOptions = computed(() =>
   (formState.productList || [])
     .filter((item) => item.productName)
-    .map((item, index) => ({
+    .map((item) => ({
       ...item,
       _rowKey: ensureProductRowKey(item),
-      optionId: item.id || `${item.productName}-${index}`
+      optionId: ensureProductRowKey(item)
     }))
 )
 const activeProductRow = computed(() => {
@@ -1228,14 +1232,18 @@ const productCraftSourceRows = () => {
   if (currentRecord.value?.crafts?.length) return currentRecord.value.crafts
   return []
 }
-const productMatchValues = (product = {}) =>
-  [product._rowKey, product.id, product.productId, product.productName, product.name].map((value) => String(value || '')).filter(Boolean)
-const craftMatchValues = (craft = {}) =>
-  [craft._productRowKey, craft.productId, craft.productName, craft.name].map((value) => String(value || '')).filter(Boolean)
-const isCraftOfProduct = (craft = {}, product = {}) => {
-  const productValues = productMatchValues(product)
-  if (!productValues.length) return false
-  return craftMatchValues(craft).some((value) => productValues.includes(value))
+const isCraftOfProduct = (craft = {}, product = {}, products = productRows.value) => {
+  if (craft._productRowKey !== undefined && craft._productRowKey !== null && craft._productRowKey !== '') {
+    return String(craft._productRowKey) === ensureProductRowKey(product)
+  }
+  const productId = craftRelationId(craft)
+  if (productId !== undefined && productId !== null && productId !== '') {
+    return String(productId) === String(productRelationId(product) ?? '')
+  }
+  const productName = product.productName || product.name
+  return Boolean(productName)
+    && craft.productName === productName
+    && products.filter((item) => (item.productName || item.name) === productName).length === 1
 }
 const craftCustomerAmount = (craft = {}) => displayCraftCustomerAmount(craft)
 const productCraftAmount = (product = {}) =>
@@ -1357,7 +1365,7 @@ const craftRows = computed(() => {
 const createCraftRow = (product = {}) => ({
   _rowKey: createLocalRowKey(),
   _productRowKey: ensureProductRowKey(product),
-  productId: product.id || product.productId || '',
+  productId: productRelationId(product) ?? '',
   productName: product.productName || product.name || '',
   craftId: '',
   craftName: '',
@@ -1399,11 +1407,12 @@ const addCraftRow = () => {
   if (!Array.isArray(formState.craftList)) formState.craftList = []
   formState.craftList.push(createCraftRow(product))
 }
-const selectCraftProduct = (row) => {
-  const product = savedProductOptions.value.find((item) => item.productName === row.productName)
+const selectCraftProduct = (row, productRowKey = row._productRowKey) => {
+  const product = savedProductOptions.value.find((item) => ensureProductRowKey(item) === String(productRowKey))
   if (!product) return
   row._productRowKey = ensureProductRowKey(product)
-  row.productId = product.id || ''
+  row.productId = productRelationId(product) ?? ''
+  row.productName = product.productName
 }
 const applyCraftToRow = (row, craft) => {
   Object.assign(row, {
@@ -1623,7 +1632,9 @@ const buildOrderRequestPayload = (options = {}) => {
   const crafts = JSON.parse(JSON.stringify(craftRowsForPayload(options).map(cleanCraftRow)))
   const normalizedCrafts = crafts.map(normalizeOrderCraftPayload)
   const normalizedProducts = products.map((product) => {
-    const matchingCrafts = normalizedCrafts.filter((craft) => isCraftOfProduct(craft, product))
+    const matchingCrafts = crafts
+      .filter((craft) => isCraftOfProduct(craft, product, products))
+      .map(normalizeOrderCraftPayload)
     const craftAmount = matchingCrafts.reduce((sum, craft) => sum + craftCustomerAmount(craft), 0)
     return {
       ...normalizeOrderProductPayload(product),
