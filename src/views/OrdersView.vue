@@ -91,6 +91,10 @@ const externalTenantRows = ref([])
 const externalTenantTotal = ref(0)
 const craftSearching = ref(false)
 const craftOptions = ref([])
+const craftSelectOptions = computed(() => craftOptions.value.map((item) => ({
+  label: item.craftName,
+  value: item.id
+})))
 const lastCraftKeyword = ref(null)
 let craftSearchPromise = null
 const detailVisible = ref(false)
@@ -729,8 +733,11 @@ const searchCrafts = async (keyword = '') => {
   craftSearchPromise = request
   try {
     const data = await request
+    if (craftSearchPromise !== request) return
     craftOptions.value = normalizeCraftOptions(data)
+    seedCraftOptions(formState.craftList)
   } catch (error) {
+    if (craftSearchPromise !== request) return
     lastCraftKeyword.value = null
     ElMessage.error(error?.message || '工艺数据加载失败')
   } finally {
@@ -757,6 +764,21 @@ const findCutPaperCraft = async () => {
 
 const handleCraftDropdownVisible = (visible) => {
   if (visible) searchCrafts('')
+}
+
+const showOrderForm = () => {
+  formState.productList.forEach(ensureProductRowKey)
+  formState.craftList.forEach((craft) => {
+    if (!craft._rowKey) craft._rowKey = createLocalRowKey()
+  })
+  const crafts = formState.craftList
+  seedCraftOptions(crafts)
+  hydrateCraftNames(crafts)
+  activeProductKey.value = formState.productList[0] ? ensureProductRowKey(formState.productList[0]) : ''
+  orderFormVisible.value = true
+  searchCrafts('').then(() => {
+    if (formState.craftList === crafts) hydrateCraftNames(crafts)
+  })
 }
 
 const rows = ref([])
@@ -1234,10 +1256,18 @@ const hasStoredCraftAmount = (craft = {}) =>
   craft.customerAmount !== '' && craft.customerAmount !== null && craft.customerAmount !== undefined
   || craft.customerMoney !== '' && craft.customerMoney !== null && craft.customerMoney !== undefined
 const storedCraftAmount = (craft = {}) => Number(zeroIfEmpty(craft.customerAmount ?? craft.customerMoney))
+const craftAmountCache = new WeakMap()
 const displayCraftCustomerAmount = (craft = {}) => {
-  if (orderFormVisible.value) return computedCraftCustomerAmount(craft)
-  if (!craft._isEditing && hasStoredCraftAmount(craft)) return storedCraftAmount(craft)
-  return computedCraftCustomerAmount(craft)
+  let amount = craftAmountCache.get(craft)
+  if (!amount) {
+    amount = computed(() => {
+      if (orderFormVisible.value) return computedCraftCustomerAmount(craft)
+      if (!craft._isEditing && hasStoredCraftAmount(craft)) return storedCraftAmount(craft)
+      return computedCraftCustomerAmount(craft)
+    })
+    craftAmountCache.set(craft, amount)
+  }
+  return amount.value
 }
 const productCraftSourceRows = () => {
   if (orderFormVisible.value) return formState.craftList || []
@@ -1258,10 +1288,17 @@ const isCraftOfProduct = (craft = {}, product = {}, products = productRows.value
     && products.filter((item) => (item.productName || item.name) === productName).length === 1
 }
 const craftCustomerAmount = (craft = {}) => displayCraftCustomerAmount(craft)
-const productCraftAmount = (product = {}) =>
-  productCraftSourceRows()
-    .filter((craft) => isCraftOfProduct(craft, product))
-    .reduce((sum, craft) => sum + craftCustomerAmount(craft), 0)
+const productAmountCache = new WeakMap()
+const productCraftAmount = (product = {}) => {
+  let amount = productAmountCache.get(product)
+  if (!amount) {
+    amount = computed(() => productCraftSourceRows()
+      .filter((craft) => isCraftOfProduct(craft, product))
+      .reduce((sum, craft) => sum + craftCustomerAmount(craft), 0))
+    productAmountCache.set(product, amount)
+  }
+  return amount.value
+}
 const currentProductCraftRows = computed(() => {
   if (!orderFormVisible.value || !activeProductRow.value) return []
   return craftRows.value.filter((craft) => isCraftOfProduct(craft, activeProductRow.value))
@@ -1902,10 +1939,7 @@ const openAdd = () => {
   })
   lastClientKeyword.value = null
   searchClients('')
-  craftOptions.value = []
-  lastCraftKeyword.value = null
-  activeProductKey.value = ''
-  orderFormVisible.value = true
+  showOrderForm()
 }
 
 const openEdit = async (row) => {
@@ -1942,13 +1976,7 @@ const openEdit = async (row) => {
     craftList: record.crafts || record.craftList || []
   })
   seedClientOption(record)
-  craftOptions.value = []
-  lastCraftKeyword.value = null
-  await searchCrafts('')
-  seedCraftOptions(formState.craftList)
-  hydrateCraftNames(formState.craftList)
-  activeProductKey.value = formState.productList[0] ? ensureProductRowKey(formState.productList[0]) : ''
-  orderFormVisible.value = true
+  showOrderForm()
 }
 
 const openOutsource = async (row) => {
@@ -1979,15 +2007,9 @@ const openOutsource = async (row) => {
     outType:null,
   })
   seedClientOption(record)
-  craftOptions.value = []
-  lastCraftKeyword.value = null
-  await searchCrafts('')
-  seedCraftOptions(formState.craftList)
-  hydrateCraftNames(formState.craftList)
-  activeProductKey.value = formState.productList[0] ? ensureProductRowKey(formState.productList[0]) : ''
   outsourceFilters.memberId = ''
   outsourceFilters.memberName = ''
-  orderFormVisible.value = true
+  showOrderForm()
   loadOutsourceUnits()
 }
 
@@ -2606,13 +2628,7 @@ const reapplyOrder = async (row) => {
   }
   Object.assign(formState, buildRepeatOrderRecord(record))
   seedClientOption(record)
-  craftOptions.value = []
-  lastCraftKeyword.value = null
-  await searchCrafts('')
-  seedCraftOptions(formState.craftList)
-  hydrateCraftNames(formState.craftList)
-  activeProductKey.value = formState.productList[0] ? ensureProductRowKey(formState.productList[0]) : ''
-  orderFormVisible.value = true
+  showOrderForm()
 }
 
 const repeatOrder = async (row) => {
@@ -2728,6 +2744,7 @@ watch(
 </script>
 
 <template>
+  <el-config-provider :dialog="{ transition: { name: 'order-dialog-instant', css: false } }">
   <div class="page-stack">
     <section v-if="viewMode === 'list'" class="summary-grid">
       <article class="summary-card">
@@ -3214,6 +3231,7 @@ watch(
             </div>
           <el-table
             :data="productRows"
+            row-key="_rowKey"
             class="design-table billing-product-table"
             :row-class-name="productTableRowClassName"
             @row-click="selectProductRow"
@@ -3262,6 +3280,7 @@ watch(
             </div>
           <el-table
             :data="currentProductCraftRows"
+            row-key="_rowKey"
             class="design-table billing-craft-table"
             empty-text="当前产品暂无工艺"
             @wheel="handleCraftTableWheel"
@@ -3273,25 +3292,19 @@ watch(
             </el-table-column>
             <el-table-column prop="craftName" label="工艺名称" min-width="130">
               <template #default="{ row }">
-                <el-select
+                <el-select-v2
                   v-model="row.craftId"
                   filterable
                   remote
                   clearable
                   reserve-keyword
                   placeholder="请输入工艺名称"
+                  :options="craftSelectOptions"
                   :remote-method="searchCrafts"
                   :loading="craftSearching"
                   @visible-change="handleCraftDropdownVisible"
                   @change="(id) => selectCraftName(row, id)"
-                >
-                  <el-option
-                    v-for="item in craftOptions"
-                    :key="item.id"
-                    :label="item.craftName"
-                    :value="item.id"
-                  />
-                </el-select>
+                />
               </template>
             </el-table-column>
             <el-table-column prop="openNum" label="开数" min-width="70">
@@ -3620,6 +3633,7 @@ watch(
       title="订单详情"
       width="min(1960px, calc(100vw - 48px))"
       class="order-detail-dialog"
+      destroy-on-close
       :close-on-click-modal="false"
     >
       <section v-if="currentRecord" v-loading="detailLoading" class="order-detail-page">
@@ -3910,6 +3924,7 @@ watch(
       </template>
     </el-dialog>
   </div>
+  </el-config-provider>
 </template>
 
 <style scoped>
