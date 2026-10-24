@@ -84,6 +84,7 @@ export const saveTenantOrderPack = (payload = {}) => tenantHttp.post('/api/tenan
 export const getTenantOrderAutoApprove = () => tenantHttp.get('/api/tenant/order/autoApproval')
 export const changeTenantOrderAutoApprove = (payload = {}) => tenantHttp.post('/api/tenant/order/changeAutoApproval', payload)
 export const approveTenantOrder = (payload = {}) => tenantHttp.post('/api/tenant/order/approve', payload)
+export const changeTenantOrderAuditStatus = (payload = {}) => tenantHttp.post('/api/tenant/order/auditStatus', payload)
 export const returnTenantOrder = (id) => tenantHttp.get('/api/tenant/order/returnOrder', { params: { id } })
 export const deleteTenantOrder = (id) => tenantHttp.get('/api/tenant/order/del', { params: { id } })
 export const stopTenantOrder = (id) => tenantHttp.get('/api/tenant/order/orderStop', { params: { id } })

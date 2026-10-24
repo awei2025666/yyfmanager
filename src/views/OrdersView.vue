@@ -11,6 +11,7 @@ import {
   approveTenantOrder,
   changeTenantProductCraftOrderQuantity,
   changeTenantOrderAutoApprove,
+  changeTenantOrderAuditStatus,
   completeTenantOrderProduction,
   deleteTenantOrder,
   deleteTenantConsumableDetail,
@@ -69,6 +70,7 @@ const filters = reactive({
 const autoApprove = ref(true)
 const autoApproveLoading = ref(false)
 const loading = ref(false)
+const auditingOrderIds = ref(new Set())
 const exporting = ref(false)
 const exportingCraft = ref(false)
 const saving = ref(false)
@@ -215,7 +217,8 @@ const statusOptions = computed(() =>
     .map(([value, item]) => ({ value: Number(value), ...item }))
 )
 const paymentStatusMap = {
-  1: { label: '进行中', tone: 'running' },
+  0: { label: '待审核', tone: 'running' },
+  1: { label: '进行中', tone: 'audit' },
   2: { label: '已结清', tone: 'settled' },
   3: { label: '未结清', tone: 'pending-approval' }
 }
@@ -1742,7 +1745,7 @@ const buildQuery = () => ({
   fillUserName: filters.fillUserName || undefined,
   orderId: filters.orderId || routeQueryValue('detailId') || undefined,
   status: filters.status || undefined,
-  paymentStatus: filters.paymentStatus || undefined,
+  paymentStatus: filters.paymentStatus === '' ? undefined : filters.paymentStatus,
   createTimeStart: filters.orderTimeRange?.[0] || undefined,
   createTimeEnd: filters.orderTimeRange?.[1] || undefined,
   orderByDate: filters.orderByDate
@@ -2395,6 +2398,23 @@ const removeOrder = async (row) => {
   }
 }
 
+const changeOrderAuditStatus = async (row, auditStatus) => {
+  const orderId = row?.id
+  if (!orderId) return ElMessage.error('缺少订单ID，无法操作')
+  if (auditingOrderIds.value.has(orderId)) return
+  auditingOrderIds.value.add(orderId)
+  try {
+    await changeTenantOrderAuditStatus({ id: orderId, auditStatus })
+    row.auditStatus = auditStatus
+    ElMessage.success(auditStatus === 1 ? '审核成功' : '撤销审核成功')
+    await loadData()
+  } catch (error) {
+    ElMessage.error(error?.message || (auditStatus === 1 ? '审核失败' : '撤销审核失败'))
+  } finally {
+    auditingOrderIds.value.delete(orderId)
+  }
+}
+
 const openApprove = (row) => {
   currentRecord.value = row
   approvalRemark.value = ''
@@ -2957,6 +2977,20 @@ watch(
         <el-table-column label="操作" min-width="200">
           <template #default="{ row }">
             <el-space wrap>
+              <el-button
+                  v-if="String(row.auditStatus) === '0'"
+                  link
+                  type="primary"
+                  :loading="auditingOrderIds.has(row.id)"
+                  @click="changeOrderAuditStatus(row, 1)"
+              >审核</el-button>
+              <el-button
+                  v-else-if="String(row.auditStatus) === '1'"
+                  link
+                  type="warning"
+                  :loading="auditingOrderIds.has(row.id)"
+                  @click="changeOrderAuditStatus(row, 0)"
+              >撤销审核</el-button>
               <template v-for="action in rowActions(row)" :key="action">
                 <el-popover
                   v-if="action === '返单' && orderCraftRemarkGroups(row).length"
@@ -3000,6 +3034,7 @@ watch(
               <el-button v-if="row.orderSource == 2 && row.status ==2" link type="warning" @click="cancelOutsourceAll(row)">取消整单外协</el-button>
               <el-button link type="primary" @click="openOrderAttachments(row)">查看附件</el-button>
               <el-button link type="primary" @click="openConsumables(row)">耗材</el-button>
+
             </el-space>
           </template>
         </el-table-column>
@@ -3261,11 +3296,7 @@ watch(
                 </el-select>
               </template>
             </el-table-column>
-            <el-table-column prop="startPrice" label="起价" min-width="78">
-              <template #default="{ row }">
-                <el-input v-model="row.startPrice" placeholder="请输入起步价" />
-              </template>
-            </el-table-column>
+
             <el-table-column prop="spotColors" label="专色" min-width="78">
               <template #default="{ row }">
                 <el-input v-model="row.spotColors" placeholder="请输入专色" />
@@ -3274,6 +3305,11 @@ watch(
             <el-table-column prop="colour" label="颜色" min-width="78">
               <template #default="{ row }">
                 <el-input v-model="row.colour" placeholder="请输入颜色" />
+              </template>
+            </el-table-column>
+            <el-table-column prop="startPrice" label="起价" min-width="78">
+              <template #default="{ row }">
+                <el-input v-model="row.startPrice" placeholder="请输入起步价" />
               </template>
             </el-table-column>
             <el-table-column prop="finishNum" label="成品数量" min-width="92">
@@ -4070,6 +4106,12 @@ watch(
   color: #ff4d4f !important;
   border-color: #ffd6d9 !important;
   background: #fff1f0 !important;
+}
+
+.payment-status--audit {
+  color: #1677ff !important;
+  border-color: #bae0ff !important;
+  background: #e6f4ff !important;
 }
 
 .order-status--pending-approval {
