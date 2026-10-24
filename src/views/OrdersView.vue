@@ -828,8 +828,8 @@ const normalizeCraftRow = (item = {}, product = {}) => ({
     spotColors: item.spotColors || '',
     colour: item.colour || item.color || '',
     formula: item.formula || '',
-    startPrice: item.startPrice ?? item.priceBase ?? 0,
-    priceBase: item.priceBase ?? item.startPrice ?? 0,
+    startPrice: item.startPrice ?? item.priceBase ?? null,
+    priceBase: item.priceBase ?? item.startPrice ?? null,
     priceBase1: item.priceBase1 ?? item.craftPriceBase ?? item.craftBasePrice ?? 0,
     foilingStartingPrice: item.foilingStartingPrice ?? null,
     foilingPointPrice: item.foilingPointPrice ?? null,
@@ -837,9 +837,9 @@ const normalizeCraftRow = (item = {}, product = {}) => ({
     foilingPointList: (item.foilingPointList || item.foilingPoints || item.foilingPointPrice || item.foilingSheetPrice || item.foilingStartingPrice)
       ? normalizeFoilingPointList(item.foilingPointList ?? item.foilingPoints, item.formula)
       : [],
-    finishNum: item.finishNum ?? item.orderQuantity ?? 0,
+    finishNum: item.finishNum ?? item.orderQuantity ?? null,
     unit: item.unit || '',
-    price: item.price ?? item.unitPrice ?? 0,
+    price: item.price ?? item.unitPrice ?? null,
     ploidy: item.ploidy ?? 1,
     customerAmount: item.customerAmount ?? item.customerMoney ?? null,
     remark: item.remark || '',
@@ -1043,6 +1043,7 @@ const activeProductRow = computed(() => {
   return productRows.value.find((item) => ensureProductRowKey(item) === activeProductKey.value) || productRows.value[0]
 })
 const zeroIfEmpty = (value) => (value === '' || value === null || value === undefined ? 0 : value)
+const nullIfEmpty = (value) => (value === '' || value === null || value === undefined ? null : value)
 const toFixed4Number = (value) => Number(Number(value || 0).toFixed(4))
 const formulaValue = (formula = '') => {
   const text = String(formula || '').trim()
@@ -1379,16 +1380,16 @@ const createCraftRow = (product = {}) => ({
   spotColors: '',
   colour: '',
   formula: '',
-  startPrice: 0,
+  startPrice: null,
   priceBase: 0,
   priceBase1: 0,
   foilingStartingPrice: null,
   foilingPointPrice: null,
   foilingSheetPrice: null,
   foilingPointList: [],
-  finishNum: 0,
+  finishNum: null,
   unit: '',
-  price: 0,
+  price: null,
   ploidy: 1,
   customerAmount: 0,
   remark: '',
@@ -1426,16 +1427,16 @@ const applyCraftToRow = (row, craft) => {
     spotColors: '',
     colour: '',
     formula: '',
-    startPrice: 0,
+    startPrice: null,
     priceBase: 0,
     priceBase1: 0,
     foilingStartingPrice: null,
     foilingPointPrice: null,
     foilingSheetPrice: null,
     foilingPointList: [],
-    finishNum: 0,
+    finishNum: null,
     unit: '',
-    price: 0,
+    price: null,
     ploidy: 1,
     customerAmount: 0,
     remark: ''
@@ -1449,7 +1450,7 @@ const applyCraftToRow = (row, craft) => {
   row.spotColors = craft.spotColors ?? ''
   row.colour = craft.colour ?? craft.color ?? ''
   row.formula = craft.formula ?? ''
-  row.startPrice = zeroIfEmpty(craft.startPrice ?? craft.basePrice)
+  row.startPrice = null
   row.priceBase = zeroIfEmpty(row.startPrice)
   row.priceBase1 = zeroIfEmpty(craft.priceBase1 ?? craft.craftPriceBase ?? craft.priceBase)
   row.foilingStartingPrice = craft.foilingStartingPrice ?? craft.foilStartingPrice ?? craft.gildingStartingPrice ?? null
@@ -1458,7 +1459,7 @@ const applyCraftToRow = (row, craft) => {
   row.foilingPointList = normalizeFoilingPointList(craft.foilingPointList ?? craft.foilingPoints, row.formula)
   if (isFoilingCraft(row)) syncFoilingFormula(row)
   row.unit = craft.unit || ''
-  row.price = zeroIfEmpty(craft.price ?? craft.unitPrice)
+  row.price = null
   row.ploidy = zeroIfEmpty(craft.ploidy ?? 1) || 1
   row.remark = craft.remark || ''
   if (isFoilingCraft(row) && !row.foilingPointList.length) {
@@ -1513,11 +1514,11 @@ const saveCraftRow = (row) => {
     ElMessage.warning('公式只能填写数字、括号和四则运算符')
     return false
   }
-  row.startPrice = zeroIfEmpty(row.startPrice)
-  row.priceBase = zeroIfEmpty(row.startPrice)
+  row.startPrice = nullIfEmpty(row.startPrice)
+  row.priceBase = row.startPrice
   row.priceBase1 = zeroIfEmpty(row.priceBase1)
-  row.finishNum = zeroIfEmpty(row.finishNum)
-  row.price = zeroIfEmpty(row.price)
+  row.finishNum = nullIfEmpty(row.finishNum)
+  row.price = nullIfEmpty(row.price)
   row.ploidy = zeroIfEmpty(row.ploidy) || 1
   row.singleDouble = row.singleDouble || ''
   row.customerAmount = computedCraftCustomerAmount(row)
@@ -1548,9 +1549,9 @@ const removeCraftRow = (row, index) => {
 const cleanCraftRow = (row = {}) => {
   const { _isEditing, _isNew, _rowKey, _autoCutPaperFor, ...payload } = row
   const customerAmount = displayCraftCustomerAmount(row)
-  payload.startPrice = zeroIfEmpty(payload.startPrice)
+  payload.startPrice = nullIfEmpty(payload.startPrice)
   payload.priceBase = payload.startPrice
-  payload.priceBase1 = zeroIfEmpty(payload.priceBase1)
+  payload.priceBase1 = payload.priceBase1
   payload.foilingStartingPrice = payload.foilingStartingPrice === '' || payload.foilingStartingPrice === undefined
     ? null
     : payload.foilingStartingPrice
@@ -1562,9 +1563,9 @@ const cleanCraftRow = (row = {}) => {
     : payload.foilingSheetPrice
   payload.foilingPointList = isFoilingCraft(payload) ? normalizeFoilingPointList(payload.foilingPointList, payload.formula) : []
   if (payload.foilingPointList.length) payload.formula = formatFoilingFormula(payload.foilingPointList)
-  payload.finishNum = zeroIfEmpty(payload.finishNum)
+  payload.finishNum = nullIfEmpty(payload.finishNum)
   payload.orderQuantity = payload.finishNum
-  payload.price = zeroIfEmpty(payload.price)
+  payload.price = nullIfEmpty(payload.price)
   payload.unitPrice = payload.price
   payload.ploidy = zeroIfEmpty(payload.ploidy) || 1
   payload.customerAmount = customerAmount
@@ -1600,18 +1601,18 @@ const normalizeOrderCraftPayload = (craft = {}) => ({
   spotColors: craft.spotColors,
   colour: craft.colour,
   formula: craft.formula,
-  priceBase: craft.startPrice ?? craft.priceBase,
+  priceBase: craft.startPrice,
   priceBase1: craft.priceBase1,
-  startPrice: craft.startPrice ?? craft.priceBase,
+  startPrice: craft.startPrice,
   foilingStartingPrice: craft.foilingStartingPrice,
   foilingPointPrice: craft.foilingPointPrice,
   foilingSheetPrice: craft.foilingSheetPrice,
   foilingPointList: isFoilingCraft(craft) ? normalizeFoilingPointList(craft.foilingPointList, craft.formula) : [],
-  orderQuantity: craft.finishNum ?? craft.orderQuantity,
-  finishNum: craft.finishNum ?? craft.orderQuantity,
+  orderQuantity: craft.finishNum,
+  finishNum: craft.finishNum,
   unit: craft.unit,
-  unitPrice: craft.price ?? craft.unitPrice,
-  price: craft.price ?? craft.unitPrice,
+  unitPrice: craft.price,
+  price: craft.price,
   ploidy: craft.ploidy ?? 1,
   customerMoney: craft.customerMoney ?? craft.customerAmount,
   customerAmount: craft.customerAmount ?? craft.customerMoney,
@@ -1634,6 +1635,7 @@ const buildOrderRequestPayload = (options = {}) => {
   const products = JSON.parse(JSON.stringify(productRows.value.map(cleanProductRow)))
   const crafts = JSON.parse(JSON.stringify(craftRowsForPayload(options).map(cleanCraftRow)))
   const normalizedCrafts = crafts.map(normalizeOrderCraftPayload)
+
   const normalizedProducts = products.map((product) => {
     const matchingCrafts = crafts
       .filter((craft) => isCraftOfProduct(craft, product, products))
