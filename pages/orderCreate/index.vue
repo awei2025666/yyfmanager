@@ -211,7 +211,14 @@
 			</view>
 			<view class="form-row">
 				<text class="label required">单价</text>
-				<input v-model="craftForm.unitPrice" type="digit" placeholder="请输入" placeholder-class="placeholder" />
+				<input
+					v-if="isFoilingCraft(craftForm)"
+					:value="craftFormCustomerMoneyText"
+					disabled
+					placeholder="自动计算"
+					placeholder-class="placeholder"
+				/>
+				<input v-else v-model="craftForm.unitPrice" type="digit" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
 			<view class="form-row">
 				<text class="label">公式</text>
@@ -275,6 +282,10 @@
 					<view class="dialog-row">
 						<text class="label">每页起价</text>
 						<input v-model="foilingPointForm.foilingSheetPrice" type="digit" placeholder="请输入每页起价" placeholder-class="placeholder" />
+					</view>
+					<view class="dialog-row">
+						<text class="label">点位平方价</text>
+						<input v-model="foilingPointForm.foilingSquarePrice" type="digit" placeholder="请输入点位平方价" placeholder-class="placeholder" />
 					</view>
 				</view>
 				<view class="foiling-point-head">
@@ -419,6 +430,7 @@ const craftForm = reactive({
 	foilingStartingPrice: null,
 	foilingPointPrice: null,
 	foilingSheetPrice: null,
+	foilingSquarePrice: null,
 	foilingPointList: [],
 	unit: '',
 	ploidy: '',
@@ -431,6 +443,7 @@ const craftForm = reactive({
 const foilingPointForm = reactive({
 	foilingPointPrice: '',
 	foilingSheetPrice: '',
+	foilingSquarePrice: '',
 	points: ['']
 })
 const singleDoubleIndex = computed(() => Math.max(0, singleDoubleOptions.findIndex(item => String(item.value) === String(craftForm.singleDouble))))
@@ -585,6 +598,7 @@ const formatFoilingFormula = (points = []) => {
 const hasFoilingStartingPrice = (craft = {}) =>
 	Number(craft.foilingPointPrice || 0) > 0
 	|| Number(craft.foilingSheetPrice || 0) > 0
+	|| Number(craft.foilingSquarePrice || 0) > 0
 	|| Number(craft.foilingStartingPrice || 0) > 0
 const hasExplicitFoilingPointList = (craft = {}) =>
 	(Array.isArray(craft.foilingPointList) && craft.foilingPointList.length > 0)
@@ -601,6 +615,7 @@ const openFoilingPointDialog = () => {
 	const points = normalizeFoilingPointList(craftForm.foilingPointList, craftForm.formula)
 	foilingPointForm.foilingPointPrice = craftForm.foilingPointPrice ?? craftForm.foilingStartingPrice ?? ''
 	foilingPointForm.foilingSheetPrice = craftForm.foilingSheetPrice ?? craftForm.foilingStartingPrice ?? ''
+	foilingPointForm.foilingSquarePrice = craftForm.foilingSquarePrice ?? craftForm.foilingPointPrice ?? craftForm.foilingStartingPrice ?? ''
 	foilingPointForm.points = points.length ? points.map(item => item.formula) : ['']
 	showFoilingPointDialog.value = true
 }
@@ -629,6 +644,7 @@ const saveFoilingPointDialog = () => {
 	}
 	craftForm.foilingPointPrice = foilingPointForm.foilingPointPrice === '' ? null : Number(foilingPointForm.foilingPointPrice)
 	craftForm.foilingSheetPrice = foilingPointForm.foilingSheetPrice === '' ? null : Number(foilingPointForm.foilingSheetPrice)
+	craftForm.foilingSquarePrice = foilingPointForm.foilingSquarePrice === '' ? null : Number(foilingPointForm.foilingSquarePrice)
 	craftForm.foilingPointList = points.map(item => ({ formula: item }))
 	craftForm.formula = formatFoilingFormula(craftForm.foilingPointList)
 	showFoilingPointDialog.value = false
@@ -658,11 +674,12 @@ const computedCraftCustomerAmount = (craft = {}) => {
 		const points = normalizeFoilingPointList(craft.foilingPointList, craft.formula)
 		if (points.length) {
 			const pointStartPrice = Number(zeroIfEmpty(craft.foilingPointPrice ?? craft.foilingStartingPrice))
+			const squarePrice = Number(zeroIfEmpty(craft.foilingSquarePrice ?? craft.foilingPointPrice ?? craft.foilingStartingPrice))
 			const sheetStartPrice = Number(zeroIfEmpty(craft.foilingSheetPrice ?? craft.foilingStartingPrice))
 			const pointTotal = points.reduce((sum, point) => {
 				const pointValue = formulaValue(point.formula)
 				if (pointValue === null) return sum
-				return sum + Math.max(pointValue * price, pointStartPrice)
+				return sum + Math.max(pointValue * squarePrice, pointStartPrice)
 			}, 0)
 			return multiplyPloidy(Math.max(pointTotal, sheetStartPrice) * finishNum)
 		}
@@ -972,6 +989,7 @@ const selectPickerItem = item => {
 		craftForm.foilingStartingPrice = null
 		craftForm.foilingPointPrice = null
 		craftForm.foilingSheetPrice = null
+		craftForm.foilingSquarePrice = null
 		craftForm.foilingPointList = []
 		craftForm.unit = ''
 		craftForm.ploidy = ''
@@ -985,6 +1003,7 @@ const selectPickerItem = item => {
 		craftForm.foilingStartingPrice = craft.foilingStartingPrice ?? craft.foilStartingPrice ?? craft.gildingStartingPrice ?? null
 		craftForm.foilingPointPrice = craft.foilingPointPrice ?? craft.foilPointPrice ?? craft.pointStartPrice ?? craftForm.foilingStartingPrice
 		craftForm.foilingSheetPrice = craft.foilingSheetPrice ?? craft.foilSheetPrice ?? craft.sheetStartPrice ?? craftForm.foilingStartingPrice
+		craftForm.foilingSquarePrice = craft.foilingSquarePrice ?? craft.foilingPointPrice ?? craft.foilPointPrice ?? craft.pointStartPrice ?? craftForm.foilingStartingPrice
 		craftForm.unit = craft.unit || craftForm.unit || ''
 		craftForm.ploidy = zeroIfEmpty(craft.ploidy ?? craft.multiple ?? craft.sets ?? craftForm.ploidy)
 		craftForm.openNum = craft.openNum ?? craft.openCount ?? craft.formatSize ?? craftForm.openNum
@@ -1039,6 +1058,7 @@ const saveCraft = () => {
 		foilingStartingPrice: craftForm.foilingStartingPrice,
 		foilingPointPrice: craftForm.foilingPointPrice,
 		foilingSheetPrice: craftForm.foilingSheetPrice,
+		foilingSquarePrice: craftForm.foilingSquarePrice,
 		foilingPointList: isFoilingCraft(craftForm) ? normalizeFoilingPointList(craftForm.foilingPointList, craftForm.formula) : [],
 		unit: craftForm.unit || '',
 		ploidy: Number(craftForm.ploidy || 1),
@@ -1071,6 +1091,7 @@ const resetCraft = () => {
 	craftForm.foilingStartingPrice = null
 	craftForm.foilingPointPrice = null
 	craftForm.foilingSheetPrice = null
+	craftForm.foilingSquarePrice = null
 	craftForm.foilingPointList = []
 	craftForm.unit = ''
 	craftForm.ploidy = ''
@@ -1130,6 +1151,9 @@ const buildCraftPayload = craft => ({
 	foilingSheetPrice: craft.foilingSheetPrice === '' || craft.foilingSheetPrice === undefined
 		? null
 		: craft.foilingSheetPrice,
+	foilingSquarePrice: craft.foilingSquarePrice === '' || craft.foilingSquarePrice === undefined
+		? null
+		: craft.foilingSquarePrice,
 	foilingPointList: isFoilingCraft(craft) ? normalizeFoilingPointList(craft.foilingPointList, craft.formula) : [],
 	name: craft.name,
 	craftName: craft.name,

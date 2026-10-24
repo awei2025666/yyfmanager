@@ -1,6 +1,25 @@
 <script>
 	export default {
-		onLaunch: function() {},
+		onLaunch: function() {
+			// #ifdef MP-WEIXIN
+			const updateManager = uni.getUpdateManager()
+			updateManager.onCheckForUpdate(() => {})
+			updateManager.onUpdateReady(() => {
+				uni.showModal({
+					title: '发现新版本',
+					content: '新版本已准备好，是否立即重启更新？',
+					confirmText: '立即更新',
+					cancelText: '稍后再说',
+					success: result => {
+						if (result.confirm) updateManager.applyUpdate()
+					}
+				})
+			})
+			updateManager.onUpdateFailed(() => {
+				uni.showToast({ title: '新版本下载失败，请稍后重试', icon: 'none' })
+			})
+			// #endif
+		},
 		onShow: function() {},
 		onHide: function() {}
 	}
