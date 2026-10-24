@@ -2766,7 +2766,7 @@ watch(
     </section>
 
     <PageBlock v-if="viewMode === 'list'" class="filter-card">
-      <div class="filter-grid">
+      <div class="filter-grid" @keyup.enter="loadData">
         <label>
           <span>单位名称</span>
           <el-select
