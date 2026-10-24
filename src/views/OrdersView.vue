@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Plus, Printer, Refresh, Search } from '@element-plus/icons-vue'
@@ -132,6 +132,8 @@ const manualCompleteTarget = ref(null)
 const errorTarget = ref(null)
 const outsourceAllTarget = ref(null)
 const userOptions = ref([])
+const userOptionsLoading = ref(false)
+let userOptionsPromise = null
 const viewMode = ref(route.query.mode === 'detail' ? 'detail' : 'list')
 const activeProductKey = ref('')
 const formMode = ref('create')
@@ -486,16 +488,23 @@ const handleClientDropdownVisible = (visible) => {
   }
 }
 
-const loadUserOptions = async (keyword = '') => {
-  try {
-    const data = await getTenantClientUsers({ name: keyword || undefined })
-    userOptions.value = listRows(data)
-      .map(normalizeUserOption)
-      .filter((item) => item.id && item.name)
-  } catch (error) {
-    userOptions.value = []
-    ElMessage.error(error?.message || '人员列表加载失败')
-  }
+const loadUserOptions = () => {
+  if (userOptionsPromise) return userOptionsPromise
+  userOptionsLoading.value = true
+  userOptionsPromise = getTenantClientUsers()
+    .then((data) => {
+      userOptions.value = listRows(data)
+        .map(normalizeUserOption)
+        .filter((item) => item.id && item.name)
+    })
+    .catch((error) => {
+      userOptionsPromise = null
+      ElMessage.error(error?.message || '人员列表加载失败')
+    })
+    .finally(() => {
+      userOptionsLoading.value = false
+    })
+  return userOptionsPromise
 }
 
 const normalizeOutsourceOptions = (data) => {
@@ -1803,6 +1812,18 @@ const buildQuery = () => ({
   orderByDate: filters.orderByDate
 })
 
+const searchOrders = () => {
+  filters.pageNum = 1
+  loadData()
+}
+
+const handleFilterEnter = async (event) => {
+  if (event.isComposing || event.keyCode === 229 || event.repeat || event.target.closest('button')) return
+  // 等下拉框处理回车选中并更新筛选值后，再发起查询。
+  await nextTick()
+  searchOrders()
+}
+
 const loadData = async () => {
   loading.value = true
   try {
@@ -2386,9 +2407,7 @@ const openErrorOrder = async (row) => {
   errorForm.tenantUserId = row.errorTenantUserId ?? ''
   errorForm.remark = row.errorRemark ?? ''
   errorVisible.value = true
-  if (!userOptions.value.length || (row.errorTenantUserId && !userOptions.value.some((item) => String(item.id) === String(row.errorTenantUserId)))) {
-    await loadUserOptions()
-  }
+  await loadUserOptions()
   const selectedUser = userOptions.value.find((item) => String(item.id) === String(errorForm.tenantUserId))
   if (selectedUser) errorForm.tenantUserId = selectedUser.id
 }
@@ -2766,12 +2785,13 @@ watch(
     </section>
 
     <PageBlock v-if="viewMode === 'list'" class="filter-card">
-      <div class="filter-grid" @keyup.enter="loadData">
+      <div class="filter-grid" @keydown.enter.capture="handleFilterEnter">
         <label>
           <span>单位名称</span>
           <el-select
             v-model="filters.companyName"
             filterable
+            default-first-option
             remote
             clearable
             reserve-keyword
@@ -2793,12 +2813,10 @@ watch(
           <el-select
             v-model="filters.fillUserName"
             filterable
-            remote
+            default-first-option
             clearable
-            reserve-keyword
             placeholder="请选择业务员"
-            :remote-method="loadUserOptions"
-            @visible-change="(visible) => visible && loadUserOptions()"
+            :loading="userOptionsLoading"
           >
             <el-option v-for="item in userOptions" :key="item.id" :label="item.name" :value="item.name" />
           </el-select>
@@ -2831,7 +2849,7 @@ watch(
           />
         </label>
         <div class="filter-actions">
-          <el-button type="primary" @click="loadData">
+          <el-button type="primary" @click="searchOrders">
             <el-icon><Search /></el-icon>
             <span>查询</span>
           </el-button>
