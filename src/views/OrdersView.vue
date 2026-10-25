@@ -2000,6 +2000,12 @@ const openEdit = async (row) => {
   showOrderForm()
 }
 
+const handleOrderRowDblClick = (row, column, event) => {
+  if (detailLoading.value || orderFormVisible.value) return
+  if (event.target.closest('button, a, input, textarea, select, [role="button"]')) return
+  return openEdit(row)
+}
+
 const openOutsource = async (row) => {
   formMode.value = 'outsource'
   sourceOrderId.value = row.id
@@ -2763,7 +2769,10 @@ watch(
 </script>
 
 <template>
-  <el-config-provider :dialog="{ transition: { name: 'order-dialog-instant', css: false } }">
+  <el-config-provider
+    :dialog="{ transition: { name: 'order-dialog-instant', css: false } }"
+    :table="{ showOverflowTooltip: true }"
+  >
   <div class="page-stack">
     <section v-if="viewMode === 'list'" class="summary-grid">
       <article class="summary-card">
@@ -2901,11 +2910,13 @@ watch(
           ref="orderTableRef"
           v-loading="loading"
           :data="rows"
+          border
           class="order-list-table"
           empty-text="当前筛选下暂无订单数据"
           :cell-style="({ row, columnIndex }) => row.errorTenantUserId && columnIndex < 7 ? { color: 'red' } : {}"
           :default-sort="{ prop: 'orderTime', order: 'descending' }"
           @sort-change="handleOrderSortChange"
+          @row-dblclick="handleOrderRowDblClick"
       >
         <el-table-column
           prop="orderId"
@@ -2937,7 +2948,7 @@ watch(
           sortable="custom"
           :sort-orders="['ascending', 'descending']"
         />
-        <el-table-column label="产品信息" min-width="180">
+        <el-table-column label="产品信息" min-width="180" :show-overflow-tooltip="false">
           <template #default="{ row }">
             <el-popover
               v-if="orderCraftStatusGroups(row).length"
@@ -3024,9 +3035,9 @@ watch(
             </button>
           </template>
         </el-table-column>
-        <el-table-column label="操作" min-width="200">
+        <el-table-column label="操作" min-width="600" :show-overflow-tooltip="false">
           <template #default="{ row }">
-            <el-space wrap>
+            <el-space>
               <el-button
                   v-if="String(row.auditStatus) === '0'"
                   link
@@ -3249,6 +3260,7 @@ watch(
             </div>
           <el-table
             :data="productRows"
+            border
             row-key="_rowKey"
             class="design-table billing-product-table"
             :row-class-name="productTableRowClassName"
@@ -3298,6 +3310,7 @@ watch(
             </div>
           <el-table
             :data="currentProductCraftRows"
+            border
             row-key="_rowKey"
             class="design-table billing-craft-table"
             empty-text="当前产品暂无工艺"
@@ -3727,9 +3740,9 @@ watch(
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" min-width="190" fixed="right">
+            <el-table-column label="操作" min-width="240" fixed="right" :show-overflow-tooltip="false">
               <template #default="{ row }">
-                <el-space wrap>
+                <el-space>
                   <el-button v-if="shouldShowManualComplete(row)" type="primary" link @click="openManualComplete(row)">
                     手动完成
                   </el-button>
@@ -4058,6 +4071,11 @@ watch(
 
 .filter-grid :deep(.el-select__wrapper) {
   min-height: 32px;
+}
+
+.filter-grid :deep(.el-input),
+.filter-grid :deep(.el-select) {
+  max-width: 220px;
 }
 
 .filter-grid :deep(.el-button),
@@ -4795,6 +4813,24 @@ watch(
 
 .design-table {
   width: 100%;
+}
+
+.billing-product-table,
+.billing-craft-table {
+  --el-table-border-color: #c0c4cc;
+  --el-table-border: 1px solid var(--el-table-border-color);
+}
+
+.billing-product-table :deep(.el-table__cell:not(.gutter)),
+.billing-craft-table :deep(.el-table__cell:not(.gutter)) {
+  border-right: var(--el-table-border);
+  border-bottom: var(--el-table-border);
+}
+
+:deep(.el-table .cell) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .order-list-table :deep(.el-table__cell) {
