@@ -155,17 +155,17 @@ const formatMoney = value => {
 
 const getProductDesc = item => {
 	const spec = item.trimmedSize || item.specification || ''
-	const quantity = item.orderQuantity || item.num || ''
+  const quantity = (item.orderQuantity || item.num || '') + (item.unit || '')
 	const money = formatMoney(item.money || item.customerMoney || item.unitPrice)
-	return [spec, quantity, money].filter(value => value !== '').join('*')
+	return [spec, quantity, money].filter(value => value !== '').join(' * ')
 }
 
 const getCraftBaseDesc = item => {
 	const name = item.craftName || item.name || ''
-	const quantity = item.orderQuantity || ''
+	const quantity = (item.orderQuantity || '') + (item.unit || '')
 	const unitPrice = formatMoney(item.unitPrice)
 	const customerMoney = formatMoney(item.customerMoney)
-	return [name, quantity, unitPrice, customerMoney].filter(value => value !== '').join('*')
+	return [name, quantity, unitPrice, customerMoney].filter(value => value !== '').join(' * ')
 }
 
 const getCraftStatus = item => {
