@@ -1312,19 +1312,6 @@ const currentProductCraftRows = computed(() => {
   if (!orderFormVisible.value || !activeProductRow.value) return []
   return craftRows.value.filter((craft) => isCraftOfProduct(craft, activeProductRow.value))
 })
-const handleCraftTableWheel = (event) => {
-  const root = event.currentTarget
-  const scrollWrap = root?.querySelector('.el-scrollbar__wrap') || root?.querySelector('.el-table__body-wrapper')
-  if (!scrollWrap) return
-  const maxScrollLeft = scrollWrap.scrollWidth - scrollWrap.clientWidth
-  if (maxScrollLeft <= 0) return
-  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
-  if (!delta) return
-  const nextScrollLeft = Math.max(0, Math.min(maxScrollLeft, scrollWrap.scrollLeft + delta))
-  if (nextScrollLeft === scrollWrap.scrollLeft) return
-  event.preventDefault()
-  scrollWrap.scrollLeft = nextScrollLeft
-}
 const selectProductRow = (row = {}) => {
   activeProductKey.value = ensureProductRowKey(row)
 }
@@ -2040,7 +2027,7 @@ const openOutsource = async (row) => {
   loadOutsourceUnits()
 }
 
-const saveOrder = async () => {
+const saveOrder = async (closeAfterSave = false) => {
   if (saving.value) return
   if (formMode.value === 'outsource' && !formState.outsourceSupplierId) {
     ElMessage.warning('请选择外协单位')
@@ -2086,8 +2073,9 @@ const saveOrder = async () => {
         formMode.value = 'edit'
       }
     }
-    if (formMode.value === 'outsource') orderFormVisible.value = false
-    ElMessage.success(formMode.value === 'outsource' ? '订单已转外协' : '订单已保存，可继续编辑')
+    const shouldClose = closeAfterSave || formMode.value === 'outsource'
+    if (shouldClose) orderFormVisible.value = false
+    ElMessage.success(formMode.value === 'outsource' ? '订单已转外协' : shouldClose ? '订单已保存' : '订单已保存，可继续编辑')
     await loadData()
   } catch (error) {
     ElMessage.error(error?.message || '订单保存失败')
@@ -2911,6 +2899,7 @@ watch(
           v-loading="loading"
           :data="rows"
           border
+          scrollbar-always-on
           class="order-list-table"
           empty-text="当前筛选下暂无订单数据"
           :cell-style="({ row, columnIndex }) => row.errorTenantUserId && columnIndex < 7 ? { color: 'red' } : {}"
@@ -3261,6 +3250,7 @@ watch(
           <el-table
             :data="productRows"
             border
+            scrollbar-always-on
             row-key="_rowKey"
             class="design-table billing-product-table"
             :row-class-name="productTableRowClassName"
@@ -3311,10 +3301,10 @@ watch(
           <el-table
             :data="currentProductCraftRows"
             border
+            scrollbar-always-on
             row-key="_rowKey"
             class="design-table billing-craft-table"
             empty-text="当前产品暂无工艺"
-            @wheel="handleCraftTableWheel"
           >
             <el-table-column v-if="formMode === 'outsource'" label="外协" width="56">
               <template #default="{ row }">
@@ -3426,8 +3416,9 @@ watch(
       <div class="sticky-total">
         <strong>订单合计：<span>{{ formatMoney4(formOrderTotal) }}</span></strong>
         <div>
-          <el-button :disabled="saving" @click="orderFormVisible = false">取消</el-button>
-          <el-button type="primary" :loading="saving" @click="saveOrder">保存</el-button>
+          <el-button v-if="formMode === 'outsource'" :disabled="saving" @click="orderFormVisible = false">取消</el-button>
+          <el-button v-else :disabled="saving" @click="saveOrder(true)">保存并返回</el-button>
+          <el-button type="primary" :loading="saving" @click="saveOrder(false)">保存</el-button>
         </div>
       </div>
       </section>
@@ -4813,6 +4804,30 @@ watch(
 
 .design-table {
   width: 100%;
+}
+
+:is(.order-list-table, .billing-product-table, .billing-craft-table).el-table--scrollable-x :deep(.el-scrollbar__view) {
+  padding-bottom: 14px;
+}
+
+:is(.order-list-table, .billing-product-table, .billing-craft-table):not(.el-table--scrollable-x) :deep(.el-scrollbar__bar.is-horizontal) {
+  display: none;
+}
+
+:is(.order-list-table, .billing-product-table, .billing-craft-table) :deep(.el-scrollbar__bar.is-horizontal) {
+  height: 12px;
+  bottom: 0;
+  border-radius: 6px;
+  background: #e2e8f0;
+}
+
+:is(.order-list-table, .billing-product-table, .billing-craft-table) :deep(.el-scrollbar__bar.is-horizontal .el-scrollbar__thumb) {
+  background: #8b8b8b;
+  opacity: 1;
+}
+
+:is(.order-list-table, .billing-product-table, .billing-craft-table) :deep(.el-scrollbar__bar.is-horizontal .el-scrollbar__thumb:hover) {
+  background: #8b8b8b;
 }
 
 .billing-product-table,
