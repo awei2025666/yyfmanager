@@ -18,6 +18,70 @@
   box-sizing: border-box;
 }
 
+/* Match the prominent scrollbar used by the order tables across all pages. */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: #e2e8f0;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-thumb {
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #8b8b8b;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-color: #8b8b8b #e2e8f0;
+  }
+}
+
+.el-scrollbar {
+  --el-scrollbar-bg-color: #8b8b8b;
+  --el-scrollbar-hover-bg-color: #8b8b8b;
+  --el-scrollbar-opacity: 1;
+  --el-scrollbar-hover-opacity: 1;
+}
+
+.el-scrollbar__bar {
+  border-radius: 6px;
+  background: #e2e8f0;
+}
+
+.el-scrollbar__bar.is-horizontal {
+  height: 12px;
+  bottom: 0;
+}
+
+.el-scrollbar__bar.is-vertical {
+  width: 12px;
+  right: 0;
+}
+
+/* The view sits inside the wrap; reserve space below the last table row. */
+.el-table--scrollable-x > .el-table__inner-wrapper > .el-table__body-wrapper > .el-scrollbar > .el-scrollbar__wrap > .el-scrollbar__view {
+  padding-bottom: 14px;
+}
+
+/* Override Element Plus's inline auto-hide style only for table scrollbars. */
+.el-table__body-wrapper > .el-scrollbar > .el-scrollbar__bar {
+  display: block !important;
+  opacity: 1;
+}
+
+.el-table:not(.el-table--scrollable-x) > .el-table__inner-wrapper > .el-table__body-wrapper > .el-scrollbar > .el-scrollbar__bar.is-horizontal,
+.el-table:not(.el-table--scrollable-y) > .el-table__inner-wrapper > .el-table__body-wrapper > .el-scrollbar > .el-scrollbar__bar.is-vertical {
+  display: none !important;
+}
+
 body {
   margin: 0;
   min-width: 320px;

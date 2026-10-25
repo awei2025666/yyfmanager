@@ -4807,30 +4807,6 @@ watch(
   width: 100%;
 }
 
-:is(.order-list-table, .billing-product-table, .billing-craft-table).el-table--scrollable-x :deep(.el-scrollbar__view) {
-  padding-bottom: 14px;
-}
-
-:is(.order-list-table, .billing-product-table, .billing-craft-table):not(.el-table--scrollable-x) :deep(.el-scrollbar__bar.is-horizontal) {
-  display: none;
-}
-
-:is(.order-list-table, .billing-product-table, .billing-craft-table) :deep(.el-scrollbar__bar.is-horizontal) {
-  height: 12px;
-  bottom: 0;
-  border-radius: 6px;
-  background: #e2e8f0;
-}
-
-:is(.order-list-table, .billing-product-table, .billing-craft-table) :deep(.el-scrollbar__bar.is-horizontal .el-scrollbar__thumb) {
-  background: #8b8b8b;
-  opacity: 1;
-}
-
-:is(.order-list-table, .billing-product-table, .billing-craft-table) :deep(.el-scrollbar__bar.is-horizontal .el-scrollbar__thumb:hover) {
-  background: #8b8b8b;
-}
-
 .billing-product-table,
 .billing-craft-table {
   --el-table-border-color: #c0c4cc;
