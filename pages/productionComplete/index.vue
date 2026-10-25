@@ -65,7 +65,7 @@
 		</view>
 
 		<view class="bottom-bar">
-			<button class="confirm-btn" @click="submit">确认完成</button>
+			<button class="confirm-btn" :loading="actionBusy" :disabled="actionBusy" @click="submit">确认完成</button>
 		</view>
 
 		<view v-if="showDebuggerPopup" class="popup-mask" @click="closeDebuggerPopup">
@@ -147,6 +147,7 @@
 
 <script setup>
 import { onLoad } from '@dcloudio/uni-app'
+import { useSubmitLock } from '@/utils/useSubmitLock'
 import { computed, ref } from 'vue'
 import { parseRouteIds } from '@/utils/routeIds'
 
@@ -363,7 +364,8 @@ const deletePartner = id => {
 	partners.value = partners.value.filter(item => item.id !== id)
 }
 
-const submit = async () => {
+const { busy: actionBusy, run: runAction } = useSubmitLock()
+const submit = async () => runAction(async () => {
 	if (!form.value.machineId) {
 		uni.showToast({ title: '请选择机器', icon: 'none' })
 		return
@@ -393,7 +395,7 @@ const submit = async () => {
 	} catch (e) {
 		uni.showToast({ title: e?.message || '完成生产失败', icon: 'none' })
 	}
-}
+})
 
 const goProduction = () => {
 	const url = `/pages/production/index${orderId.value ? `?orderId=${orderId.value}` : ''}`
@@ -867,5 +869,19 @@ onLoad(options => {
 	font-size: 30rpx;
 	line-height: 78rpx;
 	&::after{ border: 0; }
+}
+
+/* 底部弹层预留操作空间及手机安全区。 */
+.machine-popup {
+	padding-bottom: 60rpx;
+	padding-bottom: calc(60rpx + constant(safe-area-inset-bottom));
+	padding-bottom: calc(60rpx + env(safe-area-inset-bottom));
+	box-sizing: border-box;
+}
+.partner-popup {
+	padding-bottom: 100rpx;
+	padding-bottom: calc(100rpx + constant(safe-area-inset-bottom));
+	padding-bottom: calc(100rpx + env(safe-area-inset-bottom));
+	box-sizing: border-box;
 }
 </style>

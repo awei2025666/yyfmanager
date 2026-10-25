@@ -34,6 +34,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import { useSubmitLock } from '@/utils/useSubmitLock'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 
 const deliveryId = ref('')
@@ -146,7 +147,8 @@ const closeShippingEditor = () => {
 	showShippingEditor.value = false
 }
 
-const saveShippingInfo = async () => {
+const { busy: actionBusy, run: runAction } = useSubmitLock()
+const saveShippingInfo = async () => runAction(async () => {
 	if (!shippingForm.value.orderId) {
 		uni.showToast({ title: '缺少订单信息', icon: 'none' })
 		return
@@ -162,7 +164,7 @@ const saveShippingInfo = async () => {
 		showShippingEditor.value = false
 		loadDetail()
 	} catch (e) {}
-}
+})
 
 const toComplete = () => {
 	if (!deliveryId.value) return
@@ -507,5 +509,13 @@ onShow(loadDetail)
 		background: #1f7cff;
 		color: #fff;
 	}
+}
+
+/* 底部弹层预留操作空间及手机安全区。 */
+.shipping-popup {
+	padding-bottom: 60rpx;
+	padding-bottom: calc(60rpx + constant(safe-area-inset-bottom));
+	padding-bottom: calc(60rpx + env(safe-area-inset-bottom));
+	box-sizing: border-box;
 }
 </style>

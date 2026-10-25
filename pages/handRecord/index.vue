@@ -35,13 +35,14 @@
 		</view>
 
 		<view class="bottom-bar">
-			<button class="confirm-btn" @click="submit">确认添加</button>
+			<button class="confirm-btn" :loading="actionBusy" :disabled="actionBusy" @click="submit">确认添加</button>
 		</view>
 	</view>
 </template>
 
 <script setup>
 import { onLoad } from '@dcloudio/uni-app'
+import { useSubmitLock } from '@/utils/useSubmitLock'
 import { computed, reactive, ref } from 'vue'
 
 const orderId = ref('')
@@ -139,7 +140,8 @@ const uploadImage = async () => {
 	return getUploadFileId(result)
 }
 
-const submit = async () => {
+const { busy: actionBusy, run: runAction } = useSubmitLock()
+const submit = async () => runAction(async () => {
 	fillTotalRemark()
 	if (!form.name) {
 		uni.showToast({ title: '请输入产品名称', icon: 'none' })
@@ -167,7 +169,7 @@ const submit = async () => {
 			goBack()
 		}, 600)
 	} catch (e) {}
-}
+})
 
 const goIndex = () => {
 	uni.switchTab({

@@ -201,7 +201,7 @@
 				<text class="label">单价</text>
 				<input
 					v-if="isFoilingCraft(craftForm)"
-					:value="toFixed4Number(computedFoilingPrice(craftForm))"
+					:value="computedFoilingPrice(craftForm) ? toFixed4Number(computedFoilingPrice(craftForm)) : ''"
 					disabled
 					placeholder="自动计算"
 					placeholder-class="placeholder"
@@ -231,11 +231,11 @@
 
 		<view class="footer">
 			<button class="cancel" @click="handleBack">{{ currentStep === 1 ? '取消' : '上一步' }}</button>
-			<button class="next" @click="handleNext">{{ currentStep === 3 ? '提交订单' : '下一步' }}</button>
+			<button class="next" :loading="actionBusy" :disabled="actionBusy" @click="handleNext">{{ currentStep === 3 ? '提交订单' : '下一步' }}</button>
 		</view>
 
 		<view v-if="showPicker" class="picker-mask" @click="closePicker">
-			<view class="picker-panel" :class="{ 'delivery-picker-panel': pickerType === 'deliveryType' }" @click.stop>
+			<view class="picker-panel" @click.stop>
 				<view class="picker-head">
 					<text>{{ pickerTitle }}</text>
 					<view class="picker-actions">
@@ -333,7 +333,7 @@
 				</scroll-view>
 				<view class="dialog-footer">
 					<button class="dialog-cancel" @click="closeClientCreate">取消</button>
-					<button class="dialog-submit" :disabled="clientSaving" @click="submitClientCreate">{{ clientSaving ? '保存中...' : '保存' }}</button>
+					<button class="dialog-submit" :loading="clientSaving" :disabled="clientSaving" @click="submitClientCreate">{{ clientSaving ? '保存中...' : '保存' }}</button>
 				</view>
 			</view>
 		</view>
@@ -342,6 +342,7 @@
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
+import { useSubmitLock } from '@/utils/useSubmitLock'
 
 const currentStep = ref(1)
 const deliveryTypeMap = {
@@ -988,7 +989,7 @@ const selectPickerItem = item => {
 		craftForm.craftId = craft.id
 		craftForm.name = craft.name || craft.craftName || ''
 		craftForm.specification = craft.spec || craft.specification || craftForm.specification || ''
-		craftForm.startPrice = zeroIfEmpty(craft.startPrice ?? craft.basePrice ?? craft.startingPrice ?? '')
+		craftForm.startPrice = Number(craft.startPrice ?? craft.basePrice ?? craft.startingPrice ?? 0) || ''
 		craftForm.priceBase1 = zeroIfEmpty(craft.priceBase1 ?? '')
 		craftForm.foilingStartingPrice = craft.foilingStartingPrice ?? craft.foilStartingPrice ?? craft.gildingStartingPrice ?? null
 		craftForm.foilingPointPrice = craft.foilingPointPrice ?? craft.foilPointPrice ?? craft.pointStartPrice ?? craftForm.foilingStartingPrice
@@ -1006,7 +1007,7 @@ const selectPickerItem = item => {
 			? normalizeFoilingPointList(craft.foilingPointList ?? craft.foilingPoints, craftForm.formula)
 			: []
 		if (isFoilingCraft(craftForm)) syncFoilingFormula(craftForm)
-		craftForm.unitPrice = zeroIfEmpty(craft.price ?? craft.unitPrice ?? craftForm.unitPrice)
+		craftForm.unitPrice = Number(craft.price ?? craft.unitPrice ?? 0) || ''
 	}
 	closePicker()
 }
@@ -1104,7 +1105,8 @@ const handleBack = () => {
 	currentStep.value -= 1
 }
 
-const handleNext = async () => {
+const { busy: actionBusy, run: runAction } = useSubmitLock()
+const handleNext = async () => runAction(async () => {
 	if (currentStep.value < 3) {
 		currentStep.value += 1
 		return
@@ -1114,7 +1116,7 @@ const handleNext = async () => {
 		uni.showToast({ title: '已提交', icon: 'none' })
 		setTimeout(() => uni.navigateBack(), 600)
 	} catch (e) {}
-}
+})
 
 const buildCraftPayload = craft => ({
 	id: craft.id || undefined,
@@ -1605,12 +1607,6 @@ picker{
 		box-sizing: border-box;
 	}
 }
-.delivery-picker-panel{
-	padding-bottom: 40rpx;
-	padding-bottom: calc(40rpx + constant(safe-area-inset-bottom));
-	padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
-	box-sizing: border-box;
-}
 .picker-list{
 	max-height: 48vh;
 }
@@ -1807,5 +1803,14 @@ picker{
 	.dialog-submit{
 		background: #1f7cff;
 	}
+}
+
+/* 底部弹层预留操作空间及手机安全区。 */
+.picker-panel {
+	min-height: 360rpx;
+	padding-bottom: 60rpx;
+	padding-bottom: calc(60rpx + constant(safe-area-inset-bottom));
+	padding-bottom: calc(60rpx + env(safe-area-inset-bottom));
+	box-sizing: border-box;
 }
 </style>

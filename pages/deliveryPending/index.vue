@@ -58,7 +58,7 @@
 		</view>
 
 		<view class="bottom-bar" v-if="orderId && canBind">
-			<button class="bind-btn" :disabled="submitting" @click="bindOrder">{{ submitting ? '绑定中...' : '确认绑定' }}</button>
+			<button class="bind-btn" :loading="submitting" :disabled="submitting" @click="bindOrder">{{ submitting ? '绑定中...' : '确认绑定' }}</button>
 		</view>
 	</view>
 </template>
@@ -210,11 +210,12 @@ const scanOrder = () => {
 
 const bindOrder = () => {
 	if (!orderId.value || submitting.value) return
+	submitting.value = true
 	uni.showModal({
 		title: '确认绑定',
 		content: '确认绑定该配送订单吗？',
 		success: async res => {
-			if (!res.confirm) return
+			if (!res.confirm) { submitting.value = false; return }
 			try {
 				submitting.value = true
 				await uni.$api.deliveryBinding({ id: orderId.value })
@@ -223,9 +224,10 @@ const bindOrder = () => {
 			} catch (e) {
 				uni.showToast({ title: e?.message || '绑定失败', icon: 'none' })
 			} finally {
-				submitting.value = false
+				setTimeout(() => { submitting.value = false }, 800)
 			}
-		}
+		},
+		fail: () => { submitting.value = false }
 	})
 }
 

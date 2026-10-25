@@ -13,7 +13,7 @@
 		</view>
 
 		<view class="bottom-bar">
-			<button class="confirm-btn" :disabled="loading" @click="submit">{{ loading ? '提交中...' : '确认修改' }}</button>
+			<button class="confirm-btn" :loading="loading" :disabled="loading" @click="submit">{{ loading ? '提交中...' : '确认修改' }}</button>
 		</view>
 	</view>
 </template>

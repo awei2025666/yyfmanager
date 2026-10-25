@@ -39,7 +39,7 @@
 		</view>
 
 		<view class="bottom-bar">
-			<button class="confirm-btn" @click="submit">确认创建配送单</button>
+			<button class="confirm-btn" :loading="actionBusy" :disabled="actionBusy" @click="submit">确认创建配送单</button>
 		</view>
 
 		<view class="sheet-mask" v-if="showOrderPicker" @click="showOrderPicker = false">
@@ -69,6 +69,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import { useSubmitLock } from '@/utils/useSubmitLock'
 import { onLoad } from '@dcloudio/uni-app'
 
 const selectedOrders = ref([])
@@ -175,7 +176,8 @@ const selectDriver = item => {
 	showDriverPicker.value = false
 }
 
-const submit = async () => {
+const { busy: actionBusy, run: runAction } = useSubmitLock()
+const submit = async () => runAction(async () => {
 	showOrderPicker.value = false
 	showDriverPicker.value = false
 	if (!selectedOrders.value.length) {
@@ -203,7 +205,7 @@ const submit = async () => {
 			icon: 'none'
 		})
 	}
-}
+})
 
 const goBack = () => {
 	uni.removeStorageSync('deliveryCreateOrders')
@@ -468,5 +470,13 @@ onLoad(options => {
 	margin-top: 10rpx;
 	color: #999;
 	font-size: 25rpx;
+}
+
+/* 底部弹层预留操作空间及手机安全区。 */
+.sheet {
+	padding-bottom: 60rpx;
+	padding-bottom: calc(60rpx + constant(safe-area-inset-bottom));
+	padding-bottom: calc(60rpx + env(safe-area-inset-bottom));
+	box-sizing: border-box;
 }
 </style>

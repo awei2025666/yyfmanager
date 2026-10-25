@@ -32,7 +32,7 @@
 		</view>
 
 		<view class="bottom-bar">
-			<button class="confirm-btn" :disabled="submitting" @click="submit">{{ submitting ? '提交中...' : '确认完成' }}</button>
+			<button class="confirm-btn" :loading="submitting" :disabled="submitting" @click="submit">{{ submitting ? '提交中...' : '确认完成' }}</button>
 		</view>
 	</view>
 </template>

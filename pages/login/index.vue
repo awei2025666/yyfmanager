@@ -42,7 +42,7 @@
 				<text class="privacy-link" @click.stop="openPrivacy">《用户隐私保护指引》</text>
 			</view>
 
-			<button class="login-btn" :disabled="loading" @click="submit">
+			<button class="login-btn" :loading="loading" :disabled="loading" @click="submit">
 				{{ loading ? '登录中...' : '登录' }}
 			</button>
 		</view>

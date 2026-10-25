@@ -33,7 +33,7 @@
 		</view>
 
 		<view class="bottom-bar">
-			<button class="confirm-btn" @click="submit">确认添加</button>
+			<button class="confirm-btn" :loading="actionBusy" :disabled="actionBusy" @click="submit">确认添加</button>
 		</view>
 
 		<view v-if="showPicker" class="picker-mask" @click="showPicker = false">
@@ -50,6 +50,7 @@
 
 <script setup>
 import { onLoad } from '@dcloudio/uni-app'
+import { useSubmitLock } from '@/utils/useSubmitLock'
 import { computed, ref } from 'vue'
 
 const orderId = ref('')
@@ -108,7 +109,8 @@ const uploadImage = async () => {
 	return getUploadFileId(result)
 }
 
-const submit = async () => {
+const { busy: actionBusy, run: runAction } = useSubmitLock()
+const submit = async () => runAction(async () => {
 	if (!form.value.consumableId) {
 		uni.showToast({ title: '请选择耗材', icon: 'none' })
 		return
@@ -132,7 +134,7 @@ const submit = async () => {
 			goBack()
 		}, 600)
 	} catch (e) {}
-}
+})
 
 const goProduction = () => {
 	uni.redirectTo({
@@ -389,5 +391,14 @@ onLoad(options => {
 .check{
 	color: #1f7cff;
 	font-size: 32rpx;
+}
+
+/* 底部弹层预留操作空间及手机安全区。 */
+.picker-panel {
+	min-height: 360rpx;
+	padding-bottom: 60rpx;
+	padding-bottom: calc(60rpx + constant(safe-area-inset-bottom));
+	padding-bottom: calc(60rpx + env(safe-area-inset-bottom));
+	box-sizing: border-box;
 }
 </style>

@@ -11,19 +11,20 @@
 				<text>开数：{{ item.formatSize || '-' }}</text>
 				<text>单双面：{{ singleDoubleText(item.singleDouble) }}</text>
 				<text>颜色：{{ item.colour || '-' }}</text>
-				<text>规格：{{ item.formula || '-' }}</text>
-				<text>专色：{{ item.spotColors || '-' }}</text>
 				<text>每板个数：{{ item.numberPerBoard ?? '-' }}</text>
+				<text>专色：{{ item.spotColors || '-' }}</text>
+				<text class="full-row">规格：{{ item.formula || '-' }}</text>
 				<text class="color-info remark">备注：{{ item.remark || '-' }}</text>
 			</view>
-			<button v-if="canOperate(item) && status(item) === 1" class="start" @click="start(item)">开始生产</button>
-			<button v-else-if="canOperate(item) && status(item) === 3" class="end" @click="end(item)">结束生产</button>
+			<button v-if="canOperate(item) && status(item) === 1" class="start" :loading="actionBusy" :disabled="actionBusy" @click="start(item)">开始生产</button>
+			<button v-else-if="canOperate(item) && status(item) === 3" class="end" :disabled="actionBusy" @click="end(item)">结束生产</button>
 		</view>
 		<view v-if="!crafts.length" class="empty">暂无工艺</view>
 	</view>
 </template>
 <script setup>
 import { onLoad, onShow } from '@dcloudio/uni-app'
+import { useSubmitLock } from '@/utils/useSubmitLock'
 import { ref } from 'vue'
 import { parseRouteIds } from '@/utils/routeIds'
 const crafts = ref([])
@@ -36,7 +37,8 @@ const statusClass = item => ({ 1: 'pending', 2: 'done', 3: 'producing' }[status(
 const singleDoubleText = value => ({ 1: '单面', 2: '双面自翻', 3: '双面天地翻', 4: '双面扣板', 5: '双面' }[Number(value)] || '-')
 const load = async ids => { try { const data = await uni.$api.productsCraftInfoByIds({ ids }); const list = Array.isArray(data) ? data : (data?.records || data?.data || []); crafts.value = Array.isArray(list) ? list : [] } catch (e) { crafts.value = [] } }
 const openComplete = item => uni.navigateTo({ url: `/pages/productionComplete/index?id=${item.id}&ids=${item.id}&orderId=${orderId.value}` })
-const start = async item => {
+const { busy: actionBusy, run: runAction } = useSubmitLock()
+const start = async item => runAction(async () => {
 	try {
 		await uni.$api.startProduction({ id: item.id })
 		uni.showToast({ title: '已开始生产', icon: 'none' })
@@ -44,7 +46,7 @@ const start = async item => {
 	} catch (e) {
 		uni.showToast({ title: e?.message || '开始生产失败', icon: 'none' })
 	}
-}
+})
 const end = item => openComplete(item)
 onLoad(options => { orderId.value = options.orderId || ''; craftIds.value = parseRouteIds(options.ids || options.id); load(craftIds.value) })
 onShow(() => { if (craftIds.value.length) load(craftIds.value) })
@@ -118,6 +120,7 @@ onShow(() => { if (craftIds.value.length) load(craftIds.value) })
 	word-break: break-all
 }
 
+.full-row,
 .remark {
 	grid-column: 1 / -1;
 	white-space: pre-wrap;

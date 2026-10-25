@@ -46,7 +46,7 @@
 		</view>
 
 		<view class="bottom-bar">
-			<button class="save-btn" :disabled="submitting" @click="submit">保存</button>
+			<button class="save-btn" :loading="submitting" :disabled="submitting" @click="submit">保存</button>
 		</view>
 	</view>
 </template>
