@@ -3024,7 +3024,7 @@ watch(
             </button>
           </template>
         </el-table-column>
-        <el-table-column label="操作" min-width="600" :show-overflow-tooltip="false">
+        <el-table-column label="操作" min-width="380" :show-overflow-tooltip="false">
           <template #default="{ row }">
             <el-space>
               <el-button

@@ -100,7 +100,8 @@ const outsourceForm = reactive({
 })
 
 const statusText = (value) => {
-  if (value === '待生产' || value === '已生产') return value
+  if (value === '待生产' || value === '已生产' || value === '生产中') return value
+  if (Number(value) === 3) return '生产中'
   return Number(value) === 2 ? '已生产' : '待生产'
 }
 
