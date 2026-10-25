@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import {
   DataBoard,
   DocumentCopy,
+  Expand,
   Files,
   Fold,
   Goods,
@@ -26,6 +27,7 @@ import { getAvatarUrl, getNameInitial } from '../utils/userProfile'
 
 const route = useRoute()
 const router = useRouter()
+const sidebarCollapsed = ref(false)
 const allMenus = [
   { name: 'dashboard', label: '工作台', icon: DataBoard },
   { name: 'customers', label: '合作客户', icon: OfficeBuilding },
@@ -377,17 +379,19 @@ onMounted(() => {
 
 <template>
   <el-config-provider size="small">
-    <div class="admin-shell">
-      <aside class="admin-sidebar">
+    <div class="admin-shell" :class="{ 'admin-shell--collapsed': sidebarCollapsed }">
+      <aside id="admin-sidebar" class="admin-sidebar">
         <div class="brand">
           <div class="brand__mark"><span></span><i></i></div>
-          <div>
+          <div v-show="!sidebarCollapsed">
             <strong>{{ tenantDisplayName }}</strong>
           </div>
         </div>
 
         <el-menu
           class="sidebar-menu"
+          :collapse="sidebarCollapsed"
+          :collapse-transition="false"
           :default-active="activeMenuName"
           :default-openeds="openGroupIndexes"
           background-color="#303133"
@@ -398,7 +402,7 @@ onMounted(() => {
           <template v-for="item in menus" :key="item.name || item.label">
             <el-menu-item v-if="item.name" :index="item.name">
               <el-icon><component :is="item.icon" /></el-icon>
-              <span>{{ item.label }}</span>
+              <template #title>{{ item.label }}</template>
             </el-menu-item>
             <el-sub-menu v-else :index="item.label">
               <template #title>
@@ -416,7 +420,19 @@ onMounted(() => {
 
       <div class="admin-main">
         <header class="admin-topbar">
-          <el-button type="primary" @click="openLargeScreen">可视化大屏</el-button>
+          <div class="topbar-navigation">
+            <el-button
+              text
+              class="sidebar-toggle"
+              :icon="sidebarCollapsed ? Expand : Fold"
+              :title="sidebarCollapsed ? '展开菜单' : '收起菜单'"
+              :aria-label="sidebarCollapsed ? '展开菜单' : '收起菜单'"
+              :aria-expanded="!sidebarCollapsed"
+              aria-controls="admin-sidebar"
+              @click="sidebarCollapsed = !sidebarCollapsed"
+            />
+            <el-button type="primary" @click="openLargeScreen">可视化大屏</el-button>
+          </div>
           <div class="topbar-actions">
             <el-button round class="vip-pill" @click="openDurationPurchase">剩余<strong>{{ vipDayText }}</strong>天到期</el-button>
             <el-dropdown trigger="click" popper-class="avatar-dropdown" @command="(command) => command === 'password' ? openPasswordDialog() : logout()">
@@ -473,12 +489,17 @@ onMounted(() => {
 
 <style scoped>
 .admin-shell {
+  --sidebar-width: 200px;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   gap: 0;
   padding: 0;
   background: #f5f7fa;
+}
+
+.admin-shell--collapsed {
+  --sidebar-width: 64px;
 }
 
 .admin-sidebar {
@@ -510,6 +531,7 @@ onMounted(() => {
 
 .brand__mark {
   position: relative;
+  flex-shrink: 0;
   width: 30px;
   height: 24px;
 }
@@ -538,6 +560,7 @@ onMounted(() => {
 }
 
 .sidebar-menu {
+  width: 100%;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -638,6 +661,24 @@ onMounted(() => {
   box-shadow: 0 1px 4px rgb(0 21 41 / 8%);
 }
 
+.topbar-navigation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebar-toggle {
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  font-size: 20px;
+}
+
+.topbar-navigation > .el-button + .el-button {
+  margin-left: 0;
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;
@@ -720,6 +761,10 @@ onMounted(() => {
     position: relative;
     top: 0;
     height: auto;
+  }
+
+  .admin-shell--collapsed .admin-sidebar {
+    display: none;
   }
 }
 </style>

@@ -3358,6 +3358,14 @@ watch(
                 <el-input v-model="row.startPrice" placeholder="请输入起步价" />
               </template>
             </el-table-column>
+            <el-table-column prop="formula" label="公式" min-width="150">
+              <template #default="{ row }">
+                <div class="formula-editor">
+                  <el-input v-model="row.formula" :disabled="isFoilingCraft(row)" placeholder="请输入公式" />
+                  <el-button v-if="isFoilingCraft(row)" type="primary" link @click="openFoilingPointDialog(row)">+ 点位</el-button>
+                </div>
+              </template>
+            </el-table-column>
             <el-table-column prop="finishNum" label="成品数量" min-width="92">
               <template #default="{ row }">
                 <el-input v-model="row.finishNum" placeholder="请输入成品数" />
@@ -3379,14 +3387,7 @@ watch(
                 <el-input v-model="row.ploidy" placeholder="套数" />
               </template>
             </el-table-column>
-            <el-table-column prop="formula" label="公式" min-width="150">
-              <template #default="{ row }">
-                <div class="formula-editor">
-                  <el-input v-model="row.formula" :disabled="isFoilingCraft(row)" placeholder="请输入公式" />
-                  <el-button v-if="isFoilingCraft(row)" type="primary" link @click="openFoilingPointDialog(row)">+ 点位</el-button>
-                </div>
-              </template>
-            </el-table-column>
+
             <el-table-column prop="customerAmount" label="客户金额" min-width="92">
               <template #default="{ row }">
                 <span>{{ formatMoney4(displayCraftCustomerAmount(row)) }}</span>
