@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, Search } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
+import { getRecentMonthRange } from '../../utils/date'
 
 const props = defineProps({
   config: {
@@ -38,7 +39,7 @@ const listTotal = (payload, normalizedRows) => {
 
 const applyDefaultFilters = () => {
   props.config.searchFields.forEach((field) => {
-    filters[field.key] = field.defaultValue ?? (field.type === 'daterange' ? [] : '')
+    filters[field.key] = field.defaultValue ?? (field.type === 'daterange' ? getRecentMonthRange() : '')
   })
 }
 

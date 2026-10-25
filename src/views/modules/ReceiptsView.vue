@@ -7,7 +7,6 @@ import PageBlock from '../../components/PageBlock.vue'
 import {
   addTenantReceipt,
   deleteTenantReceipt,
-  editTenantReceipt,
   exportTenantReceipt,
   getTenantReceiptDetail,
   getTenantReceiptList,
@@ -55,8 +54,6 @@ const accountOptions = ref([])
 const allClientOptions = ref([])
 const clientOptions = ref([])
 const formVisible = ref(false)
-const formMode = ref('create')
-const orderDialogVisible = ref(false)
 const detailVisible = ref(false)
 const detailData = ref(null)
 
@@ -86,6 +83,7 @@ const orderState = reactive({
 })
 
 const selectableOrders = ref([])
+let orderRequestId = 0
 const totals = reactive({
   moneyTotal: 0,
   allowanceMoneyTotal: 0
@@ -223,24 +221,6 @@ const handleClientDropdownVisible = (visible) => {
   }
 }
 
-const ensureAccountOption = (id, name) => {
-  if (!id || !name) return
-  if (!accountOptions.value.some((item) => item.id === id)) {
-    accountOptions.value.push({ id, name })
-  }
-}
-
-const ensureClientOption = (id, companyName) => {
-  if (!id || !companyName) return
-  const option = { id, companyName }
-  if (!allClientOptions.value.some((item) => String(item.id) === String(id))) {
-    allClientOptions.value.push(option)
-  }
-  if (!clientOptions.value.some((item) => String(item.id) === String(id))) {
-    clientOptions.value.push(option)
-  }
-}
-
 const loadData = async () => {
   state.loading = true
   try {
@@ -311,6 +291,10 @@ const exportData = async () => {
 }
 
 const resetForm = () => {
+  orderRequestId += 1
+  selectableOrders.value = []
+  orderState.loading = false
+  orderState.total = 0
   form.id = ''
   form.cooperativeClientId = ''
   form.companyName = ''
@@ -325,36 +309,8 @@ const resetForm = () => {
 }
 
 const openCreate = () => {
-  formMode.value = 'create'
   resetForm()
   formVisible.value = true
-}
-
-const openEdit = async (row) => {
-  formMode.value = 'edit'
-  resetForm()
-  formVisible.value = true
-  state.detailLoading = true
-  try {
-    const data = await getTenantReceiptDetail(row.id)
-    form.id = data?.id || row.id
-    form.cooperativeClientId = data?.cooperativeClientId || ''
-    form.companyName = data?.companyName || ''
-    form.collectionTime = formatTime(data?.collectionTime)
-    form.accountId = data?.accountId || ''
-    form.accountName = data?.accountName || ''
-    form.digest = data?.digest || ''
-    form.proofImg = data?.proofImg || ''
-    form.proofImgName = data?.proofImg ? '已上传凭证' : ''
-    form.listOrder = listRows(data?.listOrder).map((item) => normalizeReceiptOrder(item, { useReceiptAllowance: true }))
-    ensureClientOption(form.cooperativeClientId, form.companyName)
-    ensureAccountOption(form.accountId, form.accountName)
-  } catch (error) {
-    ElMessage.error(error?.message || '编辑回显加载失败')
-    formVisible.value = false
-  } finally {
-    state.detailLoading = false
-  }
 }
 
 const handleClientChange = (id) => {
@@ -362,6 +318,9 @@ const handleClientChange = (id) => {
     || clientOptions.value.find((item) => String(item.id) === String(id))
   form.companyName = client?.companyName || ''
   form.listOrder = []
+  selectableOrders.value = []
+  orderState.total = 0
+  resetSelectableOrders()
 }
 
 const handleAccountChange = (id) => {
@@ -382,7 +341,6 @@ const uploadProof = async ({ file }) => {
 }
 
 const receiptPayload = () => ({
-  id: formMode.value === 'edit' ? form.id : undefined,
   accountId: form.accountId,
   collectionTime: form.collectionTime,
   cooperativeClientId: form.cooperativeClientId,
@@ -405,16 +363,12 @@ const saveReceipt = async () => {
     return
   }
   if (!form.listOrder.length) {
-    ElMessage.warning('请关联订单')
+    ElMessage.warning('请选择订单')
     return
   }
   state.saving = true
   try {
-    if (formMode.value === 'edit') {
-      await editTenantReceipt(receiptPayload())
-    } else {
-      await addTenantReceipt(receiptPayload())
-    }
+    await addTenantReceipt(receiptPayload())
     ElMessage.success('保存成功')
     formVisible.value = false
     refreshAll()
@@ -423,19 +377,6 @@ const saveReceipt = async () => {
   } finally {
     state.saving = false
   }
-}
-
-const openOrderDialog = () => {
-  if (!form.cooperativeClientId) {
-    ElMessage.warning('请先选择单位名称')
-    return
-  }
-  orderFilters.pageNum = 1
-  orderFilters.pageSize = 10
-  orderFilters.orderNo = ''
-  orderFilters.productInfo = ''
-  orderDialogVisible.value = true
-  loadSelectableOrders()
 }
 
 const orderQueryPayload = () => ({
@@ -447,29 +388,31 @@ const orderQueryPayload = () => ({
 })
 
 const loadSelectableOrders = async () => {
+  const requestId = ++orderRequestId
+  if (!form.cooperativeClientId) {
+    selectableOrders.value = []
+    orderState.total = 0
+    orderState.loading = false
+    return
+  }
   orderState.loading = true
   try {
     const data = await getTenantReceiptOrderList(orderQueryPayload())
-    const selectedMap = new Map(form.listOrder.map((item) => [item.orderId, item]))
+    if (requestId !== orderRequestId) return
+    const selectedMap = new Map(form.listOrder.map((item) => [String(item.orderId), item]))
     const normalizedRows = listRows(data).map((item) => {
       const row = normalizeReceiptOrder(item)
-      const selected = selectedMap.get(row.orderId)
-      if (selected) {
-        row.checked = true
-        row.receivedAllowanceMoney = selected.receivedAllowanceMoney
-        row.money = selected.money
-        row.currentAllowanceMoney = selected.currentAllowanceMoney
-      }
-      return row
+      return selectedMap.get(String(row.orderId)) || row
     })
     selectableOrders.value = normalizedRows
     orderState.total = listTotal(data, normalizedRows)
   } catch (error) {
+    if (requestId !== orderRequestId) return
     selectableOrders.value = []
     orderState.total = 0
     ElMessage.error(error?.message || '订单列表加载失败')
   } finally {
-    orderState.loading = false
+    if (requestId === orderRequestId) orderState.loading = false
   }
 }
 
@@ -486,19 +429,15 @@ const resetSelectableOrders = () => {
   loadSelectableOrders()
 }
 
-const saveSelectedOrders = () => {
-  const selectedRows = selectableOrders.value.filter((item) => item.checked)
-  const existingMap = new Map(form.listOrder.map((item) => [item.orderId, item]))
-  selectedRows.forEach((item) => {
-    existingMap.set(item.orderId, { ...item })
-  })
-  form.listOrder = Array.from(existingMap.values())
-  orderDialogVisible.value = false
+const setOrderChecked = (row, checked) => {
+  row.checked = checked
+  form.listOrder = form.listOrder.filter((item) => String(item.orderId) !== String(row.orderId))
+  if (checked) form.listOrder.push(row)
 }
 
-const removeFormOrder = (row) => {
-  form.listOrder = form.listOrder.filter((item) => item.orderId !== row.orderId)
-}
+const toggleOrderRow = (row) => setOrderChecked(row, !row.checked)
+
+const orderRowClassName = ({ row }) => row.checked ? 'is-selected-order' : ''
 
 const removeRow = async (row) => {
   try {
@@ -631,7 +570,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <el-table v-loading="state.loading" :data="rows" border>
+      <el-table v-loading="state.loading" :data="rows" border @row-dblclick="openDetail">
         <el-table-column prop="orderId" label="收款单号" min-width="180" show-overflow-tooltip />
         <el-table-column prop="companyName" label="单位名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="createTime" label="收款时间" min-width="170" />
@@ -644,10 +583,9 @@ onMounted(() => {
           <template #default="{ row }">{{ formatMoney(row.allowanceMoney) }}</template>
         </el-table-column>
         <el-table-column prop="digest" label="摘要" min-width="160" show-overflow-tooltip />
-        <el-table-column label="操作" width="230" fixed="right">
+        <el-table-column label="操作" width="190" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link :icon="Printer" @click="printRow(row)">打印</el-button>
-            <el-button type="primary" link @click="openEdit(row)">编辑</el-button>
             <el-button type="primary" link @click="openDetail(row)">详情</el-button>
             <el-button type="danger" link @click="removeRow(row)">删除</el-button>
           </template>
@@ -669,16 +607,16 @@ onMounted(() => {
 
     <el-dialog
       v-model="formVisible"
-      :title="formMode === 'edit' ? '编辑收款信息' : '新增收款信息'"
+      title="新增收款信息"
       width="92%"
       class="receipt-form-dialog"
       destroy-on-close
     >
-      <div v-loading="state.detailLoading">
+      <div class="receipt-form-content">
         <PageBlock>
           <h3 class="section-title">收款信息</h3>
-          <el-form class="receipt-form" :model="form" label-position="top">
-            <el-form-item label="单位名称" required class="wide">
+          <el-form class="receipt-form" :model="form" label-width="80px" size="small">
+            <el-form-item label="单位名称" required>
               <el-select
                 v-model="form.cooperativeClientId"
                 clearable
@@ -694,7 +632,7 @@ onMounted(() => {
                 <el-option v-for="item in clientOptions" :key="item.id" :label="item.companyName" :value="item.id" />
               </el-select>
             </el-form-item>
-            <el-form-item label="收款时间（默认当前时间）" required>
+            <el-form-item label="收款时间" required>
               <el-date-picker
                 v-model="form.collectionTime"
                 type="datetime"
@@ -722,15 +660,15 @@ onMounted(() => {
             <el-form-item label="折让金额">
               <el-input :model-value="formatMoney(formAllowanceTotal)" disabled />
             </el-form-item>
-            <el-form-item label="摘要" class="wide">
-              <el-input v-model="form.digest" type="textarea" :rows="3" placeholder="请输入摘要" />
-            </el-form-item>
-            <el-form-item label="收款凭证" class="wide">
+            <el-form-item label="收款凭证">
               <el-upload action="#" accept="image/*" :show-file-list="false" :http-request="uploadProof">
                 <el-button :icon="Upload">选择文件</el-button>
               </el-upload>
               <span class="upload-tip">{{ form.proofImg ? `` : '未选择任何文件' }}</span>
               <el-image v-if="form.fileUrl" class="preview-image" :src="form.fileUrl" :preview-src-list="[form.fileUrl]" fit="cover" preview-teleported />
+            </el-form-item>
+            <el-form-item label="摘要" class="wide">
+              <el-input v-model="form.digest" type="textarea" :rows="1" placeholder="请输入摘要" />
             </el-form-item>
           </el-form>
         </PageBlock>
@@ -738,9 +676,38 @@ onMounted(() => {
         <PageBlock>
           <div class="section-head">
             <h3 class="section-title">收款明细</h3>
-            <el-button type="primary" @click="openOrderDialog">关联订单</el-button>
+            <span class="order-selection-tip">已选 {{ form.listOrder.length }} 单，点击行可选择或取消</span>
           </div>
-          <el-table :data="form.listOrder" border>
+          <el-form v-if="form.cooperativeClientId" class="dialog-search" :model="orderFilters" label-width="70px" size="small">
+            <el-form-item label="订单号">
+              <el-input v-model="orderFilters.orderNo" clearable placeholder="请输入订单号" @keyup.enter="searchSelectableOrders" />
+            </el-form-item>
+            <el-form-item label="产品名称">
+              <el-input v-model="orderFilters.productInfo" clearable placeholder="请输入产品信息" @keyup.enter="searchSelectableOrders" />
+            </el-form-item>
+            <el-form-item class="dialog-actions" label-width="0">
+              <el-button type="primary" :icon="Search" @click="searchSelectableOrders">查询</el-button>
+              <el-button :icon="Refresh" @click="resetSelectableOrders">重置</el-button>
+            </el-form-item>
+          </el-form>
+          <el-table
+            v-loading="orderState.loading"
+            :data="selectableOrders"
+            class="receipt-orders-table"
+            row-key="orderId"
+            :row-class-name="orderRowClassName"
+            :empty-text="form.cooperativeClientId ? '暂无订单' : '请先选择单位名称'"
+            max-height="400"
+            border
+            @row-click="toggleOrderRow"
+          >
+            <el-table-column width="52" fixed="left" align="center">
+              <template #default="{ row }">
+                <div @click.stop>
+                  <el-checkbox :model-value="row.checked" :aria-label="`选择订单 ${row.orderNo}`" @change="setOrderChecked(row, $event)" />
+                </div>
+              </template>
+            </el-table-column>
             <el-table-column prop="orderNo" label="订单号" min-width="150" show-overflow-tooltip />
             <el-table-column prop="orderTime" label="订单时间" min-width="160" />
             <el-table-column prop="fillUserName" label="填单员" min-width="100" />
@@ -760,22 +727,35 @@ onMounted(() => {
             <el-table-column label="订单状态" min-width="110">
               <template #default="{ row }">{{ orderStatusMap[Number(row.orderStatus)] || row.orderStatus || '-' }}</template>
             </el-table-column>
-            <el-table-column label="本次收款" min-width="150">
+            <el-table-column label="本次收款" width="160" fixed="right">
               <template #default="{ row }">
-                <el-input-number v-model="row.money" :min="0" :precision="2" controls-position="right" />
+                <div v-if="row.checked" @click.stop>
+                  <el-input-number v-model="row.money" :min="0" :precision="2" size="small" controls-position="right" />
+                </div>
+                <span v-else>-</span>
               </template>
             </el-table-column>
-            <el-table-column label="本次折让" min-width="150">
+            <el-table-column label="本次折让" width="160" fixed="right">
               <template #default="{ row }">
-                <el-input-number v-model="row.currentAllowanceMoney" :min="0" :precision="2" controls-position="right" />
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="90" fixed="right">
-              <template #default="{ row }">
-                <el-button type="danger" link @click="removeFormOrder(row)">删除</el-button>
+                <div v-if="row.checked" @click.stop>
+                  <el-input-number v-model="row.currentAllowanceMoney" :min="0" :precision="2" size="small" controls-position="right" />
+                </div>
+                <span v-else>-</span>
               </template>
             </el-table-column>
           </el-table>
+          <div v-if="form.cooperativeClientId" class="pagination-wrap">
+            <el-pagination
+              v-model:current-page="orderFilters.pageNum"
+              v-model:page-size="orderFilters.pageSize"
+              background
+              layout="total, sizes, prev, pager, next"
+              :page-sizes="[10, 20, 30, 50]"
+              :total="orderState.total"
+              @current-change="loadSelectableOrders"
+              @size-change="searchSelectableOrders"
+            />
+          </div>
         </PageBlock>
       </div>
       <template #footer>
@@ -789,75 +769,6 @@ onMounted(() => {
             <el-button type="primary" :loading="state.saving" @click="saveReceipt">保存</el-button>
           </div>
         </div>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="orderDialogVisible" title="关联订单" width="88%" class="order-select-dialog" destroy-on-close>
-      <el-form class="dialog-search" :model="orderFilters" label-position="top">
-        <el-form-item label="订单号">
-          <el-input v-model="orderFilters.orderNo" clearable placeholder="请输入订单号" @keyup.enter="searchSelectableOrders" />
-        </el-form-item>
-        <el-form-item label="产品名称">
-          <el-input v-model="orderFilters.productInfo" clearable placeholder="请输入产品信息" @keyup.enter="searchSelectableOrders" />
-        </el-form-item>
-        <el-form-item class="dialog-actions">
-          <el-button type="primary" :icon="Search" @click="searchSelectableOrders">查询</el-button>
-          <el-button :icon="Refresh" @click="resetSelectableOrders">重置</el-button>
-        </el-form-item>
-      </el-form>
-      <el-table v-loading="orderState.loading" :data="selectableOrders" border>
-        <el-table-column width="52">
-          <template #default="{ row }">
-            <el-checkbox v-model="row.checked" />
-          </template>
-        </el-table-column>
-        <el-table-column prop="orderNo" label="订单号" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="orderTime" label="订单时间" min-width="160" />
-        <el-table-column prop="fillUserName" label="填单员" min-width="100" />
-        <el-table-column prop="productInfo" label="产品信息" min-width="190" show-overflow-tooltip />
-        <el-table-column label="账单金额" min-width="120">
-          <template #default="{ row }">{{ formatMoney(row.billMoney) }}</template>
-        </el-table-column>
-        <el-table-column label="已收金额" min-width="120">
-          <template #default="{ row }">{{ formatMoney(row.receivedMoney) }}</template>
-        </el-table-column>
-        <el-table-column label="已折让金额" min-width="120">
-          <template #default="{ row }">{{ formatMoney(row.receivedAllowanceMoney) }}</template>
-        </el-table-column>
-        <el-table-column label="剩余尾款" min-width="120">
-          <template #default="{ row }">{{ formatMoney(row.remainMoney) }}</template>
-        </el-table-column>
-        <el-table-column label="订单状态" min-width="110">
-          <template #default="{ row }">{{ orderStatusMap[Number(row.orderStatus)] || row.orderStatus || '-' }}</template>
-        </el-table-column>
-        <el-table-column label="本次收款" min-width="150">
-          <template #default="{ row }">
-            <el-input-number v-if="row.checked" v-model="row.money" :min="0" :precision="2" controls-position="right" />
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="本次折让" min-width="150">
-          <template #default="{ row }">
-            <el-input-number v-if="row.checked" v-model="row.currentAllowanceMoney" :min="0" :precision="2" controls-position="right" />
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-      </el-table>
-      <div class="pagination-wrap">
-        <el-pagination
-          v-model:current-page="orderFilters.pageNum"
-          v-model:page-size="orderFilters.pageSize"
-          background
-          layout="total, sizes, prev, pager, next"
-          :page-sizes="[10, 20, 30, 50]"
-          :total="orderState.total"
-          @current-change="loadSelectableOrders"
-          @size-change="searchSelectableOrders"
-        />
-      </div>
-      <template #footer>
-        <el-button @click="orderDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveSelectedOrders">保存</el-button>
       </template>
     </el-dialog>
 
@@ -973,20 +884,63 @@ onMounted(() => {
   background: #f5f7fb;
 }
 
+.receipt-form-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .section-title {
-  margin: 0 0 18px;
-  font-size: 18px;
+  margin: 0 0 12px;
+  font-size: 16px;
   font-weight: 700;
+}
+
+.section-head {
+  margin-bottom: 10px;
+}
+
+.section-head .section-title {
+  margin-bottom: 0;
+}
+
+.order-selection-tip {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
 .receipt-form {
   display: grid;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
-  gap: 16px 28px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 16px;
+}
+
+.receipt-form :deep(.el-form-item) {
+  min-width: 0;
+  margin-bottom: 0;
 }
 
 .receipt-form .wide {
   grid-column: 1 / -1;
+}
+
+.receipt-form .preview-image {
+  width: 32px;
+  height: 32px;
+  margin-left: 8px;
+}
+
+.receipt-orders-table :deep(.el-table__row) {
+  cursor: pointer;
+}
+
+.receipt-orders-table :deep(.is-selected-order) {
+  --el-table-tr-bg-color: var(--el-color-primary-light-9);
+  --el-table-row-hover-bg-color: var(--el-color-primary-light-8);
+}
+
+.receipt-orders-table :deep(.el-input-number) {
+  width: 100%;
 }
 
 .upload-name {
@@ -996,9 +950,9 @@ onMounted(() => {
 
 .dialog-search {
   display: grid;
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
-  gap: 18px 28px;
-  margin-bottom: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: 10px 16px;
+  margin-bottom: 12px;
 }
 
 .dialog-actions {
@@ -1032,9 +986,12 @@ onMounted(() => {
 
 @media (max-width: 1100px) {
   .search-form,
-  .receipt-form,
   .dialog-search {
     grid-template-columns: 1fr;
+  }
+
+  .receipt-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .search-actions,
@@ -1046,6 +1003,12 @@ onMounted(() => {
   .form-footer {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (max-width: 700px) {
+  .receipt-form {
+    grid-template-columns: 1fr;
   }
 }
 </style>

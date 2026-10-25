@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Edit, Plus, Search, Upload, View } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
-import { getCurrentMonthRange } from '../../utils/date'
+import { getRecentMonthRange } from '../../utils/date'
 import {
   addTenantHandKept,
   deleteTenantHandKept,
@@ -22,7 +22,7 @@ const filters = reactive({
   name: '',
   orderNo: '',
   operator: '',
-  createTimeRange: getCurrentMonthRange()
+  createTimeRange: getRecentMonthRange()
 })
 
 const form = reactive({
@@ -260,7 +260,7 @@ const resetFilters = () => {
     name: '',
     orderNo: '',
     operator: '',
-    createTimeRange: getCurrentMonthRange()
+    createTimeRange: getRecentMonthRange()
   })
   loadData()
 }
