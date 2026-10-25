@@ -3214,13 +3214,12 @@ watch(
               <span>备注</span>
               <el-input v-model="formState.remark" type="textarea" :rows="2" placeholder="请输入备注" />
             </label>
-            <label class="span-2 order-attachment-field">
+            <div class="span-2 order-attachment-field">
               <span>订单附件</span>
               <div class="order-attachment-upload">
                 <el-upload action="#" accept="image/*" multiple :show-file-list="false" :http-request="uploadOrderAttachment">
                   <el-button>选择文件</el-button>
                 </el-upload>
-                <span class="order-attachment-upload__hint">支持图片上传</span>
                 <div v-if="formState.files.length" class="order-attachment-list">
                   <div v-for="(file, index) in formState.files" :key="file.fileId || index" class="order-attachment-item">
                     <el-image
@@ -3233,8 +3232,9 @@ watch(
                     <button type="button" @click="removeOrderAttachment(index)">删除</button>
                   </div>
                 </div>
+                <span class="order-attachment-upload__hint">支持图片上传</span>
               </div>
-            </label>
+            </div>
             <div v-if="formMode === 'edit' && errorDetail" class="full-span order-error-hint">
               <strong>特殊提示</strong>
               <div>责任人：{{ errorDetail.personInCharge }}</div>
@@ -4032,14 +4032,16 @@ watch(
 }
 
 .filter-grid label,
-.design-form-grid label {
+.design-form-grid label,
+.design-form-grid .order-attachment-field {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
 .filter-grid label span,
-.design-form-grid label span {
+.design-form-grid label span,
+.design-form-grid .order-attachment-field > span {
   color: #606266;
   font-size: 14px;
   font-weight: 500;
@@ -4355,16 +4357,13 @@ watch(
 }
 
 .order-attachment-upload__hint {
-  align-self: center;
+  line-height: 32px;
   color: #909399;
   font-size: 13px;
 }
 
 .order-attachment-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  width: 100%;
+  display: contents;
 }
 
 .order-attachment-item {
@@ -4724,14 +4723,16 @@ watch(
 .order-info-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px 14px;
-  align-items: end;
+  align-items: start;
 }
 
-.order-info-grid label {
+.order-info-grid label,
+.order-info-grid .order-attachment-field {
   gap: 4px;
 }
 
-.order-info-grid label span {
+.order-info-grid label span,
+.order-info-grid .order-attachment-field > span {
   font-size: 13px;
 }
 
