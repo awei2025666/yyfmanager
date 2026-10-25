@@ -335,9 +335,9 @@ onBeforeUnmount(() => {
 
         <PageBlock title="待办事项" class="side-card side-card--todo">
           <div class="quick-grid compact">
-            <el-button v-for="item in pendingActions" :key="item.label" text class="quick-action" @click="openDashboardAction(item)">
+            <el-button v-for="item in pendingActions" :key="item.label" size="default" text class="quick-action" @click="openDashboardAction(item)">
               <el-badge :value="item.getBadge?.()" :hidden="!item.getBadge?.()">
-              <em><el-icon><component :is="item.icon" /></el-icon></em>
+                <em><el-icon><component :is="item.icon" /></el-icon></em>
               </el-badge>
               <strong>{{ item.label }}</strong>
             </el-button>
@@ -346,7 +346,7 @@ onBeforeUnmount(() => {
 
         <PageBlock title="快捷功能" class="side-card side-card--quick">
           <div class="quick-grid">
-            <el-button v-for="item in quickActions" :key="item.label" text class="quick-action" @click="openDashboardAction(item)">
+            <el-button v-for="item in quickActions" :key="item.label" size="default" text class="quick-action" @click="openDashboardAction(item)">
               <em><el-icon><component :is="item.icon" /></el-icon></em>
               <strong>{{ item.label }}</strong>
             </el-button>
@@ -554,10 +554,11 @@ onBeforeUnmount(() => {
   gap: 16px 12px;
 }
 
-.quick-action {
+.quick-grid .quick-action {
   width: 100%;
   height: auto;
   min-height: 72px;
+  margin: 0;
   padding: 0;
   color: var(--el-text-color-primary);
 }
