@@ -1,16 +1,21 @@
 <template>
 	<view class="page">
-		<view class="nav"><text @click="goBack">‹</text><strong>一键生产</strong><i></i></view>
 		<view class="card" v-for="item in crafts" :key="item.id">
 			<view class="product">{{ item.productInfo || '-' }}</view>
 			<view class="name-line">
 				<view class="name">{{ item.craftName || item.name || '-' }}</view><text
 					:class="['status-tag', statusClass(item)]">{{ statusText(item) }}</text>
 			</view>
-			<view class="info"><text>成品数量：{{ item.orderQuantity || '-' }}{{ item.unit || '' }}</text><text>开数：{{
-				item.formatSize || '-' }}</text><text>单双面：{{ singleDoubleText(item.singleDouble) }}</text><text
-					>颜色：{{ item.colour || '-' }}</text><text>规格：{{ item.formula || '-'
-					}}</text><text>专色：{{ item.spotColors || '-' }}</text><text class="color-info">备注：{{ item.remark || '-' }}</text></view>
+			<view class="info">
+				<text>成品数量：{{ item.orderQuantity || '-' }}{{ item.unit || '' }}</text>
+				<text>开数：{{ item.formatSize || '-' }}</text>
+				<text>单双面：{{ singleDoubleText(item.singleDouble) }}</text>
+				<text>颜色：{{ item.colour || '-' }}</text>
+				<text>规格：{{ item.formula || '-' }}</text>
+				<text>专色：{{ item.spotColors || '-' }}</text>
+				<text>每板个数：{{ item.numberPerBoard ?? '-' }}</text>
+				<text class="color-info remark">备注：{{ item.remark || '-' }}</text>
+			</view>
 			<button v-if="canOperate(item) && status(item) === 1" class="start" @click="start(item)">开始生产</button>
 			<button v-else-if="canOperate(item) && status(item) === 3" class="end" @click="end(item)">结束生产</button>
 		</view>
@@ -20,6 +25,7 @@
 <script setup>
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { ref } from 'vue'
+import { parseRouteIds } from '@/utils/routeIds'
 const crafts = ref([])
 const orderId = ref('')
 const craftIds = ref([])
@@ -40,8 +46,7 @@ const start = async item => {
 	}
 }
 const end = item => openComplete(item)
-const goBack = () => uni.navigateBack()
-onLoad(options => { orderId.value = options.orderId || ''; craftIds.value = (options.ids || options.id || '').split(',').filter(Boolean); load(craftIds.value) })
+onLoad(options => { orderId.value = options.orderId || ''; craftIds.value = parseRouteIds(options.ids || options.id); load(craftIds.value) })
 onShow(() => { if (craftIds.value.length) load(craftIds.value) })
 </script>
 <style lang="scss" scoped>
@@ -49,24 +54,6 @@ onShow(() => { if (craftIds.value.length) load(craftIds.value) })
 	min-height: 100vh;
 	padding: 0 24rpx;
 	background: #f7f8fa
-}
-
-.nav {
-	height: 110rpx;
-	display: grid;
-	grid-template-columns: 1fr auto 1fr;
-	align-items: center;
-	background: #fff;
-	font-size: 34rpx
-}
-
-.nav text {
-	font-size: 66rpx;
-	font-weight: 300
-}
-
-.nav i {
-	display: block
 }
 
 .card {
@@ -78,7 +65,9 @@ onShow(() => { if (craftIds.value.length) load(craftIds.value) })
 
 .product {
 	color: #8b93a0;
-	font-size: 24rpx
+	font-size: 28rpx;
+	line-height: 42rpx;
+	word-break: break-all
 }
 
 .name-line {
@@ -91,14 +80,15 @@ onShow(() => { if (craftIds.value.length) load(craftIds.value) })
 
 .name {
 	color: #20242b;
-	font-size: 32rpx;
+	font-size: 36rpx;
 	font-weight: 600
 }
 
 .status-tag {
 	padding: 8rpx 16rpx;
 	border-radius: 24rpx;
-	font-size: 22rpx;
+	font-size: 26rpx;
+	flex-shrink: 0;
 	white-space: nowrap
 }
 
@@ -119,12 +109,18 @@ onShow(() => { if (craftIds.value.length) load(craftIds.value) })
 
 .info {
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 	gap: 12rpx 18rpx;
 	margin: 18rpx 0 24rpx;
 	color: #8d97a6;
-	font-size: 25rpx;
-	line-height: 34rpx
+	font-size: 30rpx;
+	line-height: 44rpx;
+	word-break: break-all
+}
+
+.remark {
+	grid-column: 1 / -1;
+	white-space: pre-wrap;
 }
 
 .color-info {
@@ -134,7 +130,7 @@ onShow(() => { if (craftIds.value.length) load(craftIds.value) })
 .card button {
 	height: 78rpx;
 	border-radius: 16rpx;
-	font-size: 28rpx;
+	font-size: 32rpx;
 	line-height: 78rpx
 }
 

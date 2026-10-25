@@ -1,13 +1,5 @@
 <template>
 	<view class="consumable-add-page">
-		<view class="nav-wrap">
-		
-			<view class="nav-row">
-				<view class="back" @tap.stop.prevent="goBack" @click.stop.prevent="goBack" @touchend.stop.prevent="goBack">‹</view>
-				<text>添加耗材消耗</text>
-
-			</view>
-		</view>
 
 		<view class="form">
 			<view class="form-row" @click="openConsumablePicker">
@@ -248,6 +240,7 @@ onLoad(options => {
 }
 .required::before{
 	content: '*';
+	color: #ff4d4f;
 }
 .right-value{
 	display: flex;

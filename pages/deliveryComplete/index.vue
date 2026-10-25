@@ -1,11 +1,5 @@
 <template>
 	<view class="delivery-complete-page">
-		<view class="nav-wrap">
-			<view class="nav-row">
-				<view class="back" @tap.stop.prevent="goBack" @click.stop.prevent="goBack">‹</view>
-				<text>完成配送</text>
-			</view>
-		</view>
 
 		<view class="form-section">
 			<view class="field-block">

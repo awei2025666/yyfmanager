@@ -1,13 +1,6 @@
 <template>
 	<div class="orderDetail" :class="{ 'delivery-mode': isDeliveryPending }">
-		<view class="detail-nav">
 		
-			<view class="nav-row">
-				<view class="back" @tap.stop="goBack" @click.stop="goBack">‹</view>
-				<text>订单详情</text>
-
-			</view>
-		</view>
 		<div class="detail-status" v-if="detailStatusText" :class="`status-${currentOrderStatus}`">{{ detailStatusText }}</div>
 		<div class="orderInfo">
 			<div class="bar">

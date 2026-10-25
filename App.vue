@@ -38,8 +38,7 @@
 	}
 
 	.pageTop {
-		padding-top: calc(34rpx + constant(safe-area-inset-top)) !important;
-		padding-top: calc(34rpx + env(safe-area-inset-top)) !important;
+		padding-top: 24rpx !important;
 		box-sizing: border-box;
 	}
 

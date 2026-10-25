@@ -1,13 +1,5 @@
 <template>
 	<view class="create-page">
-		<view class="create-nav">
-	
-			<view class="nav-row">
-				<view class="back" @click="goBack">‹</view>
-				<text>一键开单</text>
-		
-			</view>
-		</view>
 
 		<view class="steps">
 			<view :class="['step', currentStep >= 1 ? 'active' : '', currentStep > 1 ? 'done' : '']">
@@ -165,10 +157,6 @@
 				</view>
 			</view>
 			<view class="form-row">
-				<text class="label">规格</text>
-				<input v-model="craftForm.specification" placeholder="请输入" placeholder-class="placeholder" />
-			</view>
-			<view class="form-row">
 				<text class="label">开数</text>
 				<input v-model="craftForm.openNum" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
@@ -198,7 +186,7 @@
 				<input v-model="craftForm.startPrice" type="digit" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
 			<view class="form-row">
-				<text class="label required">成品数量</text>
+				<text class="label">成品数量</text>
 				<input v-model="craftForm.orderQuantity" type="number" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
 			<view class="form-row">
@@ -210,10 +198,10 @@
 				<input v-model="craftForm.ploidy" type="number" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
 			<view class="form-row">
-				<text class="label required">单价</text>
+				<text class="label">单价</text>
 				<input
 					v-if="isFoilingCraft(craftForm)"
-					:value="craftFormCustomerMoneyText"
+					:value="toFixed4Number(computedFoilingPrice(craftForm))"
 					disabled
 					placeholder="自动计算"
 					placeholder-class="placeholder"
@@ -247,7 +235,7 @@
 		</view>
 
 		<view v-if="showPicker" class="picker-mask" @click="closePicker">
-			<view class="picker-panel" @click.stop>
+			<view class="picker-panel" :class="{ 'delivery-picker-panel': pickerType === 'deliveryType' }" @click.stop>
 				<view class="picker-head">
 					<text>{{ pickerTitle }}</text>
 					<view class="picker-actions">
@@ -426,14 +414,14 @@ const craftForm = reactive({
 	spotColors: '',
 	colour: '',
 	startPrice: '',
-	priceBase: '',
+	priceBase1: '',
 	foilingStartingPrice: null,
 	foilingPointPrice: null,
 	foilingSheetPrice: null,
 	foilingSquarePrice: null,
 	foilingPointList: [],
 	unit: '',
-	ploidy: '',
+	ploidy: 1,
 	orderQuantity: '',
 	unitPrice: '',
 	formula: '',
@@ -615,7 +603,7 @@ const openFoilingPointDialog = () => {
 	const points = normalizeFoilingPointList(craftForm.foilingPointList, craftForm.formula)
 	foilingPointForm.foilingPointPrice = craftForm.foilingPointPrice ?? craftForm.foilingStartingPrice ?? ''
 	foilingPointForm.foilingSheetPrice = craftForm.foilingSheetPrice ?? craftForm.foilingStartingPrice ?? ''
-	foilingPointForm.foilingSquarePrice = craftForm.foilingSquarePrice ?? craftForm.foilingPointPrice ?? craftForm.foilingStartingPrice ?? ''
+	foilingPointForm.foilingSquarePrice = craftForm.foilingSquarePrice ?? ''
 	foilingPointForm.points = points.length ? points.map(item => item.formula) : ['']
 	showFoilingPointDialog.value = true
 }
@@ -649,15 +637,28 @@ const saveFoilingPointDialog = () => {
 	craftForm.formula = formatFoilingFormula(craftForm.foilingPointList)
 	showFoilingPointDialog.value = false
 }
+const computedFoilingPrice = (craft = {}) => {
+	const points = normalizeFoilingPointList(craft.foilingPointList, craft.formula)
+	if (!points.length) return 0
+	const pointStartPrice = Number(zeroIfEmpty(craft.foilingPointPrice ?? craft.foilingStartingPrice))
+	const sheetStartPrice = Number(zeroIfEmpty(craft.foilingSheetPrice ?? craft.foilingStartingPrice))
+	const squarePrice = Number(zeroIfEmpty(craft.foilingSquarePrice))
+	const pointTotal = points.reduce((sum, point) => {
+		const pointValue = formulaValue(point.formula)
+		if (pointValue === null) return sum
+		return sum + Math.max(pointValue * squarePrice, pointStartPrice)
+	}, 0)
+	return Math.max(pointTotal, sheetStartPrice)
+}
 const computedCraftCustomerAmount = (craft = {}) => {
 	const rawFinishNum = Number(zeroIfEmpty(craft.finishNum ?? craft.orderQuantity))
 	if (!rawFinishNum) return 0
 	const type = Number(craft.singleDouble || 1)
-	const ploidy = Math.max(Number(zeroIfEmpty(craft.ploidy || 1)), 1)
+	const ploidy = Number(zeroIfEmpty(craft.ploidy)) || 1
 	let finishNum = rawFinishNum
 	let price = Number(zeroIfEmpty(craft.price ?? craft.unitPrice))
 	let startPrice = Number(zeroIfEmpty(craft.startPrice ?? craft.basePrice))
-	const priceBase = Number(zeroIfEmpty(craft.priceBase))
+	const priceBase1 = Number(zeroIfEmpty(craft.priceBase1))
 	// if (type === 2) {
 	// 	finishNum *= 2
 	// }
@@ -671,27 +672,16 @@ const computedCraftCustomerAmount = (craft = {}) => {
 
 	const multiplyPloidy = amount => toFixed4Number(amount * ploidy)
 	if (isFoilingCraft(craft)) {
-		const points = normalizeFoilingPointList(craft.foilingPointList, craft.formula)
-		if (points.length) {
-			const pointStartPrice = Number(zeroIfEmpty(craft.foilingPointPrice ?? craft.foilingStartingPrice))
-			const squarePrice = Number(zeroIfEmpty(craft.foilingSquarePrice ?? craft.foilingPointPrice ?? craft.foilingStartingPrice))
-			const sheetStartPrice = Number(zeroIfEmpty(craft.foilingSheetPrice ?? craft.foilingStartingPrice))
-			const pointTotal = points.reduce((sum, point) => {
-				const pointValue = formulaValue(point.formula)
-				if (pointValue === null) return sum
-				return sum + Math.max(pointValue * squarePrice, pointStartPrice)
-			}, 0)
-			return multiplyPloidy(Math.max(pointTotal, sheetStartPrice) * finishNum)
-		}
+		return multiplyPloidy(computedFoilingPrice(craft) * finishNum)
 	}
 	const formula = formulaValue(craft.formula)
 	if (formula !== null) {
 		return multiplyPloidy(formula * finishNum * price)
 	}
-	if (priceBase === 0) {
+	if (priceBase1 === 0) {
 		return multiplyPloidy(Math.max(finishNum * price, startPrice))
 	}
-	return multiplyPloidy(((finishNum - priceBase) * price) + startPrice)
+	return multiplyPloidy(((finishNum - priceBase1) * price) + startPrice)
 }
 const isCraftOfProduct = (craft = {}, product = {}) => {
 	const productValues = [product.localId, product.id, product.productId, product.name, product.productName]
@@ -942,7 +932,7 @@ const openCraftPicker = async () => {
 			key: item.id,
 			value: item,
 			label: item.name || item.craftName || '-',
-			subLabel: [item.unit ? `单位：${item.unit}` : '', item.priceBase ? `起价基数：${item.priceBase}` : ''].filter(Boolean).join('  ')
+			subLabel: [item.unit ? `单位：${item.unit}` : '', item.priceBase1 ? `起价基数：${item.priceBase1}` : ''].filter(Boolean).join('  ')
 		})))
 	} catch (e) {
 		openPicker('craft', '选择工艺名称', [])
@@ -985,27 +975,27 @@ const selectPickerItem = item => {
 		craftForm.spotColors = ''
 		craftForm.colour = ''
 		craftForm.startPrice = ''
-		craftForm.priceBase = ''
+		craftForm.priceBase1 = ''
 		craftForm.foilingStartingPrice = null
 		craftForm.foilingPointPrice = null
 		craftForm.foilingSheetPrice = null
 		craftForm.foilingSquarePrice = null
 		craftForm.foilingPointList = []
 		craftForm.unit = ''
-		craftForm.ploidy = ''
+		craftForm.ploidy = 1
 		craftForm.unitPrice = ''
 		craftForm.formula = ''
 		craftForm.craftId = craft.id
 		craftForm.name = craft.name || craft.craftName || ''
 		craftForm.specification = craft.spec || craft.specification || craftForm.specification || ''
 		craftForm.startPrice = zeroIfEmpty(craft.startPrice ?? craft.basePrice ?? craft.startingPrice ?? '')
-		craftForm.priceBase = zeroIfEmpty(craft.priceBase ?? '')
+		craftForm.priceBase1 = zeroIfEmpty(craft.priceBase1 ?? '')
 		craftForm.foilingStartingPrice = craft.foilingStartingPrice ?? craft.foilStartingPrice ?? craft.gildingStartingPrice ?? null
 		craftForm.foilingPointPrice = craft.foilingPointPrice ?? craft.foilPointPrice ?? craft.pointStartPrice ?? craftForm.foilingStartingPrice
 		craftForm.foilingSheetPrice = craft.foilingSheetPrice ?? craft.foilSheetPrice ?? craft.sheetStartPrice ?? craftForm.foilingStartingPrice
-		craftForm.foilingSquarePrice = craft.foilingSquarePrice ?? craft.foilingPointPrice ?? craft.foilPointPrice ?? craft.pointStartPrice ?? craftForm.foilingStartingPrice
+		craftForm.foilingSquarePrice = craft.foilingSquarePrice ?? null
 		craftForm.unit = craft.unit || craftForm.unit || ''
-		craftForm.ploidy = zeroIfEmpty(craft.ploidy ?? craft.multiple ?? craft.sets ?? craftForm.ploidy)
+		craftForm.ploidy = Number(craft.ploidy ?? craft.multiple ?? craft.sets) || 1
 		craftForm.openNum = craft.openNum ?? craft.openCount ?? craft.formatSize ?? craftForm.openNum
 		craftForm.numberPerBoard = craft.numberPerBoard ?? craft.numberPerEdition ?? craftForm.numberPerBoard
 		craftForm.singleDouble = ''
@@ -1053,7 +1043,7 @@ const saveCraft = () => {
 		singleDouble: craftForm.singleDouble || '',
 		spotColors: craftForm.spotColors || '',
 		colour: craftForm.colour || '',
-		priceBase: Number(craftForm.priceBase || 0),
+		priceBase1: Number(craftForm.priceBase1 || 0),
 		startPrice: Number(craftForm.startPrice || 0),
 		foilingStartingPrice: craftForm.foilingStartingPrice,
 		foilingPointPrice: craftForm.foilingPointPrice,
@@ -1064,8 +1054,8 @@ const saveCraft = () => {
 		ploidy: Number(craftForm.ploidy || 1),
 		orderQuantity: Number(craftForm.orderQuantity || 0),
 		finishNum: Number(craftForm.orderQuantity || 0),
-		unitPrice: Number(craftForm.unitPrice || 0),
-		price: Number(craftForm.unitPrice || 0),
+		unitPrice: isFoilingCraft(craftForm) ? computedFoilingPrice(craftForm) : Number(craftForm.unitPrice || 0),
+		price: isFoilingCraft(craftForm) ? computedFoilingPrice(craftForm) : Number(craftForm.unitPrice || 0),
 		formula: craftForm.formula || '',
 		customerMoney: craftFormCustomerMoney.value,
 		customerAmount: craftFormCustomerMoney.value,
@@ -1087,14 +1077,14 @@ const resetCraft = () => {
 	craftForm.spotColors = ''
 	craftForm.colour = ''
 	craftForm.startPrice = ''
-	craftForm.priceBase = ''
+	craftForm.priceBase1 = ''
 	craftForm.foilingStartingPrice = null
 	craftForm.foilingPointPrice = null
 	craftForm.foilingSheetPrice = null
 	craftForm.foilingSquarePrice = null
 	craftForm.foilingPointList = []
 	craftForm.unit = ''
-	craftForm.ploidy = ''
+	craftForm.ploidy = 1
 	craftForm.orderQuantity = ''
 	craftForm.unitPrice = ''
 	craftForm.formula = ''
@@ -1133,7 +1123,7 @@ const buildCraftPayload = craft => ({
 	productName: craft.productName,
 	unit: craft.unit,
 	ploidy: Number(craft.ploidy || 1),
-	priceBase: Number(craft.priceBase || 0),
+	priceBase1: Number(craft.priceBase1 || 0),
 	startPrice: Number(craft.startPrice ?? 0),
 	formatSize: craft.openNum ?? craft.formatSize ?? '',
 	openNum: craft.openNum ?? craft.formatSize ?? '',
@@ -1162,8 +1152,8 @@ const buildCraftPayload = craft => ({
 	remark: craft.remark,
 	specification: craft.specification,
 	spec: craft.specification,
-	unitPrice: Number(craft.unitPrice || 0),
-	price: Number(craft.price ?? craft.unitPrice ?? 0),
+	unitPrice: isFoilingCraft(craft) ? computedFoilingPrice(craft) : Number(craft.unitPrice || 0),
+	price: isFoilingCraft(craft) ? computedFoilingPrice(craft) : Number(craft.price ?? craft.unitPrice ?? 0),
 	customerMoney: computedCraftCustomerAmount(craft),
 	customerAmount: computedCraftCustomerAmount(craft)
 })
@@ -1425,6 +1415,7 @@ const goBack = () => {
 	}
 	.required::before{
 		content: "*";
+		color: #ff4d4f;
 	}
 	.value{
 		display: flex;
@@ -1613,6 +1604,12 @@ picker{
 		font-size: 28rpx;
 		box-sizing: border-box;
 	}
+}
+.delivery-picker-panel{
+	padding-bottom: 40rpx;
+	padding-bottom: calc(40rpx + constant(safe-area-inset-bottom));
+	padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+	box-sizing: border-box;
 }
 .picker-list{
 	max-height: 48vh;

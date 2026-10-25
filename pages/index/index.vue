@@ -171,7 +171,7 @@ const initPage = async () => {
 }
 
 onShow(() => {
-	checkFollowStatus()
+	// checkFollowStatus()
 	initPage()
 	nextTick(() => {
 		listRef.value && listRef.value.refresh()

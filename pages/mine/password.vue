@@ -1,12 +1,5 @@
 <template>
 	<view class="sub-page">
-		<view class="nav-wrap">
-			<view class="nav-row">
-				<view class="back" @tap.stop.prevent="goBack" @click.stop.prevent="goBack">‹</view>
-				<text>修改密码</text>
-				<view></view>
-			</view>
-		</view>
 
 		<view class="form">
 			<view class="form-row">

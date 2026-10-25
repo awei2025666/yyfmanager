@@ -1,11 +1,5 @@
 <template>
 	<view class="binding-page">
-		<view class="nav-wrap">
-			<view class="nav-row">
-				<view class="back" @tap.stop.prevent="goBack" @click.stop.prevent="goBack" @touchend.stop.prevent="goBack">‹</view>
-				<text>配送绑定</text>
-			</view>
-		</view>
 
 		<view class="hero">
 			<view>

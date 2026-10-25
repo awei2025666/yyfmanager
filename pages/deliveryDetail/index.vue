@@ -1,13 +1,5 @@
 <template>
 	<view class="delivery-detail">
-		<view class="nav-wrap">
-		
-			<view class="nav-row">
-				<view class="back" @tap.stop.prevent="goBack" @click.stop.prevent="goBack">‹</view>
-				<text>配送单详情</text>
-
-			</view>
-		</view>
 
 		<view :class="['status-band', isDeliveryDone ? 'done' : 'active']">{{ deliveryStatusText }}</view>
 

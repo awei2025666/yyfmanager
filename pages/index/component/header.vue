@@ -1,11 +1,5 @@
 <template>
 	<view class="pageTop">
-
-		<view class="nav">
-			<view></view>
-			<text>首页</text>
-		
-		</view>
 		<view class="quick-grid">
 			<view class="item" @click="toPage('/pages/orderCreate/index')">
 				<view class="quick-icon clipboard-icon">

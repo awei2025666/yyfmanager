@@ -1,11 +1,5 @@
 <template>
 	<view class="pack-page">
-		<view class="nav-wrap">
-			<view class="nav-row">
-				<view class="back" @tap.stop.prevent="goBack" @click.stop.prevent="goBack" @touchend.stop.prevent="goBack">‹</view>
-				<text>打包</text>
-			</view>
-		</view>
 
 		<view class="content">
 			<view v-if="productList.length" class="product-summary">

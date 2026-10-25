@@ -1,13 +1,5 @@
 <template>
 	<view class="production-page">
-		<view class="nav-wrap">
-		
-			<view class="nav-row">
-				<view class="back" @tap.stop="goBack" @click.stop="goBack">‹</view>
-				<text>一键生产</text>
-
-			</view>
-		</view>
 
 		<view :class="['status-band', `status-${currentOrderStatus}`]">{{ orderStatusText }}</view>
 

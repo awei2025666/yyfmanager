@@ -1,12 +1,5 @@
 <template>
 	<view class="mine-page">
-		<view class="nav-wrap">
-			<view class="nav-row">
-				<view></view>
-				<text>我的</text>
-				<view></view>
-			</view>
-		</view>
 
 		<view class="profile-band" @click="toPage('/pages/mine/info')">
 			<view class="avatar">

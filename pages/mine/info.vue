@@ -1,12 +1,5 @@
 <template>
 	<view class="sub-page">
-		<view class="nav-wrap">
-			<view class="nav-row">
-				<view class="back" @tap.stop.prevent="goBack" @click.stop.prevent="goBack">‹</view>
-				<text>个人信息</text>
-				<view></view>
-			</view>
-		</view>
 
 		<view class="profile-card">
 			<view class="avatar" @click="chooseAvatar">

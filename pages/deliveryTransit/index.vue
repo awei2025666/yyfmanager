@@ -1,13 +1,5 @@
 <template>
 	<view class="transit-page">
-		<view class="nav-wrap">
-			
-			<view class="nav-row">
-        <view class="back" @tap.stop.prevent="goBack" @click.stop.prevent="goBack" @touchend.stop.prevent="goBack">‹</view>
-				<text>配送中</text>
-
-			</view>
-		</view>
 
 		<view class="list">
 			<view v-if="!list.length" class="empty-state">暂无数据</view>

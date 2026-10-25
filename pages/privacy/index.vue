@@ -1,11 +1,5 @@
 <template>
 	<view class="privacy-page">
-		<view class="nav-wrap">
-			<view class="nav-row">
-				<view class="back" @tap.stop.prevent="goBack" @click.stop.prevent="goBack">‹</view>
-				<text>用户隐私保护指引</text>
-			</view>
-		</view>
 
 		<scroll-view class="content" scroll-y>
 			<view class="title">用户隐私保护指引</view>

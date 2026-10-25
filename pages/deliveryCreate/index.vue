@@ -1,13 +1,5 @@
 <template>
 	<view class="delivery-create-page">
-		<view class="nav-wrap">
-	
-			<view class="nav-row">
-				<view class="back" @tap.stop.prevent="goBack" @click.stop.prevent="goBack">‹</view>
-				<text>新建配送单</text>
-
-			</view>
-		</view>
 
 		<view class="section orders-section">
 			<view class="section-head">

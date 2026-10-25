@@ -1,13 +1,5 @@
 <template>
 	<view class="complete-page">
-		<view class="nav-wrap">
-		
-			<view class="nav-row">
-				<view class="back" @tap.stop.prevent="goBack" @click.stop.prevent="goBack" @touchend.stop.prevent="goBack">‹</view>
-				<text>完成生产</text>
-
-			</view>
-		</view>
 
 		<view class="form-section">
 			<view class="machine-row" @click="openMachinePopup">
@@ -156,6 +148,7 @@
 <script setup>
 import { onLoad } from '@dcloudio/uni-app'
 import { computed, ref } from 'vue'
+import { parseRouteIds } from '@/utils/routeIds'
 
 const craftId = ref('')
 const craftInfos = ref([])
@@ -440,7 +433,7 @@ const goBack = () => {
 
 onLoad(options => {
 	craftId.value = options.id || ''
-	const ids = (options.ids || options.id || '').split(',').filter(Boolean)
+	const ids = parseRouteIds(options.ids || options.id)
 	if (ids.length) uni.$api.productsCraftInfoByIds({ ids }).then(data => { const list = Array.isArray(data) ? data : (data?.records || data?.data || []); craftInfos.value = Array.isArray(list) ? list : [] }).catch(() => { craftInfos.value = [] })
 	orderId.value = options.orderId || ''
 	loadMachines()

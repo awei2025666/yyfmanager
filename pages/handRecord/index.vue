@@ -1,13 +1,5 @@
 <template>
 	<view class="hand-page">
-		<view class="nav-wrap">
-
-			<view class="nav-row">
-				<view class="back" @tap.stop.prevent="goBack" @click.stop.prevent="goBack" @touchend.stop.prevent="goBack">‹</view>
-				<text>添加手工记录</text>
-
-			</view>
-		</view>
 
 		<view class="form">
 			<view class="form-row">
@@ -17,16 +9,16 @@
 			<view class="field-block users-block">
 				<text class="label required">人员及数量</text>
 				<view class="user-row" v-for="(item,index) in userRows" :key="index">
-					<input v-model="item.keyword" class="user-input" placeholder="搜索人员" placeholder-class="placeholder" @input="searchUsers(index)" />
-					<input v-model="item.num" type="number" class="user-num" placeholder="数量" placeholder-class="placeholder" />
+					<input v-model="item.keyword" class="user-input" placeholder="搜索人员" placeholder-class="placeholder" @input="searchUsers(index)" @focus="openUsers(index)" @click="openUsers(index)" />
+					<input v-model="item.num" type="number" class="user-num" placeholder="数量" placeholder-class="placeholder" @blur="finishQuantityInput" @confirm="finishQuantityInput" />
 					<text v-if="userRows.length > 1" class="user-remove" @click="removeUser(index)">×</text>
-					<view v-if="item.options.length" class="user-options"><view v-for="user in item.options" :key="user.id" class="user-option" @click="selectUser(index,user)">{{ user.name || user.realName }}</view></view>
+					<view v-if="activeUserIndex === index && item.options.length" class="user-options"><view v-for="user in item.options" :key="user.id" class="user-option" @click="selectUser(index,user)">{{ user.name || user.realName }}</view></view>
 				</view>
 				<view class="add-user" @click="addUser">+ 添加人员</view>
 			</view>
 			<view class="field-block">
 				<text class="label">备注</text>
-				<textarea v-model="form.remark" class="remark" placeholder="请输入" placeholder-class="placeholder" />
+				<textarea v-model="form.remark" @focus="fillTotalRemark" class="remark" placeholder="请输入" placeholder-class="placeholder" />
 			</view>
 
 			<view class="field-block image-block">
@@ -63,8 +55,31 @@ const form = reactive({
 const userRows = ref([{ keyword: '', id: '', num: '', options: [] }])
 const allUsers = ref([])
 const usersLoading = ref(false)
-const addUser = () => userRows.value.push({ keyword: '', id: '', num: '', options: [] })
-const removeUser = index => userRows.value.splice(index, 1)
+const activeUserIndex = ref(-1)
+const generatedTotalPrefix = ref('')
+const finishQuantityInput = () => {
+	// 等当前点击完成后，用最新的人员行汇总。
+	setTimeout(fillTotalRemark, 0)
+}
+const fillTotalRemark = () => {
+	activeUserIndex.value = -1
+	const filledRows = userRows.value.filter(row => String(row.num).trim() !== '' && Number.isFinite(Number(row.num)) && Number(row.num) >= 0)
+	if (!filledRows.length && !generatedTotalPrefix.value) return
+	const total = filledRows.reduce((sum, row) => sum + Number(row.num), 0)
+	let remark = form.remark || ''
+	// 只替换上次自动生成的前缀，保留用户输入的备注内容。
+	if (generatedTotalPrefix.value && remark.startsWith(generatedTotalPrefix.value)) {
+		const rest = remark.slice(generatedTotalPrefix.value.length)
+		if (!rest || /^[,，\n]/.test(rest)) remark = rest.replace(/^[,，\n]/, '')
+	}
+	generatedTotalPrefix.value = `总数量:${total}`
+	form.remark = `${generatedTotalPrefix.value}${remark ? ',' + remark : ''}`
+}
+const addUser = () => {
+	userRows.value.push({ keyword: '', id: '', num: '', options: [] })
+	openUsers(userRows.value.length - 1)
+}
+const removeUser = index => { userRows.value.splice(index, 1); activeUserIndex.value = -1; fillTotalRemark() }
 const normalizeUser = user => ({ ...user, id: user.id || user.tenantUserId || user.userId, name: user.name || user.realName || user.userName || user.nickname || '' })
 const loadUsers = async () => {
 	if (usersLoading.value || allUsers.value.length) return
@@ -79,16 +94,22 @@ const loadUsers = async () => {
 			seen.add(key)
 			return true
 		})
-		userRows.value.forEach((_, index) => searchUsers(index))
+		if (activeUserIndex.value >= 0) openUsers(activeUserIndex.value)
 	} catch (e) { allUsers.value = [] } finally { usersLoading.value = false }
 }
-const searchUsers = index => {
+const openUsers = index => {
 	const row = userRows.value[index]
-	row.id = ''
+	if (!row) return
+	activeUserIndex.value = index
 	const keyword = row.keyword.trim().toLowerCase()
-	row.options = allUsers.value.filter(user => !keyword || user.name.toLowerCase().includes(keyword)).slice(0, 20)
+	row.options = allUsers.value.filter(user => !keyword || user.name.toLowerCase().includes(keyword))
 }
-const selectUser = (index, user) => { const row=userRows.value[index]; row.id=user.id || user.tenantUserId; row.keyword=user.name || user.realName || ''; row.options=[] }
+const searchUsers = index => {
+	userRows.value[index].id = ''
+	openUsers(index)
+}
+
+const selectUser = (index, user) => { const row=userRows.value[index]; row.id=user.id || user.tenantUserId; row.keyword=user.name || user.realName || ''; row.options=[]; activeUserIndex.value = -1; fillTotalRemark() }
 
 const imageSlots = computed(() => Math.max(0, maxImages - images.value.length - (images.value.length < maxImages ? 1 : 0)))
 
@@ -119,6 +140,7 @@ const uploadImage = async () => {
 }
 
 const submit = async () => {
+	fillTotalRemark()
 	if (!form.name) {
 		uni.showToast({ title: '请输入产品名称', icon: 'none' })
 		return
@@ -254,6 +276,7 @@ onLoad(options => {
 }
 .required::before{
 	content: '*';
+	color: #ff4d4f;
 }
 .input{
 	flex: 1;
