@@ -17,6 +17,7 @@ import {
   deleteTenantOrder,
   deleteTenantConsumableDetail,
   editTenantOrder,
+  editTenantOrderError,
   exportTenantOrder,
   exportTenantOrderCraft,
   addTenantExternalTenant,
@@ -2414,7 +2415,8 @@ const submitErrorOrder = async () => {
   if (!errorForm.tenantUserId) return ElMessage.warning('请选择责任人')
   errorSaving.value = true
   try {
-    await addTenantOrderError({
+    const saveOrderError = errorTarget.value?.errorTenantUserId ? editTenantOrderError : addTenantOrderError
+    await saveOrderError({
       orderId,
       tenantUserId: errorForm.tenantUserId,
       remark: errorForm.remark

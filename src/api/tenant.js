@@ -90,6 +90,7 @@ export const deleteTenantOrder = (id) => tenantHttp.get('/api/tenant/order/del',
 export const stopTenantOrder = (id) => tenantHttp.get('/api/tenant/order/orderStop', { params: { id } })
 export const startTenantOrder = (id) => tenantHttp.get('/api/tenant/order/orderStart', { params: { id } })
 export const addTenantOrderError = (payload = {}) => tenantHttp.post('/api/tenant/order/orderError', payload)
+export const editTenantOrderError = (payload = {}) => tenantHttp.post('/api/tenant/order/orderErrorEdit', payload)
 export const getTenantOrderErrorInfo = (id) => tenantHttp.get('/api/tenant/order/orderErrorInfo', { params: { orderId: id } })
 export const getTenantOutsourceTenants = (payload = {}) => tenantHttp.post('/api/tenant/order/tenants', payload)
 export const getTenantOutsourceTenantsAll = (payload = {}) => tenantHttp.post('/api/tenant/tenant/all', payload)
