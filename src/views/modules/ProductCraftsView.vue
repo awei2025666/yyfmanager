@@ -105,7 +105,11 @@ const statusText = (value) => {
   return Number(value) === 2 ? '已生产' : '待生产'
 }
 
-const statusClass = (value) => (statusText(value) === '已生产' ? 'status-success' : 'status-warning')
+const statusClass = (value) => {
+  const status = statusText(value)
+  if (status === '生产中') return 'status-primary'
+  return status === '已生产' ? 'status-success' : 'status-warning'
+}
 const orderSourceText = (value) => (Number(value) === 2 ? '外协' : '本厂')
 const orderSourceClass = (value) => (Number(value) === 2 ? 'source-outsourced' : 'source-local')
 const shouldShowManualComplete = (row = {}) => Number(row.manual) === 1 && Number(row.craftStatus) === 1
@@ -1269,6 +1273,11 @@ onMounted(() => {
 
 .status-warning {
   color: #ff9f1a;
+  font-weight: 700;
+}
+
+.status-primary {
+  color: #1f6bff;
   font-weight: 700;
 }
 
