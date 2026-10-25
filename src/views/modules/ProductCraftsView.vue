@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Plus, Printer, Refresh, Search, Switch, View } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
+import { getCurrentMonthRange } from '../../utils/date'
 import {
   addTenantExternalTenant,
   changeTenantProductCraftOrderQuantity,
@@ -31,7 +32,7 @@ const filters = reactive({
   craftName: '',
   orderNo: '',
   orderSource: '',
-  orderTime: [],
+  orderTime: getCurrentMonthRange(),
   orderBy: 1
 })
 
@@ -562,7 +563,7 @@ const resetFilters = () => {
     craftName: '',
     orderNo: '',
     orderSource: '',
-    orderTime: [],
+    orderTime: getCurrentMonthRange(),
     orderBy: 1
   })
   if (productCraftTableRef.value) {

@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Edit, Plus, Search, Upload, View } from '@element-plus/icons-vue'
 import PageBlock from '../../components/PageBlock.vue'
+import { getCurrentMonthRange } from '../../utils/date'
 import {
   addTenantHandKept,
   deleteTenantHandKept,
@@ -20,7 +21,8 @@ const filters = reactive({
   pageSize: 10,
   name: '',
   orderNo: '',
-  operator: ''
+  operator: '',
+  createTimeRange: getCurrentMonthRange()
 })
 
 const form = reactive({
@@ -184,7 +186,9 @@ const queryPayload = () => ({
   pageSize: filters.pageSize,
   name: filters.name || undefined,
   orderId: filters.orderNo || undefined,
-  createUserName: filters.operator || undefined
+  createUserName: filters.operator || undefined,
+  createTimeStart: filters.createTimeRange?.[0] || undefined,
+  createTimeEnd: filters.createTimeRange?.[1] || undefined
 })
 
 const savePayload = () => ({
@@ -255,7 +259,8 @@ const resetFilters = () => {
     pageSize: 10,
     name: '',
     orderNo: '',
-    operator: ''
+    operator: '',
+    createTimeRange: getCurrentMonthRange()
   })
   loadData()
 }
@@ -461,6 +466,18 @@ onMounted(async () => {
         <el-form-item label="操作员">
           <el-input v-model="filters.operator" clearable placeholder="请输入操作员" @keyup.enter="searchData" />
         </el-form-item>
+        <el-form-item label="操作时间">
+          <el-date-picker
+            v-model="filters.createTimeRange"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            clearable
+          />
+        </el-form-item>
         <el-form-item class="search-actions">
           <el-button type="primary" :icon="Search" @click="searchData">查询</el-button>
           <el-button @click="resetFilters">重置</el-button>
@@ -632,7 +649,8 @@ onMounted(async () => {
 }
 
 .search-form :deep(.el-input),
-.search-form :deep(.el-select) {
+.search-form :deep(.el-select),
+.search-form :deep(.el-date-editor--daterange) {
   width: 100%;
 }
 

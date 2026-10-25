@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Plus, Printer, Refresh, Search } from '@element-plus/icons-vue'
 import PageBlock from '../components/PageBlock.vue'
+import { getCurrentMonthRange } from '../utils/date'
 import {
   addTenantOrderError,
   addTenantOrder,
@@ -63,7 +64,7 @@ const filters = reactive({
   orderId: '',
   status: '',
   paymentStatus: '',
-  orderTimeRange: [],
+  orderTimeRange: getCurrentMonthRange(),
   orderByDate: 2
 })
 
@@ -1759,7 +1760,7 @@ const resetFilters = () => {
     orderId: '',
     status: '',
     paymentStatus: '',
-    orderTimeRange: [],
+    orderTimeRange: getCurrentMonthRange(),
     orderByDate: 2
   })
   if (orderTableRef.value) {
