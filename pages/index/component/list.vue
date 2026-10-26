@@ -19,7 +19,7 @@
 			<z-paging :fixed="false" ref="paging" v-model="dataList" @query="queryList">
 					<!-- z-paging默认铺满全屏，此时页面所有view都应放在z-paging标签内，否则会被盖住 -->
 					<!-- 需要固定在页面顶部的view请通过slot="top"插入，包括自定义的导航栏 -->
-			        <view class="item" v-for="(item,index) in dataList" :key="item.id || index" @click="toDetail(item)">
+			        <view class="item" :class="{ 'craft-record': type === 1 }" v-for="(item,index) in dataList" :key="item.id || index" @click="toDetail(item)">
 			            <view class="item-title">
 							<view class="title-left">
 								<u-icon v-if="type === 0 || type === 3" name="order" color="#1f7cff" size="32"></u-icon>
@@ -36,10 +36,8 @@
 							<view class="item-meta">{{ getMeta(item) }}</view>
 						</template>
 						<template v-else-if="type === 1">
-							<!-- TODO -->
-							<view class="item-company">
-								{{ item.craftName || '' }}{{ item.orderQuantity ? `*${item.orderQuantity}` : '' }}{{ item.unitPrice ? `*¥${item.unitPrice}` : '' }}{{ item.customerMoney ? `*¥${item.customerMoney}` : '' }}<text class="danger">{{ item.remark || '' }}</text>
-							</view>
+							<view class="item-company craft-remark"><text class="danger">{{ item.remark || '-' }}</text></view>
+							<view class="item-company craft-product">{{ item.productInfo || item.productName || '-' }}</view>
 						</template>
 						<template v-else-if="type === 2">
 							<view class="delivery-orders" v-if="getDeliveryOrderLines(item).length">
@@ -202,9 +200,17 @@ const getHandDesc = item => {
 
 const getHandCompany = item => item.companyName || item.clientName || item.customerName || '-'
 
+const getCraftTitle = item => {
+	const name = item.craftName || '-'
+	const quantity = String(item.orderQuantity ?? '').trim()
+	if (!quantity || Number(quantity) === 0) return name
+	const unit = String(item.unit ?? '').trim()
+	return `${name} （${quantity}${unit ? ` ${unit}` : ''}）`
+}
+
 const getTitle = item => {
 	if (props.type === 0) return item.orderId ? `${item.orderId}（订单号）` : (item.companyName || '-')
-	if (props.type === 1) return item.productInfo || item.craftName || '-'
+	if (props.type === 1) return getCraftTitle(item)
 	if (props.type === 2) {
 		const orders = getDeliveryOrders(item)
 		const doneCount = orders.filter(order => Number(order.status) === 2).length
@@ -216,7 +222,7 @@ const getTitle = item => {
 
 const getDesc = item => {
 	if (props.type === 0) return `${item.companyName || ''} ${item.productInfo || ''}`.trim()
-	if (props.type === 1) return `${item.craftName || ''}${item.orderQuantity ? `*${item.orderQuantity}` : ''}${item.unitPrice ? `*¥${item.unitPrice}` : ''}${item.customerMoney ? `*¥${item.customerMoney}` : ''}${item.remark ? `*${item.remark}` : ''}`
+	if (props.type === 1) return item.remark || ''
 	if (props.type === 2) return getDeliveryOrderLines(item).map(order => `${order.products}${order.statusText}`).join('；')
 	return `${item.companyName || item.orderId || ''}${item.num ? ` * ${item.num}` : ''}`.trim()
 }
@@ -395,5 +401,18 @@ onBeforeUnmount(() => {
 			color: #c5c5c5;
 			font-size: 24rpx;
 		}
+	}
+	.item.craft-record{
+		.item-title{
+			align-items: flex-start;
+			.title-left text{
+				white-space: normal;
+				overflow-wrap: anywhere;
+				line-height: 1.45;
+			}
+			.title-right{flex-shrink: 0;}
+		}
+		.craft-remark{white-space: pre-wrap;overflow-wrap: anywhere;}
+		.craft-product{overflow-wrap: anywhere;}
 	}
 </style>
