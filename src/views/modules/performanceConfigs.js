@@ -211,7 +211,6 @@ export const craftPerformanceConfig = {
     { prop: 'craftNum', label: '完成数量' },
     { prop: 'spotColors', label: '专色' },
     { prop: 'colour', label: '颜色' },
-    { prop: 'fryText', label: '过油' },
     { prop: 'singleDoubleText', label: '单双面', minWidth: 130 },
     { prop: 'createTime', label: '完成时间', minWidth: 160 }
   ],

@@ -869,9 +869,7 @@ const normalizeCraftRow = (item = {}, product = {}) => ({
     foilingPointPrice: item.foilingPointPrice ?? null,
     foilingSheetPrice: item.foilingSheetPrice ?? null,
     foilingSquarePrice: item.foilingSquarePrice ?? null,
-    foilingPointList: (item.foilingPointList || item.foilingPoints || item.foilingPointPrice || item.foilingSheetPrice || item.foilingSquarePrice || item.foilingStartingPrice)
-      ? normalizeFoilingPointList(item.foilingPointList ?? item.foilingPoints, item.formula)
-      : [],
+    foilingPointList: getFoilingPoints(item),
     finishNum: item.finishNum ?? item.orderQuantity ?? null,
     unit: item.unit || '',
     price: item.price ?? item.unitPrice ?? null,
@@ -1165,21 +1163,24 @@ const hasFoilingStartingPrice = (row = {}) =>
   Number(row.foilingPointPrice || 0) > 0
   || Number(row.foilingSheetPrice || 0) > 0
   || Number(row.foilingStartingPrice || 0) > 0
-const hasExplicitFoilingPointList = (row = {}) =>
-  (Array.isArray(row.foilingPointList) && row.foilingPointList.length > 0)
-  || (typeof row.foilingPointList === 'string' && row.foilingPointList.trim())
+const getFoilingPoints = (row = {}) => normalizeFoilingPointList(
+  row.foilingPointList ?? row.foilingPoints,
+  // 兼容编辑回显仅返回汇总公式的烫金工艺，普通工艺公式不作为点位。
+  hasFoilingStartingPrice(row) || Number(row.foilingSquarePrice || 0) > 0 ? row.formula : ''
+)
+const hasFoilingPoints = (row = {}) => getFoilingPoints(row).length > 0
 const isFoilingCraft = (row = {}) =>
   hasFoilingStartingPrice(row)
   || Number(row.foilingSquarePrice || 0) > 0
-  || hasExplicitFoilingPointList(row)
+  || hasFoilingPoints(row)
 const syncFoilingFormula = (row = {}) => {
-  if (!isFoilingCraft(row)) return
-  row.foilingPointList = normalizeFoilingPointList(row.foilingPointList, row.formula)
+  if (!hasFoilingPoints(row)) return
+  row.foilingPointList = getFoilingPoints(row)
   row.formula = formatFoilingFormula(row.foilingPointList)
 }
 const openFoilingPointDialog = (row) => {
   foilingPointTarget.value = row
-  const points = normalizeFoilingPointList(row.foilingPointList, row.formula)
+  const points = getFoilingPoints(row)
   foilingPointForm.foilingPointPrice = row.foilingPointPrice ?? row.foilingStartingPrice ?? ''
   foilingPointForm.foilingSheetPrice = row.foilingSheetPrice ?? row.foilingStartingPrice ?? ''
   foilingPointForm.foilingSquarePrice = row.foilingSquarePrice ?? ''
@@ -1214,7 +1215,7 @@ const saveFoilingPointDialog = () => {
   foilingPointVisible.value = false
 }
 const computedFoilingPrice = (craft = {}) => {
-  const points = normalizeFoilingPointList(craft.foilingPointList, craft.formula)
+  const points = getFoilingPoints(craft)
   if (!points.length) return 0
   const pointStartPrice = Number(zeroIfEmpty(craft.foilingPointPrice ?? craft.foilingStartingPrice))
   const sheetStartPrice = Number(zeroIfEmpty(craft.foilingSheetPrice ?? craft.foilingStartingPrice))
@@ -1250,8 +1251,11 @@ const computedCraftCustomerAmount = (craft = {}) => {
 
   const withPloidy = (amount) => toFixed4Number(amount * ploidy)
 
-  if (isFoilingCraft(craft)) {
-    return withPloidy(computedFoilingPrice(craft) * finishNum)
+  if (hasFoilingPoints(craft)) {
+    if (priceBase === 0) {
+      return withPloidy(Math.max(computedFoilingPrice(craft) * finishNum, startPrice))
+    }
+    return withPloidy(((finishNum - priceBase) * computedFoilingPrice(craft)) + startPrice)
   }
 
   const formula = formulaValue(craft.formula)
@@ -1506,7 +1510,7 @@ const applyCraftToRow = (row, craft) => {
   row.foilingPointPrice = craft.foilingPointPrice ?? craft.foilPointPrice ?? craft.pointStartPrice ?? row.foilingStartingPrice
   row.foilingSheetPrice = craft.foilingSheetPrice ?? craft.foilSheetPrice ?? craft.sheetStartPrice ?? row.foilingStartingPrice
   row.foilingSquarePrice = craft.foilingSquarePrice ?? null
-  row.foilingPointList = normalizeFoilingPointList(craft.foilingPointList ?? craft.foilingPoints, row.formula)
+  row.foilingPointList = getFoilingPoints({ ...row, foilingPointList: craft.foilingPointList ?? craft.foilingPoints })
   if (isFoilingCraft(row)) syncFoilingFormula(row)
   row.unit = craft.unit || ''
   row.price = null
@@ -1554,7 +1558,7 @@ const saveCraftRow = (row) => {
     ElMessage.warning('请选择产品名称和工艺名称')
     return false
   }
-  if (isFoilingCraft(row)) {
+  if (hasFoilingPoints(row)) {
     syncFoilingFormula(row)
     if (row.foilingPointList.some((item) => formulaValue(item.formula) === null)) {
       ElMessage.warning('烫金点位只能填写数字、括号和四则运算符')
@@ -1568,7 +1572,7 @@ const saveCraftRow = (row) => {
   row.priceBase = row.startPrice
   row.priceBase1 = zeroIfEmpty(row.priceBase1)
   row.finishNum = nullIfEmpty(row.finishNum)
-  row.price = isFoilingCraft(row) ? computedFoilingPrice(row) : nullIfEmpty(row.price)
+  row.price = hasFoilingPoints(row) ? computedFoilingPrice(row) : nullIfEmpty(row.price)
   row.ploidy = zeroIfEmpty(row.ploidy) || 1
   row.singleDouble = row.singleDouble || ''
   row.customerAmount = computedCraftCustomerAmount(row)
@@ -1612,11 +1616,11 @@ const cleanCraftRow = (row = {}) => {
     ? null
     : payload.foilingSheetPrice
   payload.foilingSquarePrice = nullIfEmpty(payload.foilingSquarePrice)
-  payload.foilingPointList = isFoilingCraft(payload) ? normalizeFoilingPointList(payload.foilingPointList, payload.formula) : []
+  payload.foilingPointList = getFoilingPoints(payload)
   if (payload.foilingPointList.length) payload.formula = formatFoilingFormula(payload.foilingPointList)
   payload.finishNum = nullIfEmpty(payload.finishNum)
   payload.orderQuantity = payload.finishNum
-  payload.price = isFoilingCraft(payload) ? computedFoilingPrice(payload) : nullIfEmpty(payload.price)
+  payload.price = hasFoilingPoints(payload) ? computedFoilingPrice(payload) : nullIfEmpty(payload.price)
   payload.unitPrice = payload.price
   payload.ploidy = zeroIfEmpty(payload.ploidy) || 1
   payload.customerAmount = customerAmount
@@ -1659,7 +1663,7 @@ const normalizeOrderCraftPayload = (craft = {}) => ({
   foilingPointPrice: craft.foilingPointPrice,
   foilingSheetPrice: craft.foilingSheetPrice,
   foilingSquarePrice: craft.foilingSquarePrice,
-  foilingPointList: isFoilingCraft(craft) ? normalizeFoilingPointList(craft.foilingPointList, craft.formula) : [],
+  foilingPointList: getFoilingPoints(craft),
   orderQuantity: craft.finishNum,
   finishNum: craft.finishNum,
   unit: craft.unit,
@@ -3394,7 +3398,7 @@ watch(
             </el-table-column>
             <el-table-column prop="price" label="单价" min-width="78">
               <template #default="{ row }">
-                <el-input v-if="isFoilingCraft(row)" :model-value="toFixed4Number(computedFoilingPrice(row))" disabled />
+                <el-input v-if="hasFoilingPoints(row)" :model-value="toFixed4Number(computedFoilingPrice(row))" disabled />
                 <el-input v-else v-model="row.price" placeholder="请输入价格" />
               </template>
             </el-table-column>
@@ -3719,7 +3723,7 @@ watch(
             <el-table-column prop="finishNum" label="成品数量" min-width="90" />
             <el-table-column prop="unit" label="单位" min-width="60" />
             <el-table-column prop="price" label="单价" min-width="70">
-              <template #default="{ row }">{{ isFoilingCraft(row) ? formatMoney4(computedFoilingPrice(row)) : formatMoney(row.price) }}</template>
+              <template #default="{ row }">{{ hasFoilingPoints(row) ? formatMoney4(computedFoilingPrice(row)) : formatMoney(row.price) }}</template>
             </el-table-column>
             <el-table-column prop="ploidy" label="套数" min-width="60">
               <template #default="{ row }">{{ row.ploidy || 1 }}</template>
