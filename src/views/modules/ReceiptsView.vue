@@ -366,6 +366,16 @@ const saveReceipt = async () => {
     ElMessage.warning('请选择订单')
     return
   }
+  const exceededOrder = form.listOrder.find((item) => {
+    const collectionCents = Math.round(moneyValue(item.money) * 100)
+    const allowanceCents = Math.round(moneyValue(item.currentAllowanceMoney) * 100)
+    const remainingCents = Math.round(moneyValue(item.remainMoney) * 100)
+    return collectionCents + allowanceCents > remainingCents
+  })
+  if (exceededOrder) {
+    ElMessage.warning(`订单 ${exceededOrder.orderNo || exceededOrder.orderId} 的本次收款与本次折让合计不能超过剩余尾款`)
+    return
+  }
   state.saving = true
   try {
     await addTenantReceipt(receiptPayload())
@@ -402,6 +412,7 @@ const loadSelectableOrders = async () => {
     const selectedMap = new Map(form.listOrder.map((item) => [String(item.orderId), item]))
     const normalizedRows = listRows(data).map((item) => {
       const row = normalizeReceiptOrder(item)
+      row.money = row.remainMoney
       return selectedMap.get(String(row.orderId)) || row
     })
     selectableOrders.value = normalizedRows

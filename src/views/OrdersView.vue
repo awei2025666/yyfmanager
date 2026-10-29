@@ -63,6 +63,7 @@ const filters = reactive({
   companyName: '',
   fillUserName: '',
   orderId: '',
+  productName: '',
   status: '',
   paymentStatus: '',
   orderTimeRange: getRecentMonthRange(),
@@ -226,8 +227,7 @@ const statusOptions = computed(() =>
     .map(([value, item]) => ({ value: Number(value), ...item }))
 )
 const paymentStatusMap = {
-  0: { label: '待审核', tone: 'running' },
-  1: { label: '进行中', tone: 'audit' },
+  1: { label: '进行中', tone: 'running' },
   2: { label: '已结清', tone: 'settled' },
   3: { label: '未结清', tone: 'pending-approval' }
 }
@@ -1045,6 +1045,7 @@ const activeFilters = computed(() =>
     { key: 'companyName', label: '单位名称', value: filters.companyName },
     { key: 'fillUserName', label: '业务员', value: filters.fillUserName },
     { key: 'orderId', label: '订单号', value: filters.orderId },
+    { key: 'productName', label: '产品信息', value: filters.productName },
     { key: 'status', label: '订单状态', value: filters.status === '' ? '' : statusMap[filters.status]?.label },
     { key: 'paymentStatus', label: '收款状态', value: filters.paymentStatus === '' ? '' : paymentStatusMap[filters.paymentStatus]?.label },
     { key: 'orderTimeRange', label: '订单时间', value: filters.orderTimeRange?.join(' 至 ') }
@@ -1255,7 +1256,10 @@ const computedCraftCustomerAmount = (craft = {}) => {
 
   const formula = formulaValue(craft.formula)
   if (formula !== null) {
-    return withPloidy(formula * finishNum * price)
+    if (priceBase === 0) {
+      return withPloidy(Math.max(finishNum * price * formula, startPrice))
+    }
+    return withPloidy(((finishNum - priceBase) * price * formula) + startPrice)
   }
 
   if (priceBase === 0) {
@@ -1759,6 +1763,7 @@ const resetFilters = () => {
     companyName: '',
     fillUserName: '',
     orderId: '',
+    productName: '',
     status: '',
     paymentStatus: '',
     orderTimeRange: getRecentMonthRange(),
@@ -1794,6 +1799,7 @@ const buildQuery = () => ({
   companyName: filters.companyName || undefined,
   fillUserName: filters.fillUserName || undefined,
   orderId: filters.orderId || routeQueryValue('detailId') || undefined,
+  productName: filters.productName || undefined,
   status: filters.status || undefined,
   paymentStatus: filters.paymentStatus === '' ? undefined : filters.paymentStatus,
   createTimeStart: filters.orderTimeRange?.[0] || undefined,
@@ -2824,6 +2830,10 @@ watch(
         <label>
           <span>订单号</span>
           <el-input v-model="filters.orderId" placeholder="请输入订单号" />
+        </label>
+        <label>
+          <span>产品信息</span>
+          <el-input v-model="filters.productName" placeholder="请输入产品信息" clearable />
         </label>
         <label>
           <span>订单状态</span>
